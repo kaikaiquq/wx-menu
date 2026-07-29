@@ -60,13 +60,31 @@ Page({
   },
 
   updateProfile(event) {
+    const field = event.currentTarget.dataset.field;
+    let value = event.detail.value || '';
+    if (field === 'herName' || field === 'hisName') {
+      value = this.limitDisplayName(value);
+    }
     const profile = {
       ...this.data.profile,
-      [event.currentTarget.dataset.field]: event.detail.value,
+      [field]: value,
     };
     const draft = getConfigDraft();
     setConfigDraft({ ...draft, profile });
     this.setData({ profile });
+  },
+
+  // 按常见规则：1 个汉字 = 2 个字符，上限 40 字符（约 20 个汉字）
+  limitDisplayName(value) {
+    let units = 0;
+    let result = '';
+    for (const char of value) {
+      const cost = /[\u4e00-\u9fff]/.test(char) ? 2 : 1;
+      if (units + cost > 40) break;
+      units += cost;
+      result += char;
+    }
+    return result;
   },
 
   changeAnniversary(event) {

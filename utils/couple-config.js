@@ -47,6 +47,17 @@ const saveMenuConfig = async (config) => {
   return getCachedMenuConfig();
 };
 
+const saveSharedMessage = async (message, version) => {
+  const session = getSession();
+  if (!session?.couple?.coupleId) throw new Error('请先绑定情侣空间');
+  const savedConfig = await callCloud('dataApi', 'saveSharedMessage', {
+    expectedVersion: version,
+    message,
+  });
+  configCache = savedConfig;
+  return getCachedMenuConfig();
+};
+
 const getFeaturedItems = (items) => {
   const featured = featuredIds.map((id) => items.find((item) => item.id === id)).filter(Boolean);
   if (featured.length >= 4) return featured.slice(0, 4);
@@ -65,4 +76,5 @@ module.exports = {
   getFeaturedItems,
   getMenuConfig,
   saveMenuConfig,
+  saveSharedMessage,
 };

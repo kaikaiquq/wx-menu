@@ -1,5 +1,5 @@
 const { addToCart, getCart, getOrders, updateOrder } = require('../../utils/couple-cart');
-const { getFeaturedItems, getMenuConfig, saveMenuConfig } = require('../../utils/couple-config');
+const { getFeaturedItems, getMenuConfig, saveSharedMessage } = require('../../utils/couple-config');
 const { requireSession } = require('../../utils/auth');
 const { getThemeClass } = require('../../utils/theme');
 
@@ -165,13 +165,7 @@ Page({
         if (!confirm || !message) return;
         wx.showLoading({ title: '正在保存留言' });
         try {
-          const menuConfig = await saveMenuConfig({
-            ...this.data.menuConfig,
-            profile: {
-              ...this.data.menuConfig.profile,
-              message,
-            },
-          });
+          const menuConfig = await saveSharedMessage(message, this.data.menuConfig.version);
           this.setData({ menuConfig, sharedMessage: message });
           wx.hideLoading();
           wx.showToast({ title: '留言已同步', icon: 'success' });

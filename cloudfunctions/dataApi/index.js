@@ -40,14 +40,17 @@ const sanitizeConfig = (config = {}) => ({
   })),
   profile: {
     anniversary: String(config.profile?.anniversary || '').slice(0, 10),
-    herName: String(config.profile?.herName || '她').slice(0, 20),
-    hisName: String(config.profile?.hisName || '他').slice(0, 20),
+    herName: String(config.profile?.herName || '她').slice(0, 40),
+    hisName: String(config.profile?.hisName || '他').slice(0, 40),
     message: String(config.profile?.message || '写下一句想记住的话').slice(0, 80),
   },
 });
 
 const validateConfig = (config) => {
-  if (!config.categories.length) return '至少保留一个分类';
+  // 共同空间允许完全空白；只有存在点单项时才要求分类完整
+  if (!config.categories.length) {
+    return config.menuItems.length ? '请先添加分类，再保存点单项' : '';
+  }
   if (config.categories.some((item) => !item.id || !item.name)) return '分类名称不能为空';
   const categoryIds = new Set(config.categories.map((item) => item.id));
   if (config.menuItems.some((item) => !item.id || !item.name || !item.cost || !categoryIds.has(item.categoryId))) {
@@ -166,6 +169,39 @@ const saveConfig = async (openid, event) => {
     return ok({ ...config, version: current.version + 1 });
   });
   return result;
+};
+
+const saveSharedMessage = async (openid, event) => {
+  const { coupleId } = await getMemberContext(openid);
+  const message = String(event.message || '').trim().slice(0, 80);
+  if (!message) return fail('INVALID_MESSAGE', '请写下一句想记住的话');
+
+  return db.runTransaction(async (transaction) => {
+    const current = (await transaction.collection('coupleConfigs').doc(coupleId).get()).data;
+    if (event.expectedVersion != null && Number(event.expectedVersion) !== current.version) {
+      return fail('VERSION_CONFLICT', '另一位成员刚刚修改了内容，请重新进入后再编辑', {
+        currentVersion: current.version,
+      });
+    }
+    const profile = {
+      ...(current.profile || {}),
+      message,
+    };
+    await transaction.collection('coupleConfigs').doc(coupleId).update({
+      data: {
+        profile,
+        updatedAt: now(),
+        updatedBy: openid,
+        version: _.inc(1),
+      },
+    });
+    return ok({
+      categories: current.categories || [],
+      menuItems: current.menuItems || [],
+      profile,
+      version: current.version + 1,
+    });
+  });
 };
 
 const getCart = async (openid) => {
@@ -425,6 +461,7 @@ exports.main = async (event) => {
     if (event.action === 'savePersonalConfig') return savePersonalConfig(OPENID, event);
     if (event.action === 'getConfig') return getConfig(OPENID);
     if (event.action === 'saveConfig') return saveConfig(OPENID, event);
+    if (event.action === 'saveSharedMessage') return saveSharedMessage(OPENID, event);
     if (event.action === 'getCart') return getCart(OPENID);
     if (event.action === 'updateCart') return updateCart(OPENID, event);
     if (event.action === 'createOrder') return createOrder(OPENID, event);

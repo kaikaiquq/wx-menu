@@ -46,8 +46,8 @@ const sanitizeInitialConfig = (config = {}) => {
     })),
     profile: {
       anniversary: String(config.profile?.anniversary || '').slice(0, 10),
-      herName: String(config.profile?.herName || '她').slice(0, 20),
-      hisName: String(config.profile?.hisName || '他').slice(0, 20),
+      herName: String(config.profile?.herName || '她').slice(0, 40),
+      hisName: String(config.profile?.hisName || '他').slice(0, 40),
       message: String(config.profile?.message || '写下一句想记住的话').slice(0, 80),
     },
   };

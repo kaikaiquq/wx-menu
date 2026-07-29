@@ -7,14 +7,6 @@
     </view>
   </view>
 
-  <view class="draft-tip" wx:if="{{scope === 'shared'}}">
-    <view class="draft-dot"></view>
-    <view>
-      <view class="draft-title">草稿模式</view>
-      <view class="draft-description">直接返回不会保存本次修改</view>
-    </view>
-  </view>
-
   <view class="section-heading" wx:if="{{scope === 'shared'}}">
     <view>
       <view class="section-title">我们的资料</view>
@@ -29,7 +21,7 @@
         <input
           class="field-input"
           value="{{profile.herName}}"
-          maxlength="8"
+          maxlength="40"
           data-field="herName"
           bindinput="updateProfile"
         />
@@ -39,7 +31,7 @@
         <input
           class="field-input"
           value="{{profile.hisName}}"
-          maxlength="8"
+          maxlength="40"
           data-field="hisName"
           bindinput="updateProfile"
         />
