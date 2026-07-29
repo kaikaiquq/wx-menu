@@ -1,5 +1,5 @@
 page {
-  background: #f8f5f2;
+  background: #f4f5f5;
   color: #292421;
 }
 
@@ -8,7 +8,7 @@ button::after {
 }
 
 .auth-page {
-  background: var(--love-bg, #f8f5f2);
+  background: var(--love-bg, #f4f5f5);
   box-sizing: border-box;
   min-height: 100vh;
   padding: 70rpx 36rpx;

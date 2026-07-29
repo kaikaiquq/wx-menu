@@ -18,7 +18,8 @@ const bootstrap = async (force = false, interactive = false) => {
     .then((data) => {
       session = data;
       if (data.user?.gender) {
-        wx.setStorageSync('couple.menu.gender', data.user.gender);
+        const { syncTheme } = require('./theme');
+        syncTheme(data.user.gender);
       }
       return session;
     })
@@ -53,7 +54,7 @@ const getActiveInvite = () => callCloud('coupleApi', 'getActiveInvite');
 const joinCouple = async (code, anniversary) => {
   const data = await callCloud('coupleApi', 'joinCouple', { anniversary, code });
   const { clearConfigCache } = require('./couple-config');
-  const { clearCartCache } = require('./couple-cart');
+  const { clearCartCache } = require('./couple-wish');
   const { clearPersonalConfigCache } = require('./personal-config');
   clearConfigCache();
   clearCartCache();
@@ -71,7 +72,7 @@ const logout = () => {
   wx.setStorageSync(LOGGED_OUT_KEY, true);
   clearSession();
   const { clearConfigCache } = require('./couple-config');
-  const { clearCartCache } = require('./couple-cart');
+  const { clearCartCache } = require('./couple-wish');
   const { clearPersonalConfigCache } = require('./personal-config');
   clearConfigCache();
   clearCartCache();

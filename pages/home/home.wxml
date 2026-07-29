@@ -5,9 +5,9 @@
       <view class="eyebrow">{{dateText}}</view>
       <view class="greeting">今天想和你做什么？</view>
     </view>
-    <view class="cart-pill" bind:tap="openCart">
-      <text class="cart-icon">♡</text>
-      <text wx:if="{{cartCount}}">{{cartCount}}</text>
+    <view class="wish-pill" bind:tap="openWish">
+      <text class="wish-icon">♡</text>
+      <text wx:if="{{wishCount}}">{{wishCount}}</text>
     </view>
   </view>
 

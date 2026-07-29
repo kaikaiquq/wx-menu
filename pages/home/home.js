@@ -1,11 +1,11 @@
-const { addToCart, getCart, getOrders, updateOrder } = require('../../utils/couple-cart');
+const { addToCart, getCart, getOrders, updateOrder } = require('../../utils/couple-wish');
 const { getFeaturedItems, getMenuConfig, saveSharedMessage } = require('../../utils/couple-config');
 const { requireSession } = require('../../utils/auth');
-const { getThemeClass } = require('../../utils/theme');
+const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 Page({
   data: {
-    cartCount: 0,
+    wishCount: 0,
     activeOrder: null,
     categories: [],
     dateText: '',
@@ -14,18 +14,18 @@ Page({
     menuConfig: null,
     orderNotice: null,
     sharedMessage: '',
-    themeClass: 'theme-female',
+    themeClass: getStoredThemeClass(),
   },
 
   async onShow() {
     this.getTabBar().init();
     const session = await requireSession({ force: true });
     if (!session) return;
-    this.setData({ themeClass: getThemeClass(session.user.gender) });
+    this.setData({ themeClass: syncTheme(session.user.gender) });
     const now = new Date();
     const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
     try {
-      const [menuConfig, cart, orders] = await Promise.all([getMenuConfig(true), getCart(true), getOrders(20)]);
+      const [menuConfig, wishList, orders] = await Promise.all([getMenuConfig(true), getCart(true), getOrders(20)]);
       const { categories, menuItems, profile } = menuConfig;
       const latestOrder = orders[0];
       const activeRecord = orders.find((order) => ['等待回应', '进行中'].includes(order.status));
@@ -53,7 +53,7 @@ Page({
           }
         : null;
       this.setData({
-        cartCount: cart.reduce((count, item) => count + item.quantity, 0),
+        wishCount: wishList.reduce((count, item) => count + item.quantity, 0),
         activeOrder,
         categories,
         dateText: `${now.getMonth() + 1}月${now.getDate()}日 · 星期${weekdays[now.getDay()]}`,
@@ -77,22 +77,22 @@ Page({
   async addItem(event) {
     const item = this.data.featuredItems.find((menuItem) => menuItem.id === event.currentTarget.dataset.id);
     try {
-      const cart = await addToCart(item);
+      const wishList = await addToCart(item);
       this.setData({
-        cartCount: cart.reduce((count, cartItem) => count + cartItem.quantity, 0),
+        wishCount: wishList.reduce((count, item) => count + item.quantity, 0),
       });
       wx.showToast({ title: '已加入心愿单', icon: 'none' });
     } catch (error) {
       wx.showToast({ title: error.message || '添加失败', icon: 'none' });
       if (error.code === 'VERSION_CONFLICT') {
-        const cart = await getCart(true);
-        this.setData({ cartCount: cart.reduce((count, cartItem) => count + cartItem.quantity, 0) });
+        const wishList = await getCart(true);
+        this.setData({ wishCount: wishList.reduce((count, item) => count + item.quantity, 0) });
       }
     }
   },
 
-  openCart() {
-    wx.switchTab({ url: '/pages/cart/index' });
+  openWish() {
+    wx.switchTab({ url: '/pages/wish/index' });
   },
 
   formatOrderDate(createdAt) {

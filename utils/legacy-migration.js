@@ -46,7 +46,7 @@ const migrateLegacyData = async (session) => {
     wx.removeStorageSync(ORDERS_KEY);
     wx.setStorageSync(markerKey, true);
     const { clearConfigCache } = require('./couple-config');
-    const { clearCartCache } = require('./couple-cart');
+    const { clearCartCache } = require('./couple-wish');
     const { clearPersonalConfigCache } = require('./personal-config');
     clearConfigCache();
     clearCartCache();

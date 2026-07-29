@@ -1,22 +1,22 @@
-export default [
+module.exports = [
   {
-    icon: 'home',
+    icon: '♡',
     text: '今天',
-    url: 'pages/home/home',
+    url: '/pages/home/home',
   },
   {
-    icon: 'sort',
+    icon: '☰',
     text: '点单',
-    url: 'pages/category/index',
+    url: '/pages/category/index',
   },
   {
-    icon: 'cart',
+    icon: '☆',
     text: '心愿',
-    url: 'pages/cart/index',
+    url: '/pages/wish/index',
   },
   {
-    icon: 'person',
+    icon: '◎',
     text: '我们',
-    url: 'pages/usercenter/index',
+    url: '/pages/usercenter/index',
   },
 ];

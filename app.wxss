@@ -1,7 +1,3 @@
-@import 'style/iconfont.wxss';
-
-@import 'style/theme.wxss';
-
 .theme-female {
   --love-bg: #f8f5f2;
   --love-primary: #bd6875;
@@ -22,8 +18,4 @@
   --love-hero-from: #7f98ac;
   --love-hero-to: #5d768c;
   background: var(--love-bg);
-}
-
-.cell--noborder .t-cell::after {
-  border-bottom: none !important;
 }

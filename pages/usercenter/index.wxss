@@ -1,11 +1,11 @@
 page {
-  background: #f8f5f2;
+  background: #f4f5f5;
   color: #292421;
   padding-bottom: calc(env(safe-area-inset-bottom) + 130rpx);
 }
 
 .space-page {
-  background: var(--love-bg, #f8f5f2);
+  background: var(--love-bg, #f4f5f5);
   box-sizing: border-box;
   min-height: 100vh;
   padding: 28rpx;
@@ -89,6 +89,13 @@ page {
   font-size: 20rpx;
   margin-top: 28rpx;
   opacity: 0.6;
+  text-align: center;
+}
+
+.anniversary-editor {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
 }
 
 .together-days {
@@ -96,6 +103,7 @@ page {
   font-size: 64rpx;
   font-weight: 600;
   margin-top: 5rpx;
+  text-align: center;
 }
 
 .together-days text {
@@ -313,4 +321,121 @@ page {
   color: #a69c96;
   font-size: 19rpx;
   margin-top: 7rpx;
+}
+
+.profile-mask {
+  align-items: flex-end;
+  background: rgba(30, 24, 22, 0.45);
+  bottom: 0;
+  display: flex;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1000;
+}
+
+.profile-sheet {
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  /* 抬到自定义 tabBar 上方：108rpx 内容区 + 安全区 */
+  bottom: calc(108rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  left: 0;
+  padding: 18rpx 36rpx 28rpx;
+  position: absolute;
+  right: 0;
+  width: 100%;
+}
+
+.profile-sheet-handle {
+  background: #e4ddda;
+  border-radius: 8rpx;
+  height: 8rpx;
+  margin: 0 auto 18rpx;
+  width: 64rpx;
+}
+
+.profile-sheet-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 30rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.profile-avatar-button {
+  background: transparent;
+  display: block;
+  height: 112rpx;
+  margin: 22rpx auto 18rpx;
+  padding: 0;
+  width: 112rpx;
+}
+
+.profile-avatar-button::after {
+  border: 0;
+}
+
+.profile-avatar {
+  border-radius: 50%;
+  height: 112rpx;
+  width: 112rpx;
+}
+
+.profile-avatar-empty {
+  align-items: center;
+  background: var(--love-soft, #f3e5e7);
+  color: var(--love-primary, #bd6875);
+  display: flex;
+  font-size: 42rpx;
+  justify-content: center;
+}
+
+.profile-nickname-input {
+  background: #f8f5f2;
+  border-radius: 20rpx;
+  box-sizing: border-box;
+  font-size: 25rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 24rpx;
+  text-align: center;
+  width: 100%;
+}
+
+.profile-sheet-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+
+.profile-cancel,
+.profile-save {
+  border-radius: 24rpx;
+  flex: 1;
+  font-size: 25rpx;
+  padding: 18rpx 0;
+  text-align: center;
+}
+
+.profile-cancel {
+  background: #f3efec;
+  color: #6f6762;
+}
+
+.profile-save {
+  background: var(--love-primary, #bd6875);
+  color: #fff;
+}
+
+.profile-save-disabled {
+  opacity: 0.6;
+}
+
+.profile-logout {
+  color: #a79d97;
+  font-size: 23rpx;
+  margin-top: 18rpx;
+  padding: 8rpx 0 4rpx;
+  text-align: center;
 }

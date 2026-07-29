@@ -2,15 +2,15 @@ const {
   getConfigDraft,
   getDraftScope,
   setConfigDraft,
-} = require('../../../utils/couple-config-session');
+} = require('../utils/couple-config-session');
 const { requireSession } = require('../../../utils/auth');
-const { getThemeClass } = require('../../../utils/theme');
+const { getStoredThemeClass, syncTheme } = require('../../../utils/theme');
 
 Page({
   data: {
     categories: [],
     menuItems: [],
-    themeClass: 'theme-female',
+    themeClass: getStoredThemeClass(),
   },
 
   async onLoad() {
@@ -20,7 +20,7 @@ Page({
     this.setData({
       categories: draft.categories,
       menuItems: draft.menuItems,
-      themeClass: getThemeClass(session.user.gender),
+      themeClass: syncTheme(session.user.gender),
     });
   },
 

@@ -2,10 +2,10 @@ const {
   getConfigDraft,
   getDraftScope,
   setConfigDraft,
-} = require('../../../utils/couple-config-session');
+} = require('../utils/couple-config-session');
 const { requireSession } = require('../../../utils/auth');
 const { getPersonalConfig, savePersonalConfig } = require('../../../utils/personal-config');
-const { getThemeClass } = require('../../../utils/theme');
+const { getStoredThemeClass, syncTheme } = require('../../../utils/theme');
 
 Page({
   data: {
@@ -18,7 +18,7 @@ Page({
     loadError: false,
     menuItems: [],
     isSharedScope: false,
-    themeClass: 'theme-female',
+    themeClass: getStoredThemeClass(),
   },
 
   async onLoad(options) {
@@ -30,7 +30,7 @@ Page({
       authorized: true,
       createAndLinkMode,
       isSharedScope,
-      themeClass: getThemeClass(session.user.gender),
+      themeClass: syncTheme(session.user.gender),
     });
     this.loadDraft();
     if (createAndLinkMode) this.addItem();

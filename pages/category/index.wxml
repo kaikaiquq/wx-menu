@@ -4,9 +4,9 @@
       <view class="menu-eyebrow">PICK FOR US</view>
       <view class="menu-title">今天点什么</view>
     </view>
-    <view class="cart-button" bind:tap="openCart">
+    <view class="wish-button" bind:tap="openWish">
       <text>♡</text>
-      <view class="cart-count" wx:if="{{cartCount}}">{{cartCount}}</view>
+      <view class="wish-count" wx:if="{{wishCount}}">{{wishCount}}</view>
     </view>
   </view>
 

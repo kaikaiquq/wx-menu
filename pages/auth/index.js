@@ -7,7 +7,8 @@ const {
   login,
   updateProfile,
 } = require('../../utils/auth');
-const { getStoredThemeClass, getThemeClass } = require('../../utils/theme');
+const { resolveCloudFileUrl } = require('../../utils/cloud');
+const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 const getToday = () => {
   const date = new Date();
@@ -19,6 +20,7 @@ const getToday = () => {
 Page({
   data: {
     anniversary: getToday(),
+    avatarFileId: '',
     avatarUrl: '',
     cloudError: '',
     gender: '',
@@ -48,24 +50,33 @@ Page({
 
   onShareAppMessage() {
     return {
-      imageUrl: '/couple-menu-avatar.svg.png',
+      imageUrl: '/assets/share-cover.jpg',
       path: `/pages/auth/index?mode=join&invite=${this.data.inviteCode}`,
       title: '邀请你加入我们的两人菜单',
     };
+  },
+
+  async applyUserAvatar(session) {
+    const avatarFileId = session.user.avatarFileId || '';
+    const avatarUrl = avatarFileId.startsWith('cloud://')
+      ? (await resolveCloudFileUrl(avatarFileId)) || ''
+      : avatarFileId;
+    this.setData({
+      avatarFileId,
+      avatarUrl,
+      loading: false,
+      nickname: session.user.nickname || '',
+      session,
+      gender: session.user.gender || '',
+      themeClass: syncTheme(session.user.gender),
+    });
   },
 
   async loadSession() {
     this.setData({ cloudError: '', loading: true });
     try {
       const session = await bootstrap(true);
-      this.setData({
-        avatarUrl: session.user.avatarFileId || '',
-        loading: false,
-        nickname: session.user.nickname || '',
-        session,
-        gender: session.user.gender || '',
-        themeClass: getThemeClass(session.user.gender),
-      });
+      await this.applyUserAvatar(session);
       if (session.user.profileCompleted && session.couple?.status === 'pending' && !this.data.incomingCode) {
         await this.loadActiveInvite();
       }
@@ -84,14 +95,7 @@ Page({
     this.setData({ cloudError: '', loading: true, loggedOut: false });
     try {
       const session = await login();
-      this.setData({
-        avatarUrl: session.user.avatarFileId || '',
-        loading: false,
-        nickname: session.user.nickname || '',
-        session,
-        gender: session.user.gender || '',
-        themeClass: getThemeClass(session.user.gender),
-      });
+      await this.applyUserAvatar(session);
       if (session.user.profileCompleted && session.couple?.status === 'pending' && !this.data.incomingCode) {
         await this.loadActiveInvite();
       }
@@ -107,7 +111,7 @@ Page({
   },
 
   chooseAvatar(event) {
-    this.setData({ avatarUrl: event.detail.avatarUrl });
+    this.setData({ avatarFileId: '', avatarUrl: event.detail.avatarUrl });
   },
 
   updateNickname(event) {
@@ -116,7 +120,7 @@ Page({
 
   selectGender(event) {
     const gender = event.currentTarget.dataset.gender;
-    this.setData({ gender, themeClass: getThemeClass(gender) });
+    this.setData({ gender, themeClass: syncTheme(gender) });
   },
 
   updateIncomingCode(event) {
@@ -140,16 +144,21 @@ Page({
     this.setData({ saving: true });
     try {
       let avatarFileId = this.data.avatarUrl;
-      if (avatarFileId && !avatarFileId.startsWith('cloud://')) {
+      if (avatarFileId.startsWith('https://')) {
+        avatarFileId = this.data.avatarFileId;
+      } else if (avatarFileId && !avatarFileId.startsWith('cloud://')) {
         const extension = avatarFileId.split('.').pop().split('?')[0] || 'jpg';
         const { fileID } = await wx.cloud.uploadFile({
           cloudPath: `users/avatars/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`,
           filePath: avatarFileId,
         });
         avatarFileId = fileID;
+      } else if (!avatarFileId) {
+        avatarFileId = this.data.avatarFileId;
       }
       const session = await updateProfile({ avatarFileId, gender: this.data.gender, nickname });
-      this.setData({ avatarUrl: avatarFileId, saving: false, session });
+      await this.applyUserAvatar(session);
+      this.setData({ saving: false });
     } catch (error) {
       this.setData({ saving: false });
       wx.showToast({ title: error.message || '保存失败', icon: 'none' });

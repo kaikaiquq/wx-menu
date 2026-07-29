@@ -1,31 +1,35 @@
-import TabMenu from './data';
+const TabMenu = require('./data');
+
+const getStoredThemeClass = () => {
+  const gender = wx.getStorageSync('couple.menu.gender');
+  if (gender === 'male') return 'theme-male';
+  if (gender === 'female') return 'theme-female';
+  return '';
+};
+
 Component({
   data: {
     active: 0,
     list: TabMenu,
-    themeClass: 'theme-female',
+    themeClass: getStoredThemeClass(),
   },
 
   methods: {
     onChange(event) {
-      this.setData({ active: event.detail.value });
-      wx.switchTab({
-        url: this.data.list[event.detail.value].url.startsWith('/')
-          ? this.data.list[event.detail.value].url
-          : `/${this.data.list[event.detail.value].url}`,
-      });
+      const index = Number(event.currentTarget.dataset.index);
+      if (index === this.data.active) return;
+      this.setData({ active: index });
+      wx.switchTab({ url: this.data.list[index].url });
     },
 
     init() {
       const page = getCurrentPages().pop();
       const route = page ? page.route.split('?')[0] : '';
-      const active = this.data.list.findIndex(
-        (item) =>
-          (item.url.startsWith('/') ? item.url.substr(1) : item.url) ===
-          `${route}`,
-      );
-      const gender = wx.getStorageSync('couple.menu.gender');
-      this.setData({ active, themeClass: gender === 'male' ? 'theme-male' : 'theme-female' });
+      const active = this.data.list.findIndex((item) => item.url.slice(1) === route);
+      this.setData({
+        active: active < 0 ? 0 : active,
+        themeClass: getStoredThemeClass(),
+      });
     },
   },
 });

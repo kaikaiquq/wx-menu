@@ -1,14 +1,14 @@
 const { getMenuConfig, saveMenuConfig } = require('../../utils/couple-config');
-const { mergeConfigContent } = require('../../utils/merge-config');
+const { mergeConfigContent } = require('./utils/merge-config');
 const { getPersonalConfig, savePersonalConfig } = require('../../utils/personal-config');
 const { requireSession } = require('../../utils/auth');
-const { getThemeClass } = require('../../utils/theme');
+const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 const {
   clearConfigSession,
   getConfigDraft,
   setConfigDraft,
   startConfigSession,
-} = require('../../utils/couple-config-session');
+} = require('./utils/couple-config-session');
 
 Page({
   data: {
@@ -20,7 +20,7 @@ Page({
     selectedPersonalIds: [],
     showPersonalPicker: false,
     scope: 'shared',
-    themeClass: 'theme-female',
+    themeClass: getStoredThemeClass(),
   },
 
   async onLoad(options) {
@@ -33,7 +33,7 @@ Page({
       return;
     }
     wx.setNavigationBarTitle({ title: this.scope === 'personal' ? '我的内容库' : '共同空间管理' });
-    this.setData({ scope: this.scope, themeClass: getThemeClass(session.user.gender) });
+    this.setData({ scope: this.scope, themeClass: syncTheme(session.user.gender) });
     try {
       const config = this.scope === 'personal' ? await getPersonalConfig(true) : await getMenuConfig(true);
       const draft = startConfigSession(config, this.scope);
@@ -102,11 +102,11 @@ Page({
   },
 
   openMenuManager() {
-    wx.navigateTo({ url: '/pages/admin-menu/index' });
+    wx.navigateTo({ url: '/pages/admin/menu/index' });
   },
 
   createAndLinkItem() {
-    wx.navigateTo({ url: '/pages/admin-menu/index?mode=createAndLink' });
+    wx.navigateTo({ url: '/pages/admin/menu/index?mode=createAndLink' });
   },
 
   clearAll() {

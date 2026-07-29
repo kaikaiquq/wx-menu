@@ -1,17 +1,17 @@
-const { addToCart, getCart } = require('../../utils/couple-cart');
+const { addToCart, getCart } = require('../../utils/couple-wish');
 const { getMenuConfig } = require('../../utils/couple-config');
 const { requireSession } = require('../../utils/auth');
-const { getThemeClass } = require('../../utils/theme');
+const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 Page({
   data: {
     activeCategory: '',
     activeCategoryName: '',
-    cartCount: 0,
+    wishCount: 0,
     categories: [],
     menuItems: [],
     loading: true,
-    themeClass: 'theme-female',
+    themeClass: getStoredThemeClass(),
     visibleItems: [],
   },
 
@@ -19,11 +19,11 @@ Page({
     this.getTabBar().init();
     const session = await requireSession({ force: true });
     if (!session) return;
-    this.setData({ themeClass: getThemeClass(session.user.gender) });
+    this.setData({ themeClass: syncTheme(session.user.gender) });
     try {
       const [{ categories, menuItems }, cart] = await Promise.all([getMenuConfig(true), getCart(true)]);
       this.setData({
-        cartCount: cart.reduce((count, item) => count + item.quantity, 0),
+        wishCount: cart.reduce((count, item) => count + item.quantity, 0),
         categories,
         loading: false,
         menuItems,
@@ -60,26 +60,26 @@ Page({
     const item = this.data.menuItems.find((menuItem) => menuItem.id === event.currentTarget.dataset.id);
     try {
       const cart = await addToCart(item);
-      this.updateCartCount(cart);
+      this.updateWishCount(cart);
       wx.showToast({ title: '已加入心愿单', icon: 'none' });
     } catch (error) {
       wx.showToast({ title: error.message || '添加失败', icon: 'none' });
       if (error.code === 'VERSION_CONFLICT') {
         const latestCart = await getCart(true);
-        this.updateCartCount(latestCart);
+        this.updateWishCount(latestCart);
       }
     }
   },
 
-  async updateCartCount(existingCart) {
+  async updateWishCount(existingCart) {
     const cart = existingCart || (await getCart());
     this.setData({
-      cartCount: cart.reduce((count, item) => count + item.quantity, 0),
+      wishCount: cart.reduce((count, item) => count + item.quantity, 0),
     });
   },
 
-  openCart() {
-    wx.switchTab({ url: '/pages/cart/index' });
+  openWish() {
+    wx.switchTab({ url: '/pages/wish/index' });
   },
 
   openSharedAdmin() {

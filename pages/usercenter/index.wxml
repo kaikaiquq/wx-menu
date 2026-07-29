@@ -9,8 +9,8 @@
       >
         <image
           class="person-avatar person-avatar-her"
-          wx:if="{{displayMembers[0].avatarFileId}}"
-          src="{{displayMembers[0].avatarFileId}}"
+          wx:if="{{displayMembers[0].avatarUrl}}"
+          src="{{displayMembers[0].avatarUrl}}"
           mode="aspectFill"
         />
         <view class="person-avatar person-avatar-her" wx:else>{{displayMembers[0].fallbackLabel}}</view>
@@ -28,8 +28,8 @@
       >
         <image
           class="person-avatar person-avatar-him"
-          wx:if="{{displayMembers[1].avatarFileId}}"
-          src="{{displayMembers[1].avatarFileId}}"
+          wx:if="{{displayMembers[1].avatarUrl}}"
+          src="{{displayMembers[1].avatarUrl}}"
           mode="aspectFill"
         />
         <view class="person-avatar person-avatar-him" wx:else>{{displayMembers[1].fallbackLabel}}</view>
@@ -37,9 +37,18 @@
       </view>
     </view>
     <block wx:if="{{coupleStatus === 'active'}}">
-      <view class="together-text">我们在一起的第</view>
-      <view class="together-days">{{coupleDays}}<text>天</text></view>
-      <view class="anniversary-pill">纪念日 · {{profile.anniversaryText}}</view>
+      <picker
+        mode="date"
+        value="{{profile.anniversary}}"
+        end="{{maxDate}}"
+        bindchange="changeAnniversary"
+      >
+        <view class="anniversary-editor">
+          <view class="together-text">我们在一起的第</view>
+          <view class="together-days">{{coupleDays}}<text>天</text></view>
+          <view class="anniversary-pill">纪念日 · {{profile.anniversaryText}} · 点击修改</view>
+        </view>
+      </picker>
     </block>
     <view class="anniversary-pill" wx:else>尚未绑定伴侣</view>
   </view>
@@ -105,7 +114,20 @@
       <view class="tool-name">我的内容库</view>
       <view class="tool-note">管理只属于自己的喜好</view>
     </view>
-    <view class="tool-card" bind:tap="showComingSoon">
+    <picker
+      wx:if="{{coupleStatus === 'active'}}"
+      mode="date"
+      value="{{profile.anniversary}}"
+      end="{{maxDate}}"
+      bindchange="changeAnniversary"
+    >
+      <view class="tool-card">
+        <view class="tool-icon tool-icon-pink">📅</view>
+        <view class="tool-name">纪念日</view>
+        <view class="tool-note">点击修改在一起的日子</view>
+      </view>
+    </picker>
+    <view class="tool-card" wx:else bind:tap="showComingSoon">
       <view class="tool-icon tool-icon-pink">📅</view>
       <view class="tool-name">纪念日</view>
       <view class="tool-note">重要日子不忘记</view>
@@ -124,6 +146,32 @@
       <view class="tool-icon tool-icon-green">📷</view>
       <view class="tool-name">回忆册</view>
       <view class="tool-note">收藏喜欢的瞬间</view>
+    </view>
+  </view>
+
+  <view class="profile-mask" wx:if="{{showProfileEditor}}" catch:tap="closeProfileEditor">
+    <view class="profile-sheet" catch:tap="noop">
+      <view class="profile-sheet-handle"></view>
+      <view class="profile-sheet-title">编辑我的资料</view>
+      <button class="profile-avatar-button" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+        <image class="profile-avatar" wx:if="{{editAvatarUrl}}" src="{{editAvatarUrl}}" mode="aspectFill" />
+        <view class="profile-avatar profile-avatar-empty" wx:else>＋</view>
+      </button>
+      <input
+        class="profile-nickname-input"
+        type="nickname"
+        value="{{editNickname}}"
+        maxlength="20"
+        placeholder="输入你的昵称"
+        bindinput="updateEditNickname"
+      />
+      <view class="profile-sheet-actions">
+        <view class="profile-cancel" bind:tap="closeProfileEditor">取消</view>
+        <view class="profile-save {{savingProfile ? 'profile-save-disabled' : ''}}" bind:tap="saveSelfProfile">
+          {{savingProfile ? '保存中…' : '保存'}}
+        </view>
+      </view>
+      <view class="profile-logout" bind:tap="logoutAccount">退出登录</view>
     </view>
   </view>
 </view>

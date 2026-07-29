@@ -1,12 +1,12 @@
 page {
   box-sizing: border-box;
-  background: #f8f5f2;
+  background: #f4f5f5;
   color: #292421;
   padding-bottom: calc(env(safe-area-inset-bottom) + 128rpx);
 }
 
 .home-page {
-  background: var(--love-bg, #f8f5f2);
+  background: var(--love-bg, #f4f5f5);
   box-sizing: border-box;
   min-height: 100vh;
   padding: 28rpx 28rpx 0;
@@ -39,7 +39,7 @@ page {
   margin-top: 8rpx;
 }
 
-.cart-pill {
+.wish-pill {
   align-items: center;
   background: #292421;
   border-radius: 40rpx;
@@ -53,7 +53,7 @@ page {
   padding: 0 12rpx;
 }
 
-.cart-icon {
+.wish-icon {
   font-size: 36rpx;
   line-height: 1;
 }

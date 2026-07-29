@@ -204,6 +204,46 @@ const saveSharedMessage = async (openid, event) => {
   });
 };
 
+const saveSharedAnniversary = async (openid, event) => {
+  const { coupleId } = await getMemberContext(openid);
+  const anniversary = String(event.anniversary || '').trim();
+  const anniversaryDate = new Date(`${anniversary}T00:00:00`);
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(anniversary) ||
+    Number.isNaN(anniversaryDate.getTime()) ||
+    anniversaryDate > new Date()
+  ) {
+    return fail('INVALID_ANNIVERSARY', '请选择今天或更早的纪念日');
+  }
+
+  return db.runTransaction(async (transaction) => {
+    const current = (await transaction.collection('coupleConfigs').doc(coupleId).get()).data;
+    if (event.expectedVersion != null && Number(event.expectedVersion) !== current.version) {
+      return fail('VERSION_CONFLICT', '另一位成员刚刚修改了内容，请重新进入后再编辑', {
+        currentVersion: current.version,
+      });
+    }
+    const profile = {
+      ...(current.profile || {}),
+      anniversary,
+    };
+    await transaction.collection('coupleConfigs').doc(coupleId).update({
+      data: {
+        profile,
+        updatedAt: now(),
+        updatedBy: openid,
+        version: _.inc(1),
+      },
+    });
+    return ok({
+      categories: current.categories || [],
+      menuItems: current.menuItems || [],
+      profile,
+      version: current.version + 1,
+    });
+  });
+};
+
 const getCart = async (openid) => {
   const { coupleId } = await getMemberContext(openid);
   const cart = (await db.collection('coupleCarts').doc(coupleId).get()).data;
@@ -462,6 +502,7 @@ exports.main = async (event) => {
     if (event.action === 'getConfig') return getConfig(OPENID);
     if (event.action === 'saveConfig') return saveConfig(OPENID, event);
     if (event.action === 'saveSharedMessage') return saveSharedMessage(OPENID, event);
+    if (event.action === 'saveSharedAnniversary') return saveSharedAnniversary(OPENID, event);
     if (event.action === 'getCart') return getCart(OPENID);
     if (event.action === 'updateCart') return updateCart(OPENID, event);
     if (event.action === 'createOrder') return createOrder(OPENID, event);

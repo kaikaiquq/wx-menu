@@ -1,12 +1,12 @@
 page {
-  background: #f8f5f2;
+  background: #f4f5f5;
   color: #292421;
   height: 100%;
   overflow: hidden;
 }
 
 .menu-page {
-  background: var(--love-bg, #f8f5f2);
+  background: var(--love-bg, #f4f5f5);
   box-sizing: border-box;
   height: calc(100vh - env(safe-area-inset-bottom) - 108rpx);
   overflow: hidden;
@@ -34,7 +34,7 @@ page {
   margin-top: 6rpx;
 }
 
-.cart-button {
+.wish-button {
   align-items: center;
   background: #292421;
   border-radius: 50%;
@@ -47,7 +47,7 @@ page {
   width: 76rpx;
 }
 
-.cart-count {
+.wish-count {
   align-items: center;
   background: var(--love-primary, #d77f8d);
   border: 3rpx solid #f8f5f2;

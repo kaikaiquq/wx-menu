@@ -32,7 +32,35 @@ const uploadCloudImage = async (localPath, ownerId, scope = 'couple') => {
   return fileID;
 };
 
+/** 把 cloud:// 转成可展示的临时 https 链接；避免被当成页面相对路径 */
+const resolveCloudFileUrls = async (fileList = []) => {
+  const ids = [...new Set(fileList.filter((id) => typeof id === 'string' && id.startsWith('cloud://')))];
+  if (!ids.length || !wx.cloud?.getTempFileURL) return {};
+
+  try {
+    const { fileList: result } = await wx.cloud.getTempFileURL({ fileList: ids });
+    const map = {};
+    (result || []).forEach((item) => {
+      if (item.fileID && item.tempFileURL && item.status === 0) {
+        map[item.fileID] = item.tempFileURL;
+      }
+    });
+    return map;
+  } catch (error) {
+    console.warn('resolveCloudFileUrls failed', error);
+    return {};
+  }
+};
+
+const resolveCloudFileUrl = async (fileId) => {
+  if (!fileId || !String(fileId).startsWith('cloud://')) return fileId || '';
+  const map = await resolveCloudFileUrls([fileId]);
+  return map[fileId] || '';
+};
+
 module.exports = {
   callCloud,
+  resolveCloudFileUrl,
+  resolveCloudFileUrls,
   uploadCloudImage,
 };
