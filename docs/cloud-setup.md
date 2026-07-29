@@ -30,6 +30,7 @@
 - `userConfigs`
 - `userOrders`
 - `mutationRequests`
+- `contentTemplates`（推荐分类/菜单模板，可选；首次拉取时会自动写入默认模板）
 
 所有集合权限统一选择“仅云函数可读写”。不要开放客户端直接写入。
 

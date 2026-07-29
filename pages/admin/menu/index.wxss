@@ -66,6 +66,11 @@ page {
   width: 108rpx;
 }
 
+.admin-item-image.letter-avatar {
+  display: flex;
+  font-size: 40rpx;
+}
+
 .admin-item-info {
   flex: 1;
   min-width: 0;
@@ -292,5 +297,116 @@ page {
   font-size: 24rpx;
   margin: 15rpx 0 calc(env(safe-area-inset-bottom) + 26rpx);
   padding: 23rpx;
+  text-align: center;
+}
+
+.image-preview-empty {
+  align-items: center;
+  background: #f3efec;
+  color: #a69c96;
+  display: flex;
+  font-size: 22rpx;
+  justify-content: center;
+}
+
+.clear-image {
+  color: var(--love-primary, #b9616e);
+  font-size: 20rpx;
+  margin-top: 12rpx;
+}
+
+.sheet-mask {
+  align-items: flex-end;
+  background: rgba(30, 24, 22, 0.45);
+  bottom: 0;
+  display: flex;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 30;
+}
+
+.sheet-panel {
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  box-sizing: border-box;
+  max-height: 78vh;
+  padding: 18rpx 28rpx calc(env(safe-area-inset-bottom) + 28rpx);
+  width: 100%;
+}
+
+.sheet-handle {
+  background: #e4ddda;
+  border-radius: 8rpx;
+  height: 8rpx;
+  margin: 0 auto 18rpx;
+  width: 64rpx;
+}
+
+.sheet-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 32rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.sheet-note {
+  color: #a69c96;
+  font-size: 20rpx;
+  margin-top: 8rpx;
+  text-align: center;
+}
+
+.template-scroll {
+  max-height: 52vh;
+  margin-top: 22rpx;
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.template-row {
+  align-items: center;
+  background: #f8f5f2;
+  border-radius: 22rpx;
+  display: flex;
+  padding: 16rpx;
+}
+
+.template-avatar {
+  border-radius: 16rpx;
+  flex-shrink: 0;
+  font-size: 28rpx;
+  height: 72rpx;
+  width: 72rpx;
+}
+
+.template-info {
+  margin-left: 16rpx;
+  min-width: 0;
+}
+
+.template-name {
+  font-size: 25rpx;
+  font-weight: 600;
+}
+
+.template-sub {
+  color: #a69c96;
+  font-size: 18rpx;
+  margin-top: 6rpx;
+}
+
+.sheet-custom {
+  background: #292421;
+  border-radius: 28rpx;
+  color: #fff;
+  font-size: 24rpx;
+  margin-top: 22rpx;
+  padding: 22rpx;
   text-align: center;
 }

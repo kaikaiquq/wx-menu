@@ -1,5 +1,6 @@
 const { createOrder, getCart, updateQuantity } = require('../../utils/couple-wish');
 const { requireSession } = require('../../utils/auth');
+const { withLetterAvatars } = require('../../utils/letter-avatar');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 Page({
@@ -24,7 +25,7 @@ Page({
     try {
       const wishItems = await getCart(force);
       this.setData({
-        wishItems,
+        wishItems: withLetterAvatars(wishItems),
         totalCount: wishItems.reduce((total, item) => total + item.quantity, 0),
       });
     } catch (error) {
@@ -38,7 +39,7 @@ Page({
     try {
       const wishItems = await updateQuantity(id, item.quantity + Number(step));
       this.setData({
-        wishItems,
+        wishItems: withLetterAvatars(wishItems),
         totalCount: wishItems.reduce((total, wishItem) => total + wishItem.quantity, 0),
       });
     } catch (error) {

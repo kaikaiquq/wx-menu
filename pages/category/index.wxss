@@ -144,7 +144,19 @@ page {
 }
 
 .side-icon {
-  font-size: 35rpx;
+  align-items: center;
+  border-radius: 14rpx;
+  display: flex;
+  font-size: 28rpx;
+  height: 48rpx;
+  justify-content: center;
+  margin: 0 auto 6rpx;
+  overflow: hidden;
+  width: 48rpx;
+}
+
+.side-icon-image {
+  display: block;
 }
 
 .menu-list {
@@ -185,6 +197,11 @@ page {
   flex: 0 0 160rpx;
   height: 100%;
   width: 160rpx;
+}
+
+.dish-image.letter-avatar {
+  display: flex;
+  font-size: 48rpx;
 }
 
 .dish-info {

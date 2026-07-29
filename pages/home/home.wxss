@@ -265,6 +265,11 @@ page {
   width: 92rpx;
 }
 
+.active-item-image.letter-avatar {
+  display: flex;
+  font-size: 34rpx;
+}
+
 .active-item-info {
   flex: 1;
   min-width: 0;
@@ -356,11 +361,16 @@ page {
   background: var(--love-soft, #f8eded);
   border-radius: 50%;
   display: flex;
-  font-size: 34rpx;
+  font-size: 28rpx;
   height: 68rpx;
   justify-content: center;
   margin-bottom: 20rpx;
+  overflow: hidden;
   width: 68rpx;
+}
+
+.category-icon-image {
+  display: block;
 }
 
 .category-name {
@@ -399,6 +409,11 @@ page {
 .menu-image {
   height: 100%;
   width: 100%;
+}
+
+.menu-image.letter-avatar {
+  display: flex;
+  font-size: 56rpx;
 }
 
 .menu-badge {

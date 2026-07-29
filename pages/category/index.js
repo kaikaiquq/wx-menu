@@ -1,6 +1,7 @@
 const { addToCart, getCart } = require('../../utils/couple-wish');
 const { getMenuConfig } = require('../../utils/couple-config');
 const { requireSession } = require('../../utils/auth');
+const { withLetterAvatars } = require('../../utils/letter-avatar');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 Page({
@@ -24,9 +25,9 @@ Page({
       const [{ categories, menuItems }, cart] = await Promise.all([getMenuConfig(true), getCart(true)]);
       this.setData({
         wishCount: cart.reduce((count, item) => count + item.quantity, 0),
-        categories,
+        categories: withLetterAvatars(categories),
         loading: false,
-        menuItems,
+        menuItems: withLetterAvatars(menuItems),
       });
       if (categories.length) {
         const activeCategory = wx.getStorageSync('couple.menu.activeCategory') || categories[0].id;

@@ -52,6 +52,11 @@ page {
   width: 190rpx;
 }
 
+.wish-image.letter-avatar {
+  display: flex;
+  font-size: 56rpx;
+}
+
 .wish-info {
   display: flex;
   flex: 1;

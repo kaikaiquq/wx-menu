@@ -46,7 +46,12 @@
 
     <view class="active-order-card">
       <view class="active-order-item" wx:for="{{activeOrder.items}}" wx:key="menuItemId">
-        <image class="active-item-image" src="{{item.image}}" mode="aspectFill" />
+        <image class="active-item-image" wx:if="{{item.hasImage}}" src="{{item.image}}" mode="aspectFill" />
+        <view
+          class="active-item-image letter-avatar"
+          wx:else
+          style="background: {{item.avatarColor}};"
+        >{{item.avatarText}}</view>
         <view class="active-item-info">
           <view class="active-item-name">{{item.name}}</view>
           <view class="active-item-cost">{{item.cost}}</view>
@@ -87,7 +92,18 @@
           data-id="{{item.id}}"
           bind:tap="chooseCategory"
         >
-          <view class="category-icon">{{item.icon}}</view>
+          <image
+            class="category-icon category-icon-image"
+            wx:if="{{item.hasImage}}"
+            src="{{item.image}}"
+            mode="aspectFill"
+          />
+          <view
+            class="category-icon letter-avatar"
+            wx:elif="{{item.avatarText}}"
+            style="background: {{item.avatarColor}};"
+          >{{item.avatarText}}</view>
+          <view class="category-icon" wx:else>{{item.icon}}</view>
           <view class="category-name">{{item.name}}</view>
           <view class="category-subtitle">{{item.subtitle}}</view>
         </view>
@@ -105,7 +121,12 @@
   <view class="recommendation-grid">
     <view class="menu-card" wx:for="{{featuredItems}}" wx:key="id">
       <view class="menu-image-wrap">
-        <image class="menu-image" src="{{item.image}}" mode="aspectFill" />
+        <image class="menu-image" wx:if="{{item.hasImage}}" src="{{item.image}}" mode="aspectFill" />
+        <view
+          class="menu-image letter-avatar"
+          wx:else
+          style="background: {{item.avatarColor}};"
+        >{{item.avatarText}}</view>
         <view class="menu-badge" wx:if="{{item.badge}}">{{item.badge}}</view>
       </view>
       <view class="menu-content">

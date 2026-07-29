@@ -1,6 +1,7 @@
 const { addToCart, getCart, getOrders, updateOrder } = require('../../utils/couple-wish');
 const { getFeaturedItems, getMenuConfig, saveSharedMessage } = require('../../utils/couple-config');
 const { requireSession } = require('../../utils/auth');
+const { withLetterAvatars } = require('../../utils/letter-avatar');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 Page({
@@ -36,6 +37,7 @@ Page({
             canRespond: activeRecord.status === '等待回应' && !activeRecord.isCreatedByCurrentUser,
             dateText: this.formatOrderDate(activeRecord.createdAt),
             isMine: activeRecord.isCreatedByCurrentUser,
+            items: withLetterAvatars(activeRecord.items || []),
             title:
               activeRecord.isCreatedByCurrentUser
                 ? '你发出的心愿'
@@ -55,9 +57,9 @@ Page({
       this.setData({
         wishCount: wishList.reduce((count, item) => count + item.quantity, 0),
         activeOrder,
-        categories,
+        categories: withLetterAvatars(categories),
         dateText: `${now.getMonth() + 1}月${now.getDate()}日 · 星期${weekdays[now.getDay()]}`,
-        featuredItems: getFeaturedItems(menuItems),
+        featuredItems: withLetterAvatars(getFeaturedItems(menuItems)),
         loading: false,
         menuConfig,
         orderNotice,

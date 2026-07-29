@@ -18,15 +18,23 @@ const getPersonalConfig = async (force = false) => {
 const savePersonalConfig = async (config) => {
   const session = getSession();
   if (!session?.user?.publicUserId) throw new Error('请先登录');
-  const menuItems = await Promise.all(
-    config.menuItems.map(async (item) => ({
-      ...item,
-      image: await uploadCloudImage(item.image, session.user.publicUserId, 'personal'),
-    })),
-  );
+  const [categories, menuItems] = await Promise.all([
+    Promise.all(
+      config.categories.map(async (item) => ({
+        ...item,
+        image: await uploadCloudImage(item.image, session.user.publicUserId, 'personal'),
+      })),
+    ),
+    Promise.all(
+      config.menuItems.map(async (item) => ({
+        ...item,
+        image: await uploadCloudImage(item.image, session.user.publicUserId, 'personal'),
+      })),
+    ),
+  ]);
   personalConfigCache = await callCloud('dataApi', 'savePersonalConfig', {
     config: {
-      categories: config.categories,
+      categories,
       menuItems,
       profile: config.profile,
     },

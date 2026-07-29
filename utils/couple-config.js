@@ -29,15 +29,23 @@ const getMenuConfig = async (force = false) => {
 const saveMenuConfig = async (config) => {
   const session = getSession();
   if (!session?.couple?.coupleId) throw new Error('请先绑定情侣空间');
-  const uploadedItems = await Promise.all(
-    config.menuItems.map(async (item) => ({
-      ...item,
-      image: await uploadCloudImage(item.image, session.couple.coupleId),
-    })),
-  );
+  const [uploadedCategories, uploadedItems] = await Promise.all([
+    Promise.all(
+      config.categories.map(async (item) => ({
+        ...item,
+        image: await uploadCloudImage(item.image, session.couple.coupleId),
+      })),
+    ),
+    Promise.all(
+      config.menuItems.map(async (item) => ({
+        ...item,
+        image: await uploadCloudImage(item.image, session.couple.coupleId),
+      })),
+    ),
+  ]);
   const savedConfig = await callCloud('dataApi', 'saveConfig', {
     config: {
-      categories: config.categories,
+      categories: uploadedCategories,
       menuItems: uploadedItems,
       profile: config.profile,
     },

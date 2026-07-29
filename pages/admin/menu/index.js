@@ -5,6 +5,8 @@ const {
 } = require('../utils/couple-config-session');
 const { requireSession } = require('../../../utils/auth');
 const { getPersonalConfig, savePersonalConfig } = require('../../../utils/personal-config');
+const { getContentTemplates } = require('../../../utils/templates');
+const { withLetterAvatars } = require('../../../utils/letter-avatar');
 const { getStoredThemeClass, syncTheme } = require('../../../utils/theme');
 
 Page({
@@ -18,6 +20,8 @@ Page({
     loadError: false,
     menuItems: [],
     isSharedScope: false,
+    showTemplatePicker: false,
+    templates: [],
     themeClass: getStoredThemeClass(),
   },
 
@@ -33,11 +37,17 @@ Page({
       themeClass: syncTheme(session.user.gender),
     });
     this.loadDraft();
+    this.loadTemplates();
     if (createAndLinkMode) this.addItem();
   },
 
   onShow() {
     if (this.data.authorized) this.loadDraft();
+  },
+
+  async loadTemplates() {
+    const { menuItems } = await getContentTemplates();
+    this.setData({ templates: menuItems });
   },
 
   loadDraft() {
@@ -50,18 +60,18 @@ Page({
               {
                 icon: '♡',
                 id: `category-${Date.now()}`,
+                image: '',
                 name: '未分类',
                 subtitle: '新的小心愿',
               },
             ];
       const menuItems = Array.isArray(draft.menuItems) ? draft.menuItems : [];
-      const normalizedDraft = { ...draft, categories, menuItems };
-      setConfigDraft(normalizedDraft);
+      setConfigDraft({ ...draft, categories, menuItems });
       this.setData({
         categories,
         categoryNames: categories.map((category) => category.name),
         loadError: false,
-        menuItems,
+        menuItems: withLetterAvatars(menuItems),
       });
     } catch (error) {
       console.error('菜单管理页加载失败:', error);
@@ -71,6 +81,44 @@ Page({
 
   retryLoad() {
     this.loadDraft();
+  },
+
+  openAddOptions() {
+    this.setData({ showTemplatePicker: true });
+  },
+
+  closeTemplatePicker() {
+    this.setData({ showTemplatePicker: false });
+  },
+
+  pickTemplate(event) {
+    const template = this.data.templates[Number(event.currentTarget.dataset.index)];
+    if (!template) return;
+    if (!this.data.categories.length) {
+      wx.showToast({ title: '请先新增分类', icon: 'none' });
+      return;
+    }
+    const matchedCategory =
+      this.data.categories.find((category) => category.name === template.categoryHint) ||
+      this.data.categories[0];
+    const categoryIndex = Math.max(
+      0,
+      this.data.categories.findIndex((category) => category.id === matchedCategory.id),
+    );
+    this.setData({
+      editingIndex: this.data.menuItems.length,
+      itemDraft: {
+        badge: template.badge || '',
+        categoryId: matchedCategory.id,
+        categoryIndex,
+        cost: template.cost || '一个抱抱',
+        description: template.description || '',
+        id: `custom-${Date.now()}`,
+        image: template.image || '',
+        name: template.name || '新的小心愿',
+      },
+      showTemplatePicker: false,
+    });
   },
 
   editItem(event) {
@@ -85,6 +133,7 @@ Page({
           this.data.categories.findIndex((category) => category.id === itemDraft.categoryId),
         ),
       },
+      showTemplatePicker: false,
     });
   },
 
@@ -98,9 +147,10 @@ Page({
         cost: '一个抱抱',
         description: '',
         id: `custom-${Date.now()}`,
-        image: this.data.menuItems[0]?.image || '',
+        image: '',
         name: '新的小心愿',
       },
+      showTemplatePicker: false,
     });
   },
 
@@ -149,6 +199,10 @@ Page({
     });
   },
 
+  clearItemImage() {
+    this.setData({ 'itemDraft.image': '' });
+  },
+
   cancelEdit() {
     this.setData({ editingIndex: -1, itemDraft: null });
   },
@@ -165,7 +219,7 @@ Page({
   async confirmItem() {
     if (!this.validateDraft()) return;
     const menuItems = [...this.data.menuItems];
-    const { categoryIndex, ...item } = this.data.itemDraft;
+    const { categoryIndex, hasImage, avatarText, avatarColor, ...item } = this.data.itemDraft;
     if (this.data.createAndLinkMode && this.data.editingIndex === menuItems.length) {
       wx.showLoading({ title: '保存到个人库' });
       try {
@@ -219,7 +273,7 @@ Page({
     this.setData({
       editingIndex: -1,
       itemDraft: null,
-      menuItems,
+      menuItems: withLetterAvatars(menuItems),
     });
     wx.showToast({ title: '已加入草稿', icon: 'none' });
   },
@@ -235,8 +289,10 @@ Page({
         const menuItems = this.data.menuItems.filter((_, itemIndex) => itemIndex !== index);
         const draft = getConfigDraft();
         setConfigDraft({ ...draft, menuItems });
-        this.setData({ menuItems });
+        this.setData({ menuItems: withLetterAvatars(menuItems) });
       },
     });
   },
+
+  noop() {},
 });

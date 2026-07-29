@@ -2,21 +2,118 @@
   <view class="manage-heading">
     <view class="manage-eyebrow">CATEGORY</view>
     <view class="manage-title">分类管理</view>
-    <view class="manage-note">修改会暂存在草稿中，返回后点击保存才会生效</view>
+    <view class="manage-note">可点选推荐模板，或自定义新增；修改先暂存草稿</view>
   </view>
 
   <view class="category-list">
     <view class="category-item" wx:for="{{categories}}" wx:key="id">
       <view class="category-main" data-index="{{index}}" bind:tap="editCategory">
-        <view class="category-icon">{{item.icon}}</view>
+        <image
+          class="category-cover"
+          wx:if="{{item.hasImage}}"
+          src="{{item.image}}"
+          mode="aspectFill"
+        />
+        <view
+          class="category-cover letter-avatar"
+          wx:else
+          style="background: {{item.avatarColor}};"
+        >{{item.avatarText}}</view>
         <view>
           <view class="category-name">{{item.name}}</view>
-          <view class="category-note">点击修改名称</view>
+          <view class="category-note">{{item.subtitle || '点击编辑'}}</view>
         </view>
       </view>
       <view class="category-delete" data-index="{{index}}" catch:tap="deleteCategory">删除</view>
     </view>
   </view>
 
-  <view class="add-category" bind:tap="addCategory">＋ 新增分类</view>
+  <view class="add-category" bind:tap="openAddOptions">＋ 新增分类</view>
+
+  <!-- 模板点选 -->
+  <view class="sheet-mask" wx:if="{{showTemplatePicker}}" catch:tap="closeTemplatePicker">
+    <view class="sheet-panel" catch:tap="noop">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title">选择推荐分类</view>
+      <view class="sheet-note">点选即可加入草稿，也可自定义新增</view>
+      <scroll-view class="template-scroll" scroll-y>
+        <view class="template-grid">
+          <view
+            class="template-card"
+            wx:for="{{templates}}"
+            wx:key="id"
+            data-index="{{index}}"
+            bind:tap="pickTemplate"
+          >
+            <view
+              class="template-avatar letter-avatar"
+              style="background: {{item.avatarColor}};"
+            >{{item.avatarText}}</view>
+            <view class="template-name">{{item.name}}</view>
+            <view class="template-sub">{{item.subtitle}}</view>
+          </view>
+        </view>
+      </scroll-view>
+      <view class="sheet-custom" bind:tap="openCustomEditor">自定义新增 ›</view>
+    </view>
+  </view>
+
+  <!-- 自定义 / 编辑分类 -->
+  <view class="sheet-mask" wx:if="{{categoryDraft}}" catch:tap="closeCategoryEditor">
+    <view class="sheet-panel editor-panel" catch:tap="noop">
+      <view class="sheet-handle"></view>
+      <view class="sheet-title">{{editingIndex >= 0 ? '编辑分类' : '自定义分类'}}</view>
+      <view class="editor-field">
+        <view class="field-label">名称 *</view>
+        <input
+          class="editor-input"
+          value="{{categoryDraft.name}}"
+          maxlength="12"
+          placeholder="例如：周末约会"
+          data-field="name"
+          bindinput="updateCategoryDraft"
+        />
+      </view>
+      <view class="editor-field">
+        <view class="field-label">副标题</view>
+        <input
+          class="editor-input"
+          value="{{categoryDraft.subtitle}}"
+          maxlength="20"
+          placeholder="一句话介绍"
+          data-field="subtitle"
+          bindinput="updateCategoryDraft"
+        />
+      </view>
+      <view class="editor-field">
+        <view class="field-label">图标（可选 emoji）</view>
+        <input
+          class="editor-input"
+          value="{{categoryDraft.icon}}"
+          maxlength="2"
+          placeholder="✨"
+          data-field="icon"
+          bindinput="updateCategoryDraft"
+        />
+      </view>
+      <view class="editor-field">
+        <view class="field-label">分类图片（可选）</view>
+        <view class="image-row">
+          <image
+            class="image-preview"
+            wx:if="{{categoryDraft.image}}"
+            src="{{categoryDraft.image}}"
+            mode="aspectFill"
+          />
+          <view class="image-preview image-preview-empty" wx:else>无图</view>
+          <view class="image-actions">
+            <view class="upload-button" bind:tap="chooseCategoryImage">上传图片</view>
+            <view class="clear-image" wx:if="{{categoryDraft.image}}" bind:tap="clearCategoryImage">清除图片</view>
+            <view class="field-help">不传图会用名称文字生成头像</view>
+          </view>
+        </view>
+      </view>
+      <view class="editor-save" bind:tap="confirmCategory">完成并加入草稿</view>
+    </view>
+  </view>
 </view>

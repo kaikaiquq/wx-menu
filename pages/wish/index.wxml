@@ -8,7 +8,12 @@
   <block wx:if="{{wishItems.length}}">
     <view class="wish-list">
       <view class="wish-card" wx:for="{{wishItems}}" wx:key="id">
-        <image class="wish-image" src="{{item.image}}" mode="aspectFill" />
+        <image class="wish-image" wx:if="{{item.hasImage}}" src="{{item.image}}" mode="aspectFill" />
+        <view
+          class="wish-image letter-avatar"
+          wx:else
+          style="background: {{item.avatarColor}};"
+        >{{item.avatarText}}</view>
         <view class="wish-info">
           <view>
             <view class="wish-name">{{item.name}}</view>

@@ -19,3 +19,13 @@
   --love-hero-to: #5d768c;
   background: var(--love-bg);
 }
+
+.letter-avatar {
+  align-items: center;
+  color: #fff;
+  display: flex;
+  font-family: 'STSong', 'Songti SC', serif;
+  font-weight: 600;
+  justify-content: center;
+  overflow: hidden;
+}

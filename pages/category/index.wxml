@@ -26,7 +26,18 @@
         data-id="{{item.id}}"
         bind:tap="selectCategory"
       >
-        <view class="side-icon">{{item.icon}}</view>
+        <image
+          class="side-icon side-icon-image"
+          wx:if="{{item.hasImage}}"
+          src="{{item.image}}"
+          mode="aspectFill"
+        />
+        <view
+          class="side-icon letter-avatar"
+          wx:elif="{{item.avatarText}}"
+          style="background: {{item.avatarColor}};"
+        >{{item.avatarText}}</view>
+        <view class="side-icon" wx:else>{{item.icon}}</view>
         <view>{{item.name}}</view>
       </view>
     </scroll-view>
@@ -37,7 +48,12 @@
         <text>为你们精选了 {{visibleItems.length}} 个选择</text>
       </view>
       <view class="dish-card" wx:for="{{visibleItems}}" wx:key="id">
-        <image class="dish-image" src="{{item.image}}" mode="aspectFill" />
+        <image class="dish-image" wx:if="{{item.hasImage}}" src="{{item.image}}" mode="aspectFill" />
+        <view
+          class="dish-image letter-avatar"
+          wx:else
+          style="background: {{item.avatarColor}};"
+        >{{item.avatarText}}</view>
         <view class="dish-info">
           <view class="dish-badge" wx:if="{{item.badge}}">{{item.badge}}</view>
           <view class="dish-name">{{item.name}}</view>
