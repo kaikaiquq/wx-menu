@@ -25,29 +25,75 @@
     </view>
   </view>
 
-  <view class="section-header">
-    <view>
-      <view class="section-title">想点什么</view>
-      <view class="section-subtitle">选一个，开启今天的小约会</view>
+  <view class="order-notice" wx:if="{{orderNotice && !activeOrder}}" bind:tap="openOrderNotice">
+    <view class="notice-icon">♡</view>
+    <view class="notice-content">
+      <view class="notice-title">{{orderNotice.title}}</view>
+      <view class="notice-items">{{orderNotice.itemText}}</view>
+      <view class="notice-time">{{orderNotice.dateText}}</view>
     </view>
-    <view class="section-more" bind:tap="chooseCategory" data-id="video">全部 →</view>
+    <view class="notice-arrow">›</view>
   </view>
 
-  <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
-    <view class="category-row">
-      <view
-        class="category-card"
-        wx:for="{{categories}}"
-        wx:key="id"
-        data-id="{{item.id}}"
-        bind:tap="chooseCategory"
-      >
-        <view class="category-icon">{{item.icon}}</view>
-        <view class="category-name">{{item.name}}</view>
-        <view class="category-subtitle">{{item.subtitle}}</view>
+  <block wx:if="{{activeOrder}}">
+    <view class="section-header active-order-header">
+      <view>
+        <view class="section-title">{{activeOrder.title}}</view>
+        <view class="section-subtitle">{{activeOrder.dateText}} · {{activeOrder.status}}</view>
+      </view>
+      <view class="active-status">{{activeOrder.status}}</view>
+    </view>
+
+    <view class="active-order-card">
+      <view class="active-order-item" wx:for="{{activeOrder.items}}" wx:key="menuItemId">
+        <image class="active-item-image" src="{{item.image}}" mode="aspectFill" />
+        <view class="active-item-info">
+          <view class="active-item-name">{{item.name}}</view>
+          <view class="active-item-cost">{{item.cost}}</view>
+        </view>
+        <view class="active-item-quantity">×{{item.quantity}}</view>
+      </view>
+      <view class="active-order-note" wx:if="{{activeOrder.note}}">“{{activeOrder.note}}”</view>
+      <view class="active-order-response" wx:if="{{activeOrder.response}}">
+        {{activeOrder.respondedByName}}：{{activeOrder.response}}
+      </view>
+      <view class="active-order-actions">
+        <view class="waiting-text" wx:if="{{activeOrder.status === '等待回应' && activeOrder.isMine}}">
+          已发给 TA，等待回应…
+        </view>
+        <view class="order-action-button" wx:if="{{activeOrder.canRespond}}" bind:tap="respondOrder">回应 TA</view>
+        <view class="order-action-button complete-button" wx:if="{{activeOrder.canComplete}}" bind:tap="completeOrder">
+          完成心愿
+        </view>
       </view>
     </view>
-  </scroll-view>
+  </block>
+
+  <block wx:else>
+    <view class="section-header">
+      <view>
+        <view class="section-title">想点什么</view>
+        <view class="section-subtitle">选一个，开启今天的小约会</view>
+      </view>
+      <view class="section-more" bind:tap="chooseCategory" data-id="video">全部 →</view>
+    </view>
+
+    <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="category-row">
+        <view
+          class="category-card"
+          wx:for="{{categories}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bind:tap="chooseCategory"
+        >
+          <view class="category-icon">{{item.icon}}</view>
+          <view class="category-name">{{item.name}}</view>
+          <view class="category-subtitle">{{item.subtitle}}</view>
+        </view>
+      </view>
+    </scroll-view>
+  </block>
 
   <view class="section-header recommendation-header">
     <view>

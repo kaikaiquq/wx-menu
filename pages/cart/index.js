@@ -67,6 +67,9 @@ Page({
         content: `${itemCount} 个选择已经记下，等 TA 回应吧。`,
         confirmText: '好呀',
         showCancel: false,
+        success: ({ confirm }) => {
+          if (confirm) wx.switchTab({ url: '/pages/home/home' });
+        },
       });
     } catch (error) {
       this.setData({ submitting: false });

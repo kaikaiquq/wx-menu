@@ -128,7 +128,7 @@ const updateCart = async (openid, event) => {
 };
 
 const createOrder = async (openid, event) => {
-  const { coupleId } = await getMemberContext(openid);
+  const { coupleId, user } = await getMemberContext(openid);
   const requestId = String(event.requestId || randomId('request')).slice(0, 80);
   const mutationId = `${openid}_${requestId}`;
   try {
@@ -138,15 +138,23 @@ const createOrder = async (openid, event) => {
     // 首次请求继续执行
   }
 
+  const activeOrder = await db
+    .collection('orders')
+    .where({ coupleId, status: _.in(['等待回应', '进行中']) })
+    .limit(1)
+    .get();
+  if (activeOrder.data.length) return fail('ACTIVE_ORDER_EXISTS', '请先完成当前心愿，再发起新的点单');
+
   const result = await db.runTransaction(async (transaction) => {
     const cart = (await transaction.collection('coupleCarts').doc(coupleId).get()).data;
     if (!cart.items?.length) return fail('EMPTY_CART', '心愿单还是空的');
     const orderId = randomId('order');
     const order = {
-      _id: orderId,
       coupleId,
       createdAt: now(),
       createdBy: openid,
+      createdByName: user.nickname || 'TA',
+      createdByPublicUserId: user.publicUserId,
       items: cart.items.map((item) => ({
         cost: item.cost,
         image: item.image,
@@ -186,12 +194,64 @@ const getOrders = async (openid, event) => {
   return ok({
     orders: result.data.map((order) => ({
       createdAt: order.createdAt,
+      createdByName: order.createdByName || 'TA',
+      createdByPublicUserId: order.createdByPublicUserId || '',
       id: order._id,
+      isCreatedByCurrentUser: order.createdBy === openid,
       items: order.items,
       note: order.note,
       orderNo: order.orderNo,
+      respondedByName: order.respondedByName || '',
+      response: order.response || '',
       status: order.status,
     })),
+  });
+};
+
+const updateOrder = async (openid, event) => {
+  const { coupleId, user } = await getMemberContext(openid);
+  const orderId = String(event.orderId || '');
+  const operation = String(event.operation || '');
+  if (!orderId) return fail('ORDER_REQUIRED', '订单不存在');
+
+  return db.runTransaction(async (transaction) => {
+    const order = (await transaction.collection('orders').doc(orderId).get()).data;
+    if (order.coupleId !== coupleId) return fail('FORBIDDEN', '没有操作该心愿的权限');
+
+    if (operation === 'respond') {
+      if (order.status !== '等待回应') return fail('INVALID_STATUS', '该心愿已经回应过了');
+      if (order.createdBy === openid) return fail('CREATOR_CANNOT_RESPOND', '请等待 TA 回应');
+      const response = String(event.response || '').trim().slice(0, 100);
+      if (!response) return fail('RESPONSE_REQUIRED', '请写一句回应');
+      await transaction.collection('orders').doc(orderId).update({
+        data: {
+          respondedAt: now(),
+          respondedBy: openid,
+          respondedByName: user.nickname || 'TA',
+          response,
+          status: '进行中',
+          updatedAt: now(),
+          updatedBy: openid,
+          version: _.inc(1),
+        },
+      });
+      return ok({ status: '进行中' });
+    }
+
+    if (operation === 'complete') {
+      if (order.status !== '进行中') return fail('INVALID_STATUS', '请先回应后再完成心愿');
+      await transaction.collection('orders').doc(orderId).update({
+        data: {
+          completedAt: now(),
+          status: '已完成',
+          updatedAt: now(),
+          updatedBy: openid,
+          version: _.inc(1),
+        },
+      });
+      return ok({ status: '已完成' });
+    }
+    return fail('UNKNOWN_OPERATION', '不支持的心愿操作');
   });
 };
 
@@ -249,6 +309,7 @@ exports.main = async (event) => {
     if (event.action === 'updateCart') return updateCart(OPENID, event);
     if (event.action === 'createOrder') return createOrder(OPENID, event);
     if (event.action === 'getOrders') return getOrders(OPENID, event);
+    if (event.action === 'updateOrder') return updateOrder(OPENID, event);
     if (event.action === 'importLegacy') return importLegacy(OPENID, event);
     return fail('UNKNOWN_ACTION', '不支持的操作');
   } catch (error) {

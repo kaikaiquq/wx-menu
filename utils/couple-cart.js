@@ -55,6 +55,13 @@ const getOrders = async (limit = 20) => {
   return orders;
 };
 
+const updateOrder = (orderId, operation, response = '') =>
+  callCloud('dataApi', 'updateOrder', {
+    operation,
+    orderId,
+    response,
+  });
+
 const clearCartCache = () => {
   cartCache = { items: [], version: 0 };
 };
@@ -66,5 +73,6 @@ module.exports = {
   createOrder,
   getCart,
   getOrders,
+  updateOrder,
   updateQuantity,
 };
