@@ -379,10 +379,18 @@ page {
 
 .template-avatar {
   border-radius: 16rpx;
+  display: block;
   flex-shrink: 0;
   font-size: 28rpx;
   height: 72rpx;
+  overflow: hidden;
   width: 72rpx;
+}
+
+.template-avatar.letter-avatar {
+  align-items: center;
+  display: flex;
+  justify-content: center;
 }
 
 .template-info {

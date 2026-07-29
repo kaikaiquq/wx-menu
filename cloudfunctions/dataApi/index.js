@@ -26,6 +26,7 @@ const sanitizeConfig = (config = {}) => ({
   categories: (Array.isArray(config.categories) ? config.categories : []).slice(0, 50).map((item) => ({
     icon: String(item.icon || '♡').slice(0, 4),
     id: String(item.id || '').slice(0, 64),
+    image: String(item.image || '').slice(0, 500),
     name: String(item.name || '').trim().slice(0, 20),
     subtitle: String(item.subtitle || '').slice(0, 40),
   })),
@@ -60,7 +61,7 @@ const validateConfig = (config) => {
 };
 
 const emptyPersonalConfig = () => ({
-  categories: [{ icon: '♡', id: 'personal-default', name: '未分类', subtitle: '我喜欢的内容' }],
+  categories: [{ icon: '♡', id: 'personal-default', image: '', name: '未分类', subtitle: '我喜欢的内容' }],
   menuItems: [],
   profile: {
     anniversary: '',
@@ -69,6 +70,50 @@ const emptyPersonalConfig = () => ({
     message: '写下一句想记住的话',
   },
 });
+
+const { categoryTemplates, menuTemplates } = require('./content-templates');
+const CONTENT_TEMPLATE_SEED_VERSION = 2;
+const CONTENT_TEMPLATE_SEED = {
+  categories: categoryTemplates,
+  menuItems: menuTemplates,
+};
+
+/** 推荐模板：代码种子为准；库内旧版（无图）会按 seedVersion 自动覆盖 */
+const getContentTemplates = async () => {
+  const seed = {
+    categories: CONTENT_TEMPLATE_SEED.categories,
+    menuItems: CONTENT_TEMPLATE_SEED.menuItems,
+  };
+  try {
+    const current = (await db.collection('contentTemplates').doc('default').get()).data;
+    if ((current.seedVersion || 0) < CONTENT_TEMPLATE_SEED_VERSION) {
+      await db.collection('contentTemplates').doc('default').set({
+        ...seed,
+        seedVersion: CONTENT_TEMPLATE_SEED_VERSION,
+        updatedAt: now(),
+      });
+      return ok(seed);
+    }
+    return ok({
+      categories:
+        Array.isArray(current.categories) && current.categories.length ? current.categories : seed.categories,
+      menuItems:
+        Array.isArray(current.menuItems) && current.menuItems.length ? current.menuItems : seed.menuItems,
+    });
+  } catch (error) {
+    if (!isNotFound(error) && error.errCode !== -502005) throw error;
+    try {
+      await db.collection('contentTemplates').doc('default').set({
+        ...seed,
+        seedVersion: CONTENT_TEMPLATE_SEED_VERSION,
+        updatedAt: now(),
+      });
+    } catch (writeError) {
+      console.warn('seed contentTemplates failed', writeError.message || writeError);
+    }
+    return ok(seed);
+  }
+};
 
 const getOrCreatePersonalConfig = async (openid) => {
   try {
@@ -510,6 +555,7 @@ exports.main = async (event) => {
     if (event.action === 'getPersonalOrders') return getPersonalOrders(OPENID, event);
     if (event.action === 'updateOrder') return updateOrder(OPENID, event);
     if (event.action === 'importLegacy') return importLegacy(OPENID, event);
+    if (event.action === 'getContentTemplates') return getContentTemplates();
     return fail('UNKNOWN_ACTION', '不支持的操作');
   } catch (error) {
     console.error('dataApi error', error.code || error.message);

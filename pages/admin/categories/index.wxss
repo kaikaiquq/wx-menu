@@ -177,9 +177,17 @@ page {
 
 .template-avatar {
   border-radius: 18rpx;
+  display: block;
   font-size: 28rpx;
   height: 64rpx;
+  overflow: hidden;
   width: 64rpx;
+}
+
+.template-avatar.letter-avatar {
+  align-items: center;
+  display: flex;
+  justify-content: center;
 }
 
 .template-name {

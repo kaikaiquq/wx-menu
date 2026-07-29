@@ -45,8 +45,15 @@
             data-index="{{index}}"
             bind:tap="pickTemplate"
           >
+            <image
+              class="template-avatar"
+              wx:if="{{item.hasImage}}"
+              src="{{item.image}}"
+              mode="aspectFill"
+            />
             <view
               class="template-avatar letter-avatar"
+              wx:else
               style="background: {{item.avatarColor}};"
             >{{item.avatarText}}</view>
             <view class="template-name">{{item.name}}</view>
