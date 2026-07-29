@@ -1,4 +1,8 @@
-const { getConfigDraft, setConfigDraft } = require('../../../utils/couple-config-session');
+const {
+  getConfigDraft,
+  getDraftScope,
+  setConfigDraft,
+} = require('../../../utils/couple-config-session');
 const { requireSession } = require('../../../utils/auth');
 const { getThemeClass } = require('../../../utils/theme');
 
@@ -10,7 +14,7 @@ Page({
   },
 
   async onLoad() {
-    const session = await requireSession();
+    const session = await requireSession({ requireCouple: getDraftScope() === 'shared' });
     if (!session) return;
     const draft = getConfigDraft();
     this.setData({

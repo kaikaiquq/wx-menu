@@ -1,5 +1,5 @@
 const { getMenuConfig } = require('../../utils/couple-config');
-const { getOrders } = require('../../utils/couple-cart');
+const { getOrders, getPersonalOrders } = require('../../utils/couple-cart');
 const { logout, requireSession, unbindPartner } = require('../../utils/auth');
 const { getThemeClass } = require('../../utils/theme');
 
@@ -17,21 +17,39 @@ Page({
 
   async onShow() {
     this.getTabBar().init();
-    const session = await requireSession({ force: true });
+    const session = await requireSession({ force: true, requireCouple: false });
     if (!session) return;
+    const selfMember = {
+      ...session.user,
+      fallbackLabel: session.user.gender === 'male' ? '他' : '她',
+    };
+    const partnerPlaceholder = {
+      avatarFileId: '',
+      fallbackLabel: session.user.gender === 'male' ? '她' : '他',
+      nickname: session.user.gender === 'male' ? '小可爱' : '大朋友',
+      publicUserId: '',
+    };
+    if (!session.couple) {
+      try {
+        const orders = await getPersonalOrders();
+        const latestOrder = this.formatLatestOrder(orders[0]);
+        this.setData({
+          coupleStatus: 'none',
+          displayMembers: [selfMember, partnerPlaceholder],
+          latestOrder,
+          orderCount: orders.length,
+          profile: {},
+          selfPublicUserId: session.user.publicUserId,
+          themeClass: getThemeClass(session.user.gender),
+        });
+      } catch (error) {
+        wx.showToast({ title: error.message || '个人记录加载失败', icon: 'none' });
+      }
+      return;
+    }
     try {
       const [{ profile }, orders] = await Promise.all([getMenuConfig(true), getOrders()]);
-      const latestOrder = orders[0]
-        ? {
-            ...orders[0],
-            dateText: this.formatDate(orders[0].createdAt),
-            itemNames: orders[0].items.map((item) => item.name || item.nameSnapshot).join('、'),
-          }
-        : null;
-      const selfMember = {
-        ...session.user,
-        fallbackLabel: session.user.gender === 'male' ? '他' : '她',
-      };
+      const latestOrder = this.formatLatestOrder(orders[0]);
       const partnerRecord = session.couple.members.find(
         (member) => member.publicUserId !== session.user.publicUserId,
       );
@@ -41,12 +59,6 @@ Page({
             fallbackLabel: partnerRecord.gender === 'male' ? '他' : '她',
           }
         : null;
-      const partnerPlaceholder = {
-        avatarFileId: '',
-        fallbackLabel: session.user.gender === 'male' ? '她' : '他',
-        nickname: session.user.gender === 'male' ? '小可爱' : '大朋友',
-        publicUserId: '',
-      };
       this.setData({
         coupleDays: this.getCoupleDays(profile.anniversary),
         coupleStatus: session.couple.status,
@@ -70,6 +82,16 @@ Page({
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   },
 
+  formatLatestOrder(order) {
+    return order
+      ? {
+          ...order,
+          dateText: this.formatDate(order.createdAt),
+          itemNames: order.items.map((item) => item.name || item.nameSnapshot).join('、'),
+        }
+      : null;
+  },
+
   getCoupleDays(anniversary) {
     const start = new Date(`${anniversary}T00:00:00`);
     const today = new Date();
@@ -78,11 +100,19 @@ Page({
   },
 
   goMenu() {
+    if (this.data.coupleStatus === 'none') {
+      this.openPersonalLibrary();
+      return;
+    }
     wx.switchTab({ url: '/pages/category/index' });
   },
 
   openAdmin() {
     wx.navigateTo({ url: '/pages/admin/index' });
+  },
+
+  openPersonalLibrary() {
+    wx.navigateTo({ url: '/pages/admin/index?scope=personal' });
   },
 
   openInvite() {
@@ -106,8 +136,8 @@ Page({
     }
     wx.showModal({
       title: '解除情侣绑定？',
-      content: '解绑后，菜单、心愿单和历史点单会分别保留一份，双方都不会丢失内容，也都可以重新绑定其他人。未完成的共同心愿会结束。',
-      confirmText: '确认解绑',
+      content: '解绑后，共同空间里的菜单、心愿单、留言和点单记录会全部清空且无法恢复；双方各自的个人内容库不会受到影响。',
+      confirmText: '清空并解绑',
       confirmColor: '#bd6875',
       success: async ({ confirm }) => {
         if (!confirm) return;

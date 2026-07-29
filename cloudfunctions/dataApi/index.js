@@ -9,6 +9,8 @@ const ok = (data) => ({ data, ok: true });
 const fail = (code, message, details) => ({ code, details, message, ok: false });
 const now = () => db.serverDate();
 const randomId = (prefix) => `${prefix}_${crypto.randomBytes(12).toString('hex')}`;
+const isNotFound = (error) =>
+  error?.errCode === -1 || String(error?.message || '').toLowerCase().includes('not exist');
 
 const getMemberContext = async (openid) => {
   const user = (await db.collection('users').doc(openid).get()).data;
@@ -52,6 +54,81 @@ const validateConfig = (config) => {
     return '菜单数据不完整或所属分类不存在';
   }
   return '';
+};
+
+const emptyPersonalConfig = () => ({
+  categories: [{ icon: '♡', id: 'personal-default', name: '未分类', subtitle: '我喜欢的内容' }],
+  menuItems: [],
+  profile: {
+    anniversary: '',
+    herName: '她',
+    hisName: '他',
+    message: '写下一句想记住的话',
+  },
+});
+
+const getOrCreatePersonalConfig = async (openid) => {
+  try {
+    return (await db.collection('userConfigs').doc(openid).get()).data;
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+    const user = (await db.collection('users').doc(openid).get()).data;
+    let config = emptyPersonalConfig();
+    if (user.coupleId) {
+      try {
+        const couple = (await db.collection('couples').doc(user.coupleId).get()).data;
+        if (couple.status === 'pending' && couple.members.length === 1 && couple.members[0] === openid) {
+          const legacyConfig = (await db.collection('coupleConfigs').doc(user.coupleId).get()).data;
+          config = sanitizeConfig(legacyConfig);
+        }
+      } catch (migrationError) {
+        console.error('迁移个人内容失败', migrationError.message);
+      }
+    }
+    await db.collection('userConfigs').doc(openid).set({
+      data: {
+        ...config,
+        createdAt: now(),
+        ownerOpenid: openid,
+        updatedAt: now(),
+        updatedBy: openid,
+        version: 1,
+      },
+    });
+    return { ...config, version: 1 };
+  }
+};
+
+const getPersonalConfig = async (openid) => {
+  const config = await getOrCreatePersonalConfig(openid);
+  return ok({
+    categories: config.categories,
+    menuItems: config.menuItems,
+    profile: config.profile || emptyPersonalConfig().profile,
+    version: config.version,
+  });
+};
+
+const savePersonalConfig = async (openid, event) => {
+  await getOrCreatePersonalConfig(openid);
+  const config = sanitizeConfig(event.config);
+  const validationError = validateConfig(config);
+  if (validationError) return fail('INVALID_CONFIG', validationError);
+  return db.runTransaction(async (transaction) => {
+    const current = (await transaction.collection('userConfigs').doc(openid).get()).data;
+    if (Number(event.expectedVersion) !== current.version) {
+      return fail('VERSION_CONFLICT', '个人内容刚刚发生变化，请刷新后重试');
+    }
+    await transaction.collection('userConfigs').doc(openid).update({
+      data: {
+        ...config,
+        updatedAt: now(),
+        updatedBy: openid,
+        version: _.inc(1),
+      },
+    });
+    return ok({ ...config, version: current.version + 1 });
+  });
 };
 
 const getConfig = async (openid) => {
@@ -208,6 +285,48 @@ const getOrders = async (openid, event) => {
   });
 };
 
+const getPersonalOrders = async (openid, event) => {
+  const limit = Math.max(1, Math.min(50, Number(event.limit) || 20));
+  const user = (await db.collection('users').doc(openid).get()).data;
+  const archivedCoupleIds = Array.isArray(user.archivedCoupleIds)
+    ? user.archivedCoupleIds.slice(-10)
+    : [];
+  const personalResult = await db
+    .collection('userOrders')
+    .where({ ownerOpenid: openid })
+    .orderBy('createdAt', 'desc')
+    .limit(limit)
+    .get();
+  let archivedOrders = [];
+  if (archivedCoupleIds.length) {
+    const archivedResult = await db
+      .collection('orders')
+      .where({ coupleId: _.in(archivedCoupleIds) })
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .get();
+    archivedOrders = archivedResult.data;
+  }
+  const orders = personalResult.data
+    .concat(archivedOrders)
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .slice(0, limit);
+  return ok({
+    orders: orders.map((order) => ({
+      createdAt: order.createdAt,
+      createdByName: order.createdByName || 'TA',
+      id: order._id,
+      isCreatedByCurrentUser: order.createdBy === openid,
+      items: order.items,
+      note: order.note,
+      orderNo: order.orderNo,
+      respondedByName: order.respondedByName || '',
+      response: order.response || '',
+      status: order.status,
+    })),
+  });
+};
+
 const updateOrder = async (openid, event) => {
   const { coupleId, user } = await getMemberContext(openid);
   const orderId = String(event.orderId || '');
@@ -256,19 +375,17 @@ const updateOrder = async (openid, event) => {
 };
 
 const importLegacy = async (openid, event) => {
-  const { coupleId, user } = await getMemberContext(openid);
+  const user = (await db.collection('users').doc(openid).get()).data;
   if (user.legacyMigratedAt) return ok({ imported: false, reason: 'already_imported' });
+  await getOrCreatePersonalConfig(openid);
   const legacy = event.legacy || {};
   const importedConfig = legacy.config ? sanitizeConfig(legacy.config) : null;
   if (importedConfig) {
     const validationError = validateConfig(importedConfig);
     if (validationError) return fail('INVALID_LEGACY_DATA', validationError);
-    await db.collection('coupleConfigs').doc(coupleId).update({
+    await db.collection('userConfigs').doc(openid).update({
       data: { ...importedConfig, updatedAt: now(), updatedBy: openid, version: _.inc(1) },
     });
-  }
-  if (Array.isArray(legacy.cart)) {
-    await updateCart(openid, { items: legacy.cart });
   }
   const orders = Array.isArray(legacy.orders) ? legacy.orders.slice(0, 100) : [];
   for (const legacyOrder of orders) {
@@ -279,15 +396,16 @@ const importLegacy = async (openid, event) => {
       name: String(item.name || item.nameSnapshot || '旧心愿').slice(0, 30),
       quantity: Math.max(1, Math.min(99, Number(item.quantity) || 1)),
     }));
-    await db.collection('orders').add({
+    await db.collection('userOrders').add({
       data: {
-        coupleId,
+        coupleId: null,
         createdAt: new Date(legacyOrder.createdAt || Date.now()),
         createdBy: openid,
         items: legacyItems,
         note: String(legacyOrder.note || '').slice(0, 100),
         orderNo: String(legacyOrder.id || `LOVE-${Date.now()}`),
         status: String(legacyOrder.status || '等待回应'),
+        ownerOpenid: openid,
         updatedAt: now(),
         updatedBy: openid,
         version: 1,
@@ -303,17 +421,23 @@ const importLegacy = async (openid, event) => {
 exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   try {
+    if (event.action === 'getPersonalConfig') return getPersonalConfig(OPENID);
+    if (event.action === 'savePersonalConfig') return savePersonalConfig(OPENID, event);
     if (event.action === 'getConfig') return getConfig(OPENID);
     if (event.action === 'saveConfig') return saveConfig(OPENID, event);
     if (event.action === 'getCart') return getCart(OPENID);
     if (event.action === 'updateCart') return updateCart(OPENID, event);
     if (event.action === 'createOrder') return createOrder(OPENID, event);
     if (event.action === 'getOrders') return getOrders(OPENID, event);
+    if (event.action === 'getPersonalOrders') return getPersonalOrders(OPENID, event);
     if (event.action === 'updateOrder') return updateOrder(OPENID, event);
     if (event.action === 'importLegacy') return importLegacy(OPENID, event);
     return fail('UNKNOWN_ACTION', '不支持的操作');
   } catch (error) {
     console.error('dataApi error', error.code || error.message);
+    if (error.errCode === -502005 || String(error.message).includes('collection not exists')) {
+      return fail('COLLECTION_REQUIRED', '请先在云开发数据库创建 userConfigs 和 userOrders 集合');
+    }
     return fail(error.code || 'SERVER_ERROR', error.message || '云端数据服务暂时不可用');
   }
 };

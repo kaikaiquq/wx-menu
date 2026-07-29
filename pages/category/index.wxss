@@ -67,6 +67,44 @@ page {
   height: calc(100% - 126rpx);
 }
 
+.shared-empty {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 65vh;
+  padding: 0 70rpx;
+  text-align: center;
+}
+
+.shared-empty-icon {
+  color: var(--love-primary, #bd7180);
+  font-size: 76rpx;
+}
+
+.shared-empty-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 34rpx;
+  font-weight: 600;
+  margin-top: 22rpx;
+}
+
+.shared-empty-note {
+  color: #a69c96;
+  font-size: 21rpx;
+  line-height: 1.6;
+  margin-top: 12rpx;
+}
+
+.shared-empty-button {
+  background: #292421;
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 23rpx;
+  margin-top: 30rpx;
+  padding: 19rpx 38rpx;
+}
+
 .category-side {
   box-sizing: border-box;
   flex: 0 0 166rpx;

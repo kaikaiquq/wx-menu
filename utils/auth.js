@@ -42,18 +42,22 @@ const updateProfile = async ({ nickname, avatarFileId, gender }) => {
   return refreshSession();
 };
 
-const createInvite = async (initialConfig) => {
-  const data = await callCloud('coupleApi', 'createInvite', { initialConfig });
+const createInvite = async () => {
+  const data = await callCloud('coupleApi', 'createInvite');
   await refreshSession();
   return data;
 };
 
-const joinCouple = async (code, anniversary, allowMerge = false) => {
-  const data = await callCloud('coupleApi', 'joinCouple', { allowMerge, anniversary, code });
+const getActiveInvite = () => callCloud('coupleApi', 'getActiveInvite');
+
+const joinCouple = async (code, anniversary) => {
+  const data = await callCloud('coupleApi', 'joinCouple', { anniversary, code });
   const { clearConfigCache } = require('./couple-config');
   const { clearCartCache } = require('./couple-cart');
+  const { clearPersonalConfigCache } = require('./personal-config');
   clearConfigCache();
   clearCartCache();
+  clearPersonalConfigCache();
   await refreshSession();
   return data;
 };
@@ -68,8 +72,10 @@ const logout = () => {
   clearSession();
   const { clearConfigCache } = require('./couple-config');
   const { clearCartCache } = require('./couple-cart');
+  const { clearPersonalConfigCache } = require('./personal-config');
   clearConfigCache();
   clearCartCache();
+  clearPersonalConfigCache();
   wx.reLaunch({ url: '/pages/auth/index' });
 };
 
@@ -116,6 +122,7 @@ module.exports = {
   bootstrap,
   clearSession,
   createInvite,
+  getActiveInvite,
   getSession,
   isLoggedOut,
   joinCouple,

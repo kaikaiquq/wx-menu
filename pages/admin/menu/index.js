@@ -1,25 +1,39 @@
-const { getConfigDraft, setConfigDraft } = require('../../../utils/couple-config-session');
-const { getDefaultConfig } = require('../../../utils/couple-config');
+const {
+  getConfigDraft,
+  getDraftScope,
+  setConfigDraft,
+} = require('../../../utils/couple-config-session');
 const { requireSession } = require('../../../utils/auth');
+const { getPersonalConfig, savePersonalConfig } = require('../../../utils/personal-config');
 const { getThemeClass } = require('../../../utils/theme');
 
 Page({
   data: {
     categories: [],
     categoryNames: [],
+    createAndLinkMode: false,
     authorized: false,
     editingIndex: -1,
     itemDraft: null,
     loadError: false,
     menuItems: [],
+    isSharedScope: false,
     themeClass: 'theme-female',
   },
 
-  async onLoad() {
-    const session = await requireSession();
+  async onLoad(options) {
+    const isSharedScope = getDraftScope() === 'shared';
+    const createAndLinkMode = isSharedScope && options.mode === 'createAndLink';
+    const session = await requireSession({ requireCouple: isSharedScope });
     if (!session) return;
-    this.setData({ authorized: true, themeClass: getThemeClass(session.user.gender) });
+    this.setData({
+      authorized: true,
+      createAndLinkMode,
+      isSharedScope,
+      themeClass: getThemeClass(session.user.gender),
+    });
     this.loadDraft();
+    if (createAndLinkMode) this.addItem();
   },
 
   onShow() {
@@ -29,10 +43,18 @@ Page({
   loadDraft() {
     try {
       const draft = getConfigDraft();
-      const defaults = getDefaultConfig();
       const categories =
-        Array.isArray(draft.categories) && draft.categories.length ? draft.categories : defaults.categories;
-      const menuItems = Array.isArray(draft.menuItems) ? draft.menuItems : defaults.menuItems;
+        Array.isArray(draft.categories) && draft.categories.length
+          ? draft.categories
+          : [
+              {
+                icon: '♡',
+                id: `category-${Date.now()}`,
+                name: '未分类',
+                subtitle: '新的小心愿',
+              },
+            ];
+      const menuItems = Array.isArray(draft.menuItems) ? draft.menuItems : [];
       const normalizedDraft = { ...draft, categories, menuItems };
       setConfigDraft(normalizedDraft);
       this.setData({
@@ -140,10 +162,57 @@ Page({
     return true;
   },
 
-  confirmItem() {
+  async confirmItem() {
     if (!this.validateDraft()) return;
     const menuItems = [...this.data.menuItems];
     const { categoryIndex, ...item } = this.data.itemDraft;
+    if (this.data.createAndLinkMode && this.data.editingIndex === menuItems.length) {
+      wx.showLoading({ title: '保存到个人库' });
+      try {
+        const personalConfig = await getPersonalConfig(true);
+        const sharedCategory = this.data.categories[categoryIndex];
+        const personalCategories = [...personalConfig.categories];
+        let personalCategory = personalCategories.find(
+          (category) => category.name === sharedCategory.name,
+        );
+        if (!personalCategory) {
+          personalCategory = {
+            ...sharedCategory,
+            id: `personal-category-${Date.now()}`,
+          };
+          personalCategories.push(personalCategory);
+        }
+        const personalItems = [...personalConfig.menuItems];
+        const itemId = personalItems.some((personalItem) => personalItem.id === item.id)
+          ? `personal-item-${Date.now()}`
+          : item.id;
+        personalItems.push({
+          ...item,
+          categoryId: personalCategory.id,
+          id: itemId,
+        });
+        const savedPersonal = await savePersonalConfig({
+          ...personalConfig,
+          categories: personalCategories,
+          menuItems: personalItems,
+        });
+        const savedItem = savedPersonal.menuItems.find((personalItem) => personalItem.id === itemId);
+        menuItems[this.data.editingIndex] = {
+          ...item,
+          id: itemId,
+          image: savedItem?.image || item.image,
+        };
+        const sharedDraft = getConfigDraft();
+        setConfigDraft({ ...sharedDraft, menuItems });
+        wx.hideLoading();
+        wx.showToast({ title: '已保存个人库并加入共同草稿', icon: 'none' });
+        setTimeout(() => wx.navigateBack(), 600);
+      } catch (error) {
+        wx.hideLoading();
+        wx.showToast({ title: error.message || '新建失败', icon: 'none' });
+      }
+      return;
+    }
     menuItems[this.data.editingIndex] = item;
     const draft = getConfigDraft();
     setConfigDraft({ ...draft, menuItems });

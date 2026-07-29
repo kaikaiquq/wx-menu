@@ -47,7 +47,7 @@
   <view class="stats-row stats-row-single">
     <view class="stat-card">
       <view class="stat-value">{{orderCount}}</view>
-      <view class="stat-label">一起点单</view>
+      <view class="stat-label">{{coupleStatus === 'active' ? '一起点单' : '保留记录'}}</view>
     </view>
   </view>
 
@@ -80,7 +80,9 @@
   <view class="latest-empty" wx:else>
     <view class="latest-empty-icon">♡</view>
     <view>还没有共同心愿</view>
-    <view class="latest-empty-button" bind:tap="goMenu">去点第一单</view>
+    <view class="latest-empty-button" bind:tap="goMenu">
+      {{coupleStatus === 'none' ? '管理我的内容' : '去点第一单'}}
+    </view>
   </view>
 
   <view class="section-heading">
@@ -88,15 +90,20 @@
   </view>
 
   <view class="tool-grid">
-    <view class="tool-card tool-card-invite" wx:if="{{coupleStatus === 'pending'}}" bind:tap="openInvite">
+    <view class="tool-card tool-card-invite" wx:if="{{coupleStatus !== 'active'}}" bind:tap="openInvite">
       <view class="tool-icon tool-icon-invite">💞</view>
       <view class="tool-name">绑定情侣空间</view>
       <view class="tool-note">分享邀请，或输入 TA 的邀请码</view>
     </view>
-    <view class="tool-card tool-card-admin" bind:tap="openAdmin">
+    <view class="tool-card tool-card-admin" wx:if="{{coupleStatus === 'active'}}" bind:tap="openAdmin">
+      <view class="tool-icon tool-icon-dark">♡</view>
+      <view class="tool-name">共同空间管理</view>
+      <view class="tool-note">导入彼此喜欢的点单内容</view>
+    </view>
+    <view class="tool-card tool-card-admin" bind:tap="openPersonalLibrary">
       <view class="tool-icon tool-icon-dark">⚙️</view>
-      <view class="tool-name">内容管理</view>
-      <view class="tool-note">昵称、纪念日和点单项</view>
+      <view class="tool-name">我的内容库</view>
+      <view class="tool-note">管理只属于自己的喜好</view>
     </view>
     <view class="tool-card" bind:tap="showComingSoon">
       <view class="tool-icon tool-icon-pink">📅</view>

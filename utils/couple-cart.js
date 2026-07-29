@@ -55,6 +55,11 @@ const getOrders = async (limit = 20) => {
   return orders;
 };
 
+const getPersonalOrders = async (limit = 20) => {
+  const { orders } = await callCloud('dataApi', 'getPersonalOrders', { limit });
+  return orders;
+};
+
 const updateOrder = (orderId, operation, response = '') =>
   callCloud('dataApi', 'updateOrder', {
     operation,
@@ -73,6 +78,7 @@ module.exports = {
   createOrder,
   getCart,
   getOrders,
+  getPersonalOrders,
   updateOrder,
   updateQuantity,
 };

@@ -1,4 +1,6 @@
 const { getMenuConfig, saveMenuConfig } = require('../../utils/couple-config');
+const { mergeConfigContent } = require('../../utils/merge-config');
+const { getPersonalConfig, savePersonalConfig } = require('../../utils/personal-config');
 const { requireSession } = require('../../utils/auth');
 const { getThemeClass } = require('../../utils/theme');
 const {
@@ -12,18 +14,29 @@ Page({
   data: {
     categoryCount: 0,
     menuCount: 0,
+    personalItems: [],
     profile: {},
     saving: false,
+    selectedPersonalIds: [],
+    showPersonalPicker: false,
+    scope: 'shared',
     themeClass: 'theme-female',
   },
 
-  async onLoad() {
-    const session = await requireSession();
+  async onLoad(options) {
+    this.scope = options.scope === 'personal' ? 'personal' : 'shared';
+    const session = await requireSession({ requireCouple: this.scope === 'shared' });
     if (!session) return;
-    this.setData({ themeClass: getThemeClass(session.user.gender) });
+    if (this.scope === 'shared' && session.couple?.status !== 'active') {
+      wx.showToast({ title: '绑定后才能管理共同空间', icon: 'none' });
+      setTimeout(() => wx.navigateBack(), 500);
+      return;
+    }
+    wx.setNavigationBarTitle({ title: this.scope === 'personal' ? '我的内容库' : '共同空间管理' });
+    this.setData({ scope: this.scope, themeClass: getThemeClass(session.user.gender) });
     try {
-      const config = await getMenuConfig(true);
-      const draft = startConfigSession(config);
+      const config = this.scope === 'personal' ? await getPersonalConfig(true) : await getMenuConfig(true);
+      const draft = startConfigSession(config, this.scope);
       this.showDraft(draft);
     } catch (error) {
       wx.showToast({ title: error.message || '配置加载失败', icon: 'none' });
@@ -74,6 +87,10 @@ Page({
     wx.navigateTo({ url: '/pages/admin-menu/index' });
   },
 
+  createAndLinkItem() {
+    wx.navigateTo({ url: '/pages/admin-menu/index?mode=createAndLink' });
+  },
+
   clearAll() {
     wx.showModal({
       title: '清空全部菜单内容？',
@@ -104,15 +121,19 @@ Page({
 
   async saveAll() {
     const draft = getConfigDraft();
-    if (!draft.profile.herName.trim() || !draft.profile.hisName.trim()) {
+    if (
+      this.scope === 'shared' &&
+      (!draft.profile.herName.trim() || !draft.profile.hisName.trim())
+    ) {
       wx.showToast({ title: '请填写双方昵称', icon: 'none' });
       return;
     }
 
     this.setData({ saving: true });
     try {
-      const saved = await saveMenuConfig(draft);
-      startConfigSession(saved);
+      const saved =
+        this.scope === 'personal' ? await savePersonalConfig(draft) : await saveMenuConfig(draft);
+      startConfigSession(saved, this.scope);
       this.setData({ saving: false });
       wx.showToast({ title: '配置已生效', icon: 'success' });
     } catch (error) {
@@ -122,6 +143,62 @@ Page({
         content: error.message || '请稍后重试',
         showCancel: false,
       });
+    }
+  },
+
+  async openPersonalPicker() {
+    wx.showLoading({ title: '加载个人内容' });
+    try {
+      const personalConfig = await getPersonalConfig(true);
+      wx.hideLoading();
+      this.personalConfig = personalConfig;
+      this.setData({
+        personalItems: personalConfig.menuItems.map((item) => ({ ...item, selected: false })),
+        selectedPersonalIds: [],
+        showPersonalPicker: true,
+      });
+    } catch (error) {
+      wx.hideLoading();
+      wx.showToast({ title: error.message || '个人内容加载失败', icon: 'none' });
+    }
+  },
+
+  closePersonalPicker() {
+    this.setData({ showPersonalPicker: false });
+  },
+
+  togglePersonalItem(event) {
+    const id = event.currentTarget.dataset.id;
+    const selectedPersonalIds = this.data.selectedPersonalIds.includes(id)
+      ? this.data.selectedPersonalIds.filter((itemId) => itemId !== id)
+      : this.data.selectedPersonalIds.concat(id);
+    this.setData({
+      personalItems: this.data.personalItems.map((item) => ({
+        ...item,
+        selected: selectedPersonalIds.includes(item.id),
+      })),
+      selectedPersonalIds,
+    });
+  },
+
+  addSelectedPersonalItems() {
+    if (!this.data.selectedPersonalIds.length) {
+      wx.showToast({ title: '请先选择内容', icon: 'none' });
+      return;
+    }
+    const menuItems = this.personalConfig.menuItems.filter((item) =>
+      this.data.selectedPersonalIds.includes(item.id),
+    );
+    const categoryIds = new Set(menuItems.map((item) => item.categoryId));
+    const categories = this.personalConfig.categories.filter((item) => categoryIds.has(item.id));
+    try {
+      const merged = mergeConfigContent(getConfigDraft(), { categories, menuItems });
+      setConfigDraft(merged);
+      this.showDraft(merged);
+      this.setData({ showPersonalPicker: false });
+      wx.showToast({ title: '已加入共同草稿', icon: 'none' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '添加失败', icon: 'none' });
     }
   },
 });

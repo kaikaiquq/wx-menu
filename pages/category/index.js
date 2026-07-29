@@ -22,14 +22,18 @@ Page({
     this.setData({ themeClass: getThemeClass(session.user.gender) });
     try {
       const [{ categories, menuItems }, cart] = await Promise.all([getMenuConfig(true), getCart(true)]);
-      const activeCategory = wx.getStorageSync('couple.menu.activeCategory') || categories[0].id;
       this.setData({
         cartCount: cart.reduce((count, item) => count + item.quantity, 0),
         categories,
         loading: false,
         menuItems,
       });
-      this.showCategory(activeCategory);
+      if (categories.length) {
+        const activeCategory = wx.getStorageSync('couple.menu.activeCategory') || categories[0].id;
+        this.showCategory(activeCategory);
+      } else {
+        this.setData({ activeCategory: '', activeCategoryName: '', visibleItems: [] });
+      }
     } catch (error) {
       this.setData({ loading: false });
       wx.showToast({ title: error.message || '加载失败', icon: 'none' });
@@ -76,5 +80,9 @@ Page({
 
   openCart() {
     wx.switchTab({ url: '/pages/cart/index' });
+  },
+
+  openSharedAdmin() {
+    wx.navigateTo({ url: '/pages/admin/index' });
   },
 });

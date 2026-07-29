@@ -17,13 +17,14 @@ const callCloud = async (name, action, data = {}) => {
   return result.data;
 };
 
-const uploadCloudImage = async (localPath, coupleId) => {
+const uploadCloudImage = async (localPath, ownerId, scope = 'couple') => {
   if (!localPath || localPath.startsWith('cloud://') || localPath.startsWith('https://')) {
     return localPath;
   }
 
   const extension = localPath.split('.').pop().toLowerCase().split('?')[0] || 'jpg';
-  const cloudPath = `couples/${coupleId}/menu/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+  const root = scope === 'personal' ? `users/${ownerId}/personal` : `couples/${ownerId}/menu`;
+  const cloudPath = `${root}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
   const { fileID } = await wx.cloud.uploadFile({
     cloudPath,
     filePath: localPath,

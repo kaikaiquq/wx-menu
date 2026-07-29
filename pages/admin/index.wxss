@@ -167,6 +167,16 @@ page {
   color: var(--love-primary, #b9616e);
 }
 
+.manager-icon-import {
+  background: #edf3e9;
+  color: #708866;
+}
+
+.manager-icon-new {
+  background: var(--love-soft, #f5e4e7);
+  color: var(--love-primary, #b9616e);
+}
+
 .manager-info {
   flex: 1;
 }
@@ -249,4 +259,124 @@ page {
 
 .save-button-disabled {
   opacity: 0.55;
+}
+
+.picker-mask {
+  background: rgba(30, 25, 23, 0.35);
+  bottom: 0;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 20;
+}
+
+.personal-picker {
+  background: #fff;
+  border-radius: 34rpx 34rpx 0 0;
+  bottom: 0;
+  box-sizing: border-box;
+  left: 0;
+  padding: 18rpx 28rpx calc(env(safe-area-inset-bottom) + 24rpx);
+  position: fixed;
+  right: 0;
+  z-index: 21;
+}
+
+.picker-handle {
+  background: #ddd5d0;
+  border-radius: 999rpx;
+  height: 7rpx;
+  margin: 0 auto 24rpx;
+  width: 72rpx;
+}
+
+.picker-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.picker-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.picker-note,
+.picker-item-cost,
+.picker-empty {
+  color: #9f958f;
+  font-size: 20rpx;
+  margin-top: 6rpx;
+}
+
+.picker-close {
+  color: #918681;
+  font-size: 46rpx;
+  padding: 12rpx;
+}
+
+.picker-list {
+  max-height: 58vh;
+  margin-top: 22rpx;
+}
+
+.picker-item {
+  align-items: center;
+  border: 2rpx solid #eee8e4;
+  border-radius: 22rpx;
+  display: flex;
+  margin-bottom: 14rpx;
+  padding: 15rpx;
+}
+
+.picker-item-selected {
+  background: var(--love-soft, #f8eded);
+  border-color: var(--love-primary, #bd7180);
+}
+
+.picker-image {
+  background: #f2eeeb;
+  border-radius: 16rpx;
+  height: 76rpx;
+  width: 76rpx;
+}
+
+.picker-info {
+  flex: 1;
+  min-width: 0;
+  padding: 0 18rpx;
+}
+
+.picker-item-name {
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.picker-check {
+  align-items: center;
+  border: 2rpx solid #d7cfca;
+  border-radius: 50%;
+  color: var(--love-primary, #bd7180);
+  display: flex;
+  font-size: 20rpx;
+  height: 38rpx;
+  justify-content: center;
+  width: 38rpx;
+}
+
+.picker-submit {
+  background: #292421;
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 24rpx;
+  margin-top: 20rpx;
+  padding: 21rpx;
+  text-align: center;
+}
+
+.picker-empty {
+  padding: 50rpx 20rpx;
+  text-align: center;
 }

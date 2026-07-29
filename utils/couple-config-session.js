@@ -1,11 +1,13 @@
 const { getCachedMenuConfig } = require('./couple-config');
 
 let configDraft = null;
+let draftScope = 'shared';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
-const startConfigSession = (config = getCachedMenuConfig()) => {
+const startConfigSession = (config = getCachedMenuConfig(), scope = 'shared') => {
   configDraft = clone(config);
+  draftScope = scope;
   return clone(configDraft);
 };
 
@@ -23,11 +25,15 @@ const setConfigDraft = (config) => {
 
 const clearConfigSession = () => {
   configDraft = null;
+  draftScope = 'shared';
 };
+
+const getDraftScope = () => draftScope;
 
 module.exports = {
   clearConfigSession,
   getConfigDraft,
+  getDraftScope,
   setConfigDraft,
   startConfigSession,
 };

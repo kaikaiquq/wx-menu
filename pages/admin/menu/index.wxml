@@ -5,7 +5,7 @@
       <view class="manage-title">菜单管理</view>
       <view class="manage-note">修改会暂存在草稿中，返回后点击保存才会生效</view>
     </view>
-    <view class="add-item-button" bind:tap="addItem">＋ 新增</view>
+    <view class="add-item-button" wx:if="{{!isSharedScope}}" bind:tap="addItem">＋ 新增</view>
   </view>
 
   <view class="empty-menu" wx:if="{{loadError}}">
@@ -18,7 +18,9 @@
   <view class="empty-menu" wx:if="{{!loadError && menuItems.length === 0}}">
     <view class="empty-icon">♡</view>
     <view class="empty-title">菜单还是空的</view>
-    <view class="empty-note">点击右上角新增第一个点单项</view>
+    <view class="empty-note">
+      {{isSharedScope ? '请返回共同空间管理，从个人库选择或新建内容' : '点击右上角新增第一个点单项'}}
+    </view>
   </view>
 
   <view class="item-list" wx:if="{{!loadError && menuItems.length > 0}}">
@@ -40,8 +42,12 @@
     <view class="editor-handle"></view>
     <view class="editor-header">
       <view>
-        <view class="editor-title">{{editingIndex === menuItems.length ? '新增点单项' : '编辑点单项'}}</view>
-        <view class="editor-note">完成后会暂存到本次草稿</view>
+        <view class="editor-title">
+          {{createAndLinkMode ? '新建并加入共同空间' : (editingIndex === menuItems.length ? '新增点单项' : '编辑点单项')}}
+        </view>
+        <view class="editor-note">
+          {{createAndLinkMode ? '会先保存到个人内容库，再加入共同空间草稿' : '完成后会暂存到本次草稿'}}
+        </view>
       </view>
       <view class="editor-close" bind:tap="cancelEdit">×</view>
     </view>
@@ -101,7 +107,9 @@
           </view>
         </view>
       </view>
-      <view class="editor-save" bind:tap="confirmItem">完成并加入草稿</view>
+      <view class="editor-save" bind:tap="confirmItem">
+        {{createAndLinkMode ? '保存个人库并加入共同草稿' : '完成并加入草稿'}}
+      </view>
     </scroll-view>
   </view>
 </view>

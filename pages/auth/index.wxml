@@ -79,6 +79,9 @@
       <button class="{{incomingCode ? 'primary-button' : 'secondary-button'}}" loading="{{saving}}" disabled="{{saving}}" bind:tap="joinSpace">
         {{incomingCode ? '接受邀请并加入' : '确认加入 TA 的空间'}}
       </button>
+      <view class="retry-link" wx:if="{{!incomingCode}}" bind:tap="openPersonalLibrary">
+        暂不绑定，先管理我的内容库
+      </view>
     </view>
 
     <view class="auth-card" wx:elif="{{session.couple.status === 'active' && incomingCode}}">
@@ -91,7 +94,7 @@
       <block wx:if="{{incomingCode}}">
         <view class="card-step">INVITATION</view>
         <view class="card-title">TA 邀请你加入情侣空间</view>
-        <view class="card-note">确认后，你当前空间的内容会安全合并到你们的共同空间</view>
+        <view class="card-note">你们会得到一个全新的空白共同空间，双方个人内容仍各自保留</view>
         <input
           class="invite-input invite-input-prefilled"
           value="{{incomingCode}}"
@@ -128,7 +131,7 @@
           <view class="anniversary-picker">{{anniversary}} <text>选择日期 ›</text></view>
         </picker>
         <button class="secondary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="joinSpace">
-          合并内容并加入
+          加入 TA 的共同空间
         </button>
         <view class="retry-link" bind:tap="loadSession">TA 已加入？刷新状态</view>
       </block>

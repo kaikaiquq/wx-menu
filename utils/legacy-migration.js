@@ -9,7 +9,7 @@ const askToImport = () =>
   new Promise((resolve) => {
     wx.showModal({
       title: '发现本机旧数据',
-      content: '是否把之前的菜单、心愿单和记录导入当前情侣空间？成功后旧本地数据会被清理。',
+      content: '是否把之前的菜单和记录导入你的个人内容库？成功后旧本地数据会被清理。',
       confirmText: '导入云端',
       confirmColor: '#bd6875',
       success: ({ confirm }) => resolve(confirm),
@@ -18,7 +18,7 @@ const askToImport = () =>
   });
 
 const migrateLegacyData = async (session) => {
-  if (checked || !session?.couple?.coupleId) return false;
+  if (checked || !session?.user?.publicUserId) return false;
   checked = true;
   const markerKey = `couple.menu.migrated.${session.user.publicUserId}`;
   if (wx.getStorageSync(markerKey)) return false;
@@ -47,8 +47,10 @@ const migrateLegacyData = async (session) => {
     wx.setStorageSync(markerKey, true);
     const { clearConfigCache } = require('./couple-config');
     const { clearCartCache } = require('./couple-cart');
+    const { clearPersonalConfigCache } = require('./personal-config');
     clearConfigCache();
     clearCartCache();
+    clearPersonalConfigCache();
     wx.showToast({ title: '旧数据已导入', icon: 'success' });
     return true;
   } finally {

@@ -1,11 +1,13 @@
 <view class="admin-page {{themeClass}}">
   <view class="admin-heading">
     <view class="admin-eyebrow">EASY SETUP</view>
-    <view class="admin-title">内容管理</view>
-    <view class="admin-subtitle">这里的修改只是草稿，点击底部保存后才会生效</view>
+    <view class="admin-title">{{scope === 'personal' ? '我的内容库' : '共同空间管理'}}</view>
+    <view class="admin-subtitle">
+      {{scope === 'personal' ? '只属于你的喜好，绑定和解绑都不会丢失' : '双方共同可见，可从个人内容库导入'}}
+    </view>
   </view>
 
-  <view class="draft-tip">
+  <view class="draft-tip" wx:if="{{scope === 'shared'}}">
     <view class="draft-dot"></view>
     <view>
       <view class="draft-title">草稿模式</view>
@@ -13,14 +15,14 @@
     </view>
   </view>
 
-  <view class="section-heading">
+  <view class="section-heading" wx:if="{{scope === 'shared'}}">
     <view>
       <view class="section-title">我们的资料</view>
       <view class="section-note">会展示在“我们”页面</view>
     </view>
   </view>
 
-  <view class="form-card">
+  <view class="form-card" wx:if="{{scope === 'shared'}}">
     <view class="field-row">
       <view class="field-item">
         <view class="field-label">她的昵称</view>
@@ -59,6 +61,22 @@
   </view>
 
   <view class="manager-list">
+    <view class="manager-entry import-entry" wx:if="{{scope === 'shared'}}" bind:tap="openPersonalPicker">
+      <view class="manager-icon manager-icon-import">＋</view>
+      <view class="manager-info">
+        <view class="manager-title">从我的内容库选择</view>
+        <view class="manager-note">选择已有内容加入共同空间</view>
+      </view>
+      <view class="manager-arrow">›</view>
+    </view>
+    <view class="manager-entry import-entry" wx:if="{{scope === 'shared'}}" bind:tap="createAndLinkItem">
+      <view class="manager-icon manager-icon-new">✦</view>
+      <view class="manager-info">
+        <view class="manager-title">新建并加入共同空间</view>
+        <view class="manager-note">新内容同时保存到个人内容库</view>
+      </view>
+      <view class="manager-arrow">›</view>
+    </view>
     <view class="manager-entry" bind:tap="openCategoryManager">
       <view class="manager-icon manager-icon-category">◫</view>
       <view class="manager-info">
@@ -82,14 +100,46 @@
   <view class="danger-zone">
     <view>
       <view class="danger-title">清空全部内容</view>
-      <view class="danger-note">清空所有分类和点单项，不影响双方资料</view>
+      <view class="danger-note">清空当前{{scope === 'personal' ? '个人库' : '共同空间'}}的分类和点单项</view>
     </view>
     <view class="clear-button" bind:tap="clearAll">全部清空</view>
   </view>
 
   <view class="admin-footer">
     <view class="save-button {{saving ? 'save-button-disabled' : ''}}" bind:tap="saveAll">
-      {{saving ? '正在上传并保存...' : '保存并立即生效'}}
+      {{saving ? '正在上传并保存...' : (scope === 'personal' ? '保存个人内容库' : '保存共同空间')}}
+    </view>
+  </view>
+
+  <view class="picker-mask" wx:if="{{showPersonalPicker}}" bind:tap="closePersonalPicker"></view>
+  <view class="personal-picker" wx:if="{{showPersonalPicker}}">
+    <view class="picker-handle"></view>
+    <view class="picker-heading">
+      <view>
+        <view class="picker-title">选择个人内容</view>
+        <view class="picker-note">选中的内容会加入共同空间草稿</view>
+      </view>
+      <view class="picker-close" bind:tap="closePersonalPicker">×</view>
+    </view>
+    <scroll-view class="picker-list" scroll-y>
+      <view class="picker-empty" wx:if="{{!personalItems.length}}">个人内容库还是空的，请先选择“新建并加入”。</view>
+      <view
+        class="picker-item {{item.selected ? 'picker-item-selected' : ''}}"
+        wx:for="{{personalItems}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bind:tap="togglePersonalItem"
+      >
+        <image class="picker-image" src="{{item.image}}" mode="aspectFill" />
+        <view class="picker-info">
+          <view class="picker-item-name">{{item.name}}</view>
+          <view class="picker-item-cost">{{item.cost}}</view>
+        </view>
+        <view class="picker-check">{{item.selected ? '✓' : ''}}</view>
+      </view>
+    </scroll-view>
+    <view class="picker-submit" bind:tap="addSelectedPersonalItems">
+      添加选中的 {{selectedPersonalIds.length}} 项
     </view>
   </view>
 </view>
