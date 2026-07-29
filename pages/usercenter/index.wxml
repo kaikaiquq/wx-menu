@@ -1,0 +1,122 @@
+<view class="space-page {{themeClass}}">
+  <view class="space-hero">
+    <view class="space-eyebrow">OUR LITTLE SPACE</view>
+    <view class="couple-row">
+      <view
+        class="person"
+        data-public-id="{{displayMembers[0].publicUserId}}"
+        bind:tap="handleAvatarTap"
+      >
+        <image
+          class="person-avatar person-avatar-her"
+          wx:if="{{displayMembers[0].avatarFileId}}"
+          src="{{displayMembers[0].avatarFileId}}"
+          mode="aspectFill"
+        />
+        <view class="person-avatar person-avatar-her" wx:else>{{displayMembers[0].fallbackLabel}}</view>
+        <view class="person-name">{{displayMembers[0].nickname}}</view>
+      </view>
+      <view class="love-mark">
+        <view class="love-line"></view>
+        <view class="love-heart">♡</view>
+        <view class="love-line"></view>
+      </view>
+      <view
+        class="person"
+        data-public-id="{{displayMembers[1].publicUserId}}"
+        bind:tap="handleAvatarTap"
+      >
+        <image
+          class="person-avatar person-avatar-him"
+          wx:if="{{displayMembers[1].avatarFileId}}"
+          src="{{displayMembers[1].avatarFileId}}"
+          mode="aspectFill"
+        />
+        <view class="person-avatar person-avatar-him" wx:else>{{displayMembers[1].fallbackLabel}}</view>
+        <view class="person-name">{{displayMembers[1].nickname}}</view>
+      </view>
+    </view>
+    <block wx:if="{{coupleStatus === 'active'}}">
+      <view class="together-text">我们在一起的第</view>
+      <view class="together-days">{{coupleDays}}<text>天</text></view>
+      <view class="anniversary-pill">纪念日 · {{profile.anniversaryText}}</view>
+    </block>
+    <view class="anniversary-pill" wx:else>尚未绑定伴侣</view>
+  </view>
+
+  <view class="stats-row stats-row-single">
+    <view class="stat-card">
+      <view class="stat-value">{{orderCount}}</view>
+      <view class="stat-label">一起点单</view>
+    </view>
+  </view>
+
+  <view class="section-heading">
+    <view>
+      <view class="section-title">最近的小心愿</view>
+      <view class="section-subtitle">认真记录每一次选择</view>
+    </view>
+  </view>
+
+  <view class="latest-card" wx:if="{{latestOrder}}">
+    <view class="latest-top">
+      <view class="latest-date">{{latestOrder.dateText}}</view>
+      <view class="latest-status">{{latestOrder.status}}</view>
+    </view>
+    <view class="latest-title">{{latestOrder.itemNames}}</view>
+    <view class="latest-note" wx:if="{{latestOrder.note}}">“{{latestOrder.note}}”</view>
+    <view class="latest-avatars">
+      <image
+        class="latest-image"
+        wx:for="{{latestOrder.items}}"
+        wx:key="id"
+        wx:for-item="orderItem"
+        src="{{orderItem.image}}"
+        mode="aspectFill"
+      />
+    </view>
+  </view>
+
+  <view class="latest-empty" wx:else>
+    <view class="latest-empty-icon">♡</view>
+    <view>还没有共同心愿</view>
+    <view class="latest-empty-button" bind:tap="goMenu">去点第一单</view>
+  </view>
+
+  <view class="section-heading">
+    <view class="section-title">情侣工具箱</view>
+  </view>
+
+  <view class="tool-grid">
+    <view class="tool-card tool-card-invite" wx:if="{{coupleStatus === 'pending'}}" bind:tap="openInvite">
+      <view class="tool-icon tool-icon-invite">💞</view>
+      <view class="tool-name">邀请 TA 加入</view>
+      <view class="tool-note">生成邀请码，之后绑定也可以</view>
+    </view>
+    <view class="tool-card tool-card-admin" bind:tap="openAdmin">
+      <view class="tool-icon tool-icon-dark">⚙️</view>
+      <view class="tool-name">内容管理</view>
+      <view class="tool-note">昵称、纪念日和点单项</view>
+    </view>
+    <view class="tool-card" bind:tap="showComingSoon">
+      <view class="tool-icon tool-icon-pink">📅</view>
+      <view class="tool-name">纪念日</view>
+      <view class="tool-note">重要日子不忘记</view>
+    </view>
+    <view class="tool-card" bind:tap="showComingSoon">
+      <view class="tool-icon tool-icon-yellow">🎲</view>
+      <view class="tool-name">随机约会</view>
+      <view class="tool-note">选择困难交给它</view>
+    </view>
+    <view class="tool-card" bind:tap="showComingSoon">
+      <view class="tool-icon tool-icon-blue">💌</view>
+      <view class="tool-name">悄悄话</view>
+      <view class="tool-note">写给彼此的小信</view>
+    </view>
+    <view class="tool-card" bind:tap="showComingSoon">
+      <view class="tool-icon tool-icon-green">📷</view>
+      <view class="tool-name">回忆册</view>
+      <view class="tool-note">收藏喜欢的瞬间</view>
+    </view>
+  </view>
+</view>

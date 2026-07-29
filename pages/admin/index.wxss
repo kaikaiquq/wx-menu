@@ -1,0 +1,252 @@
+page {
+  background: #f8f5f2;
+  color: #292421;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 150rpx);
+}
+
+.admin-page {
+  background: var(--love-bg, #f8f5f2);
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 30rpx 28rpx;
+}
+
+.admin-heading {
+  padding: 10rpx 4rpx 28rpx;
+}
+
+.admin-eyebrow {
+  color: var(--love-primary, #bd7180);
+  font-size: 18rpx;
+  font-weight: 600;
+  letter-spacing: 5rpx;
+}
+
+.admin-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 46rpx;
+  font-weight: 600;
+  margin-top: 8rpx;
+}
+
+.admin-subtitle,
+.section-note {
+  color: #a69c96;
+  font-size: 21rpx;
+  margin-top: 8rpx;
+}
+
+.draft-tip {
+  align-items: center;
+  background: var(--love-soft, #f3e5e7);
+  border: 1rpx solid #ead0d4;
+  border-radius: 24rpx;
+  display: flex;
+  padding: 22rpx 24rpx;
+}
+
+.draft-dot {
+  background: var(--love-primary, #bd6875);
+  border-radius: 50%;
+  height: 18rpx;
+  margin-right: 18rpx;
+  width: 18rpx;
+}
+
+.draft-title {
+  color: var(--love-primary-dark, #9f4f5c);
+  font-size: 23rpx;
+  font-weight: 600;
+}
+
+.draft-description {
+  color: #a87980;
+  font-size: 19rpx;
+  margin-top: 4rpx;
+}
+
+.section-heading {
+  margin: 44rpx 4rpx 20rpx;
+}
+
+.section-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 35rpx;
+  font-weight: 600;
+}
+
+.form-card,
+.manager-list {
+  background: #fff;
+  border-radius: 28rpx;
+  box-shadow: 0 12rpx 35rpx rgba(75, 59, 53, 0.05);
+  padding: 28rpx;
+}
+
+.field-row {
+  display: flex;
+  gap: 18rpx;
+}
+
+.field-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-item-full {
+  border-top: 1rpx solid #eee8e4;
+  margin-top: 26rpx;
+  padding-top: 24rpx;
+}
+
+.field-label {
+  color: #817873;
+  font-size: 21rpx;
+  margin-bottom: 12rpx;
+}
+
+.field-input {
+  background: #f8f5f2;
+  border-radius: 18rpx;
+  box-sizing: border-box;
+  font-size: 24rpx;
+  height: 76rpx;
+  line-height: 76rpx;
+  padding: 0 19rpx;
+  width: 100%;
+}
+
+.date-picker {
+  align-items: center;
+  background: #f8f5f2;
+  border-radius: 18rpx;
+  display: flex;
+  font-size: 23rpx;
+  justify-content: space-between;
+  padding: 20rpx;
+}
+
+.date-picker text {
+  color: #b76a76;
+  font-size: 20rpx;
+}
+
+.manager-list {
+  padding: 0 24rpx;
+}
+
+.manager-entry {
+  align-items: center;
+  border-bottom: 1rpx solid #eee8e4;
+  display: flex;
+  padding: 26rpx 0;
+}
+
+.manager-entry:last-child {
+  border-bottom: 0;
+}
+
+.manager-icon {
+  align-items: center;
+  border-radius: 18rpx;
+  display: flex;
+  font-size: 31rpx;
+  height: 72rpx;
+  justify-content: center;
+  margin-right: 20rpx;
+  width: 72rpx;
+}
+
+.manager-icon-category {
+  background: #e7edf2;
+  color: #60798c;
+}
+
+.manager-icon-menu {
+  background: var(--love-soft, #f5e4e7);
+  color: var(--love-primary, #b9616e);
+}
+
+.manager-info {
+  flex: 1;
+}
+
+.manager-title {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.manager-note {
+  color: #a69c96;
+  font-size: 19rpx;
+  margin-top: 6rpx;
+}
+
+.manager-count {
+  color: #9b918b;
+  font-size: 20rpx;
+}
+
+.manager-arrow {
+  color: #bcb3ae;
+  font-size: 40rpx;
+  margin-left: 15rpx;
+}
+
+.danger-zone {
+  align-items: center;
+  background: #fff;
+  border: 1rpx solid #eedbdd;
+  border-radius: 24rpx;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 42rpx;
+  padding: 24rpx;
+}
+
+.danger-title {
+  color: #a95663;
+  font-size: 23rpx;
+  font-weight: 600;
+}
+
+.danger-note {
+  color: #ad9e99;
+  font-size: 18rpx;
+  margin-top: 6rpx;
+}
+
+.clear-button {
+  border: 1rpx solid #c87984;
+  border-radius: 28rpx;
+  color: #b75f6c;
+  font-size: 20rpx;
+  margin-left: 20rpx;
+  padding: 13rpx 20rpx;
+  white-space: nowrap;
+}
+
+.admin-footer {
+  background: rgba(255, 255, 255, 0.97);
+  bottom: 0;
+  box-shadow: 0 -10rpx 35rpx rgba(65, 51, 45, 0.08);
+  left: 0;
+  padding: 18rpx 28rpx calc(env(safe-area-inset-bottom) + 18rpx);
+  position: fixed;
+  right: 0;
+  z-index: 10;
+}
+
+.save-button {
+  background: #292421;
+  border-radius: 38rpx;
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+  padding: 23rpx;
+  text-align: center;
+}
+
+.save-button-disabled {
+  opacity: 0.55;
+}

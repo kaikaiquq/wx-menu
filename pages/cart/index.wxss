@@ -1,0 +1,249 @@
+page {
+  background: #f8f5f2;
+  color: #292421;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 220rpx);
+}
+
+.wish-page {
+  background: var(--love-bg, #f8f5f2);
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 32rpx 28rpx 0;
+}
+
+.wish-heading {
+  padding: 10rpx 4rpx 34rpx;
+}
+
+.wish-eyebrow {
+  color: var(--love-primary, #bd7180);
+  font-size: 18rpx;
+  font-weight: 600;
+  letter-spacing: 5rpx;
+}
+
+.wish-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 46rpx;
+  font-weight: 600;
+  margin-top: 7rpx;
+}
+
+.wish-subtitle {
+  color: #a69c96;
+  font-size: 21rpx;
+  margin-top: 8rpx;
+}
+
+.wish-card {
+  background: #fff;
+  border-radius: 28rpx;
+  box-shadow: 0 12rpx 34rpx rgba(75, 59, 53, 0.06);
+  display: flex;
+  margin-bottom: 20rpx;
+  overflow: hidden;
+  padding: 18rpx;
+}
+
+.wish-image {
+  border-radius: 20rpx;
+  flex: 0 0 190rpx;
+  height: 190rpx;
+  width: 190rpx;
+}
+
+.wish-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 8rpx 4rpx 8rpx 24rpx;
+}
+
+.wish-name {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.wish-description {
+  color: #a09791;
+  display: -webkit-box;
+  font-size: 19rpx;
+  line-height: 1.45;
+  margin-top: 9rpx;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.wish-bottom,
+.summary-row {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.wish-price {
+  color: var(--love-primary, #b9606e);
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+.stepper {
+  align-items: center;
+  display: flex;
+  gap: 7rpx;
+}
+
+.step-button {
+  align-items: center;
+  background: #f1ece9;
+  border-radius: 50%;
+  color: #5c514c;
+  display: flex;
+  font-size: 27rpx;
+  height: 45rpx;
+  justify-content: center;
+  width: 45rpx;
+}
+
+.step-button-dark {
+  background: #292421;
+  color: #fff;
+}
+
+.step-value {
+  font-size: 23rpx;
+  text-align: center;
+  width: 34rpx;
+}
+
+.note-card,
+.summary-card {
+  background: #fff;
+  border-radius: 28rpx;
+  box-shadow: 0 12rpx 34rpx rgba(75, 59, 53, 0.05);
+  margin-top: 26rpx;
+  padding: 28rpx;
+}
+
+.note-title {
+  font-size: 27rpx;
+  font-weight: 600;
+}
+
+.note-input {
+  background: #faf7f5;
+  border-radius: 20rpx;
+  box-sizing: border-box;
+  font-size: 22rpx;
+  height: 150rpx;
+  line-height: 1.6;
+  margin-top: 20rpx;
+  padding: 20rpx;
+  width: 100%;
+}
+
+.note-count {
+  color: #b7ada7;
+  font-size: 18rpx;
+  margin-top: 10rpx;
+  text-align: right;
+}
+
+.summary-row {
+  font-size: 24rpx;
+}
+
+.summary-price {
+  color: var(--love-primary, #b9606e);
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.summary-tip {
+  color: #b0a6a0;
+  font-size: 19rpx;
+  margin-top: 12rpx;
+}
+
+.submit-bar {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 28rpx;
+  bottom: calc(env(safe-area-inset-bottom) + 112rpx);
+  box-shadow: 0 12rpx 50rpx rgba(61, 48, 43, 0.14);
+  display: flex;
+  justify-content: space-between;
+  left: 28rpx;
+  padding: 18rpx 20rpx 18rpx 28rpx;
+  position: fixed;
+  right: 28rpx;
+  z-index: 10;
+}
+
+.submit-label {
+  color: #aaa09a;
+  font-size: 18rpx;
+}
+
+.submit-price {
+  color: var(--love-primary, #b9606e);
+  font-size: 35rpx;
+  font-weight: 600;
+}
+
+.submit-button {
+  background: #292421;
+  border-radius: 42rpx;
+  color: #fff;
+  font-size: 25rpx;
+  font-weight: 600;
+  padding: 25rpx 38rpx;
+}
+
+.submit-button-disabled {
+  opacity: 0.55;
+}
+
+.empty-state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  padding-top: 150rpx;
+}
+
+.empty-heart {
+  align-items: center;
+  background: var(--love-soft-strong, #f2dcdf);
+  border-radius: 50%;
+  color: var(--love-primary, #c36c79);
+  display: flex;
+  font-size: 86rpx;
+  height: 180rpx;
+  justify-content: center;
+  width: 180rpx;
+}
+
+.empty-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 36rpx;
+  font-weight: 600;
+  margin-top: 38rpx;
+}
+
+.empty-description {
+  color: #a69c96;
+  font-size: 22rpx;
+  margin-top: 13rpx;
+}
+
+.empty-button {
+  background: #292421;
+  border-radius: 42rpx;
+  color: #fff;
+  font-size: 24rpx;
+  margin-top: 40rpx;
+  padding: 24rpx 55rpx;
+}

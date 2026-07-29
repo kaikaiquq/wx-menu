@@ -1,0 +1,47 @@
+<view class="menu-page {{themeClass}}">
+  <view class="menu-heading">
+    <view>
+      <view class="menu-eyebrow">PICK FOR US</view>
+      <view class="menu-title">今天点什么</view>
+    </view>
+    <view class="cart-button" bind:tap="openCart">
+      <text>♡</text>
+      <view class="cart-count" wx:if="{{cartCount}}">{{cartCount}}</view>
+    </view>
+  </view>
+
+  <view class="menu-body">
+    <scroll-view class="category-side" scroll-y>
+      <view
+        class="side-item {{activeCategory === item.id ? 'side-item-active' : ''}}"
+        wx:for="{{categories}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bind:tap="selectCategory"
+      >
+        <view class="side-icon">{{item.icon}}</view>
+        <view>{{item.name}}</view>
+      </view>
+    </scroll-view>
+
+    <scroll-view class="menu-list" scroll-y>
+      <view class="active-title">
+        <view>{{activeCategoryName}}</view>
+        <text>为你们精选了 {{visibleItems.length}} 个选择</text>
+      </view>
+      <view class="dish-card" wx:for="{{visibleItems}}" wx:key="id">
+        <image class="dish-image" src="{{item.image}}" mode="aspectFill" />
+        <view class="dish-info">
+          <view class="dish-badge" wx:if="{{item.badge}}">{{item.badge}}</view>
+          <view class="dish-name">{{item.name}}</view>
+          <view class="dish-description">{{item.description}}</view>
+          <view class="dish-bottom">
+            <view class="dish-price">{{item.cost}}</view>
+            <view class="dish-add" data-id="{{item.id}}" bind:tap="addItem">＋</view>
+          </view>
+        </view>
+      </view>
+      <view class="menu-list-end">— 和你一起，什么都好 —</view>
+    </scroll-view>
+  </view>
+</view>

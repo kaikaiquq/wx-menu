@@ -1,0 +1,58 @@
+<view class="wish-page {{themeClass}}">
+  <view class="wish-heading">
+    <view class="wish-eyebrow">OUR WISHLIST</view>
+    <view class="wish-title">这次想要的</view>
+    <view class="wish-subtitle">一共 {{totalCount}} 份小期待</view>
+  </view>
+
+  <block wx:if="{{cartItems.length}}">
+    <view class="wish-list">
+      <view class="wish-card" wx:for="{{cartItems}}" wx:key="id">
+        <image class="wish-image" src="{{item.image}}" mode="aspectFill" />
+        <view class="wish-info">
+          <view>
+            <view class="wish-name">{{item.name}}</view>
+            <view class="wish-description">{{item.description}}</view>
+          </view>
+          <view class="wish-bottom">
+            <view class="wish-price">{{item.cost}}</view>
+            <view class="stepper">
+              <view class="step-button" data-id="{{item.id}}" data-step="-1" bind:tap="changeQuantity">−</view>
+              <view class="step-value">{{item.quantity}}</view>
+              <view class="step-button step-button-dark" data-id="{{item.id}}" data-step="1" bind:tap="changeQuantity">＋</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="note-card">
+      <view class="note-title">留句话给 TA</view>
+      <textarea
+        class="note-input"
+        value="{{note}}"
+        maxlength="80"
+        placeholder="比如：想和你周五晚上一起吃 ♡"
+        bindinput="updateNote"
+      />
+      <view class="note-count">{{note.length}} / 80</view>
+    </view>
+
+    <view class="submit-bar">
+      <view>
+        <view class="submit-label">本次心愿</view>
+        <view class="submit-price">{{totalCount}} 项</view>
+      </view>
+      <view class="submit-button {{submitting ? 'submit-button-disabled' : ''}}" bind:tap="submitOrder">
+        {{submitting ? '正在送出...' : '发给 TA 看 ♡'}}
+      </view>
+    </view>
+  </block>
+
+  <view class="empty-state" wx:else>
+    <view class="empty-heart">♡</view>
+    <view class="empty-title">心愿单还是空的</view>
+    <view class="empty-description">去选一点想和 TA 一起做的事吧</view>
+    <view class="empty-button" bind:tap="goMenu">开始点单</view>
+  </view>
+</view>

@@ -1,0 +1,107 @@
+<view class="manage-page {{themeClass}}">
+  <view class="manage-heading">
+    <view>
+      <view class="manage-eyebrow">MENU</view>
+      <view class="manage-title">菜单管理</view>
+      <view class="manage-note">修改会暂存在草稿中，返回后点击保存才会生效</view>
+    </view>
+    <view class="add-item-button" bind:tap="addItem">＋ 新增</view>
+  </view>
+
+  <view class="empty-menu" wx:if="{{loadError}}">
+    <view class="empty-icon">!</view>
+    <view class="empty-title">菜单加载失败</view>
+    <view class="empty-note">可能是旧草稿未完成更新</view>
+    <view class="retry-button" bind:tap="retryLoad">重新加载</view>
+  </view>
+
+  <view class="empty-menu" wx:if="{{!loadError && menuItems.length === 0}}">
+    <view class="empty-icon">♡</view>
+    <view class="empty-title">菜单还是空的</view>
+    <view class="empty-note">点击右上角新增第一个点单项</view>
+  </view>
+
+  <view class="item-list" wx:if="{{!loadError && menuItems.length > 0}}">
+    <view class="admin-item" wx:for="{{menuItems}}" wx:key="id">
+      <image class="admin-item-image" src="{{item.image}}" mode="aspectFill" />
+      <view class="admin-item-info">
+        <view class="admin-item-name">{{item.name}}</view>
+        <view class="admin-item-cost">{{item.cost}}</view>
+      </view>
+      <view class="admin-item-actions">
+        <view class="item-edit" data-index="{{index}}" bind:tap="editItem">编辑</view>
+        <view class="item-delete" data-index="{{index}}" bind:tap="deleteItem">删除</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="editor-mask" wx:if="{{itemDraft}}" bind:tap="cancelEdit"></view>
+  <view class="item-editor" wx:if="{{itemDraft}}">
+    <view class="editor-handle"></view>
+    <view class="editor-header">
+      <view>
+        <view class="editor-title">{{editingIndex === menuItems.length ? '新增点单项' : '编辑点单项'}}</view>
+        <view class="editor-note">完成后会暂存到本次草稿</view>
+      </view>
+      <view class="editor-close" bind:tap="cancelEdit">×</view>
+    </view>
+
+    <scroll-view class="editor-scroll" scroll-y>
+      <view class="editor-field">
+        <view class="field-label">名称 *</view>
+        <input class="editor-input" value="{{itemDraft.name}}" maxlength="16" data-field="name" bindinput="updateDraft" />
+      </view>
+      <view class="editor-field">
+        <view class="field-label">交换条件 *</view>
+        <input
+          class="editor-input editor-input-highlight"
+          value="{{itemDraft.cost}}"
+          maxlength="20"
+          placeholder="如：一个抱抱、下次你请"
+          data-field="cost"
+          bindinput="updateDraft"
+        />
+        <view class="field-help">可以是金额，也可以是动作、约定或一句话</view>
+      </view>
+      <view class="editor-field">
+        <view class="field-label">简介</view>
+        <textarea
+          class="editor-textarea"
+          value="{{itemDraft.description}}"
+          maxlength="50"
+          placeholder="简单描述这个选择"
+          data-field="description"
+          bindinput="updateDraft"
+        />
+      </view>
+      <view class="editor-field">
+        <view class="field-label">所属分类</view>
+        <picker range="{{categoryNames}}" value="{{itemDraft.categoryIndex}}" bindchange="changeCategory">
+          <view class="editor-picker">{{categoryNames[itemDraft.categoryIndex]}} <text>更换 ›</text></view>
+        </picker>
+      </view>
+      <view class="editor-field">
+        <view class="field-label">推荐标签</view>
+        <input
+          class="editor-input"
+          value="{{itemDraft.badge}}"
+          maxlength="8"
+          placeholder="如：心动推荐"
+          data-field="badge"
+          bindinput="updateDraft"
+        />
+      </view>
+      <view class="editor-field">
+        <view class="field-label">图片</view>
+        <view class="image-config">
+          <image class="image-preview" src="{{itemDraft.image}}" mode="aspectFill" bind:tap="previewImage" />
+          <view class="image-actions">
+            <view class="upload-button" bind:tap="chooseLocalImage">从本地上传图片</view>
+            <view class="field-help">点击左侧图片可查看大图</view>
+          </view>
+        </view>
+      </view>
+      <view class="editor-save" bind:tap="confirmItem">完成并加入草稿</view>
+    </scroll-view>
+  </view>
+</view>

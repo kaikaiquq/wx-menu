@@ -1,0 +1,75 @@
+<view class="home-page {{themeClass}}">
+  <view class="page-loading" wx:if="{{loading}}">正在同步你们的菜单...</view>
+  <view class="home-header">
+    <view>
+      <view class="eyebrow">{{dateText}}</view>
+      <view class="greeting">今天想和你做什么？</view>
+    </view>
+    <view class="cart-pill" bind:tap="openCart">
+      <text class="cart-icon">♡</text>
+      <text wx:if="{{cartCount}}">{{cartCount}}</text>
+    </view>
+  </view>
+
+  <view class="hero-card">
+    <view class="hero-orbit orbit-one"></view>
+    <view class="hero-orbit orbit-two"></view>
+    <view class="hero-kicker">OUR LITTLE DATE</view>
+    <view class="hero-title">把普通的一天，<br />过成喜欢的样子。</view>
+    <view class="hero-footer">
+      <view class="avatar-stack">
+        <view class="avatar avatar-pink">她</view>
+        <view class="avatar avatar-dark">他</view>
+      </view>
+      <view class="hero-note">两个人的小菜单</view>
+    </view>
+  </view>
+
+  <view class="section-header">
+    <view>
+      <view class="section-title">想点什么</view>
+      <view class="section-subtitle">选一个，开启今天的小约会</view>
+    </view>
+    <view class="section-more" bind:tap="chooseCategory" data-id="video">全部 →</view>
+  </view>
+
+  <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="category-row">
+      <view
+        class="category-card"
+        wx:for="{{categories}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bind:tap="chooseCategory"
+      >
+        <view class="category-icon">{{item.icon}}</view>
+        <view class="category-name">{{item.name}}</view>
+        <view class="category-subtitle">{{item.subtitle}}</view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="section-header recommendation-header">
+    <view>
+      <view class="section-title">今日心动推荐</view>
+      <view class="section-subtitle">不知道选什么，就从这里开始</view>
+    </view>
+  </view>
+
+  <view class="recommendation-grid">
+    <view class="menu-card" wx:for="{{featuredItems}}" wx:key="id">
+      <view class="menu-image-wrap">
+        <image class="menu-image" src="{{item.image}}" mode="aspectFill" />
+        <view class="menu-badge" wx:if="{{item.badge}}">{{item.badge}}</view>
+      </view>
+      <view class="menu-content">
+        <view class="menu-name">{{item.name}}</view>
+        <view class="menu-description">{{item.description}}</view>
+        <view class="menu-bottom">
+          <view class="menu-price">{{item.cost}}</view>
+          <view class="add-button" bind:tap="addItem" data-id="{{item.id}}">＋</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

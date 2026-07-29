@@ -1,0 +1,29 @@
+@import 'style/iconfont.wxss';
+
+@import 'style/theme.wxss';
+
+.theme-female {
+  --love-bg: #f8f5f2;
+  --love-primary: #bd6875;
+  --love-primary-dark: #a95360;
+  --love-soft: #f7e7e9;
+  --love-soft-strong: #f2dcdf;
+  --love-hero-from: #df8f99;
+  --love-hero-to: #c96f7e;
+  background: var(--love-bg);
+}
+
+.theme-male {
+  --love-bg: #f1f4f6;
+  --love-primary: #647e94;
+  --love-primary-dark: #4d687e;
+  --love-soft: #e2eaf0;
+  --love-soft-strong: #d6e1e9;
+  --love-hero-from: #7f98ac;
+  --love-hero-to: #5d768c;
+  background: var(--love-bg);
+}
+
+.cell--noborder .t-cell::after {
+  border-bottom: none !important;
+}

@@ -1,0 +1,22 @@
+<view class="manage-page {{themeClass}}">
+  <view class="manage-heading">
+    <view class="manage-eyebrow">CATEGORY</view>
+    <view class="manage-title">分类管理</view>
+    <view class="manage-note">修改会暂存在草稿中，返回后点击保存才会生效</view>
+  </view>
+
+  <view class="category-list">
+    <view class="category-item" wx:for="{{categories}}" wx:key="id">
+      <view class="category-main" data-index="{{index}}" bind:tap="editCategory">
+        <view class="category-icon">{{item.icon}}</view>
+        <view>
+          <view class="category-name">{{item.name}}</view>
+          <view class="category-note">点击修改名称</view>
+        </view>
+      </view>
+      <view class="category-delete" data-index="{{index}}" catch:tap="deleteCategory">删除</view>
+    </view>
+  </view>
+
+  <view class="add-category" bind:tap="addCategory">＋ 新增分类</view>
+</view>

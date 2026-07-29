@@ -1,0 +1,232 @@
+page {
+  background: #f8f5f2;
+  color: #292421;
+}
+
+button::after {
+  border: 0;
+}
+
+.auth-page {
+  background: var(--love-bg, #f8f5f2);
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 70rpx 36rpx;
+}
+
+.auth-brand {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 50rpx;
+}
+
+.brand-heart {
+  align-items: center;
+  background: #292421;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  font-size: 62rpx;
+  height: 116rpx;
+  justify-content: center;
+  width: 116rpx;
+}
+
+.brand-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 48rpx;
+  font-weight: 600;
+  margin-top: 24rpx;
+}
+
+.brand-note,
+.card-note,
+.error-note {
+  color: #9f958f;
+  font-size: 21rpx;
+  line-height: 1.6;
+  margin-top: 10rpx;
+  text-align: center;
+}
+
+.auth-card,
+.error-card,
+.loading-card {
+  background: #fff;
+  border-radius: 32rpx;
+  box-shadow: 0 16rpx 45rpx rgba(75, 59, 53, 0.08);
+  padding: 36rpx;
+}
+
+.loading-card {
+  color: #9f958f;
+  font-size: 23rpx;
+  text-align: center;
+}
+
+.card-step {
+  color: var(--love-primary, #bd6875);
+  font-size: 17rpx;
+  font-weight: 600;
+  letter-spacing: 5rpx;
+  text-align: center;
+}
+
+.card-title,
+.error-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 36rpx;
+  font-weight: 600;
+  margin-top: 10rpx;
+  text-align: center;
+}
+
+.avatar-button {
+  background: transparent;
+  height: 132rpx;
+  margin: 32rpx auto 24rpx;
+  padding: 0;
+  width: 132rpx;
+}
+
+.avatar-image,
+.avatar-placeholder {
+  border-radius: 50%;
+  height: 132rpx;
+  width: 132rpx;
+}
+
+.avatar-placeholder {
+  align-items: center;
+  background: var(--love-soft, #f3e5e7);
+  color: var(--love-primary, #bd6875);
+  display: flex;
+  font-size: 48rpx;
+  justify-content: center;
+}
+
+.nickname-input,
+.invite-input {
+  background: #f8f5f2;
+  border-radius: 20rpx;
+  box-sizing: border-box;
+  font-size: 25rpx;
+  height: 82rpx;
+  line-height: 82rpx;
+  padding: 0 24rpx;
+  text-align: center;
+  width: 100%;
+}
+
+.anniversary-label {
+  color: #817873;
+  font-size: 21rpx;
+  margin: 24rpx 0 12rpx;
+}
+
+.anniversary-picker {
+  align-items: center;
+  background: #f8f5f2;
+  border-radius: 20rpx;
+  display: flex;
+  font-size: 23rpx;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+}
+
+.anniversary-picker text {
+  color: var(--love-primary, #bd6875);
+  font-size: 20rpx;
+}
+
+.invite-input {
+  font-size: 32rpx;
+  font-weight: 600;
+  letter-spacing: 8rpx;
+}
+
+.primary-button,
+.secondary-button,
+.retry-button {
+  border-radius: 42rpx;
+  font-size: 25rpx;
+  margin-top: 24rpx;
+  padding: 22rpx;
+}
+
+.primary-button {
+  background: #292421;
+  color: #fff;
+}
+
+.gender-label {
+  color: #817873;
+  font-size: 21rpx;
+  margin: 25rpx 0 12rpx;
+  text-align: center;
+}
+
+.gender-picker {
+  background: #f3efec;
+  border-radius: 22rpx;
+  display: flex;
+  gap: 8rpx;
+  padding: 7rpx;
+}
+
+.gender-option {
+  border-radius: 17rpx;
+  color: #8f8580;
+  flex: 1;
+  font-size: 24rpx;
+  padding: 17rpx;
+  text-align: center;
+}
+
+.gender-option-active {
+  background: var(--love-primary, #bd6875);
+  color: #fff;
+  font-weight: 600;
+}
+
+.gender-help {
+  color: #aaa09a;
+  font-size: 18rpx;
+  line-height: 1.5;
+  margin-top: 10rpx;
+  text-align: center;
+}
+
+.secondary-button,
+.retry-button {
+  background: var(--love-soft, #f1e8e6);
+  color: var(--love-primary-dark, #8d545d);
+}
+
+.divider {
+  color: #b3aaa5;
+  font-size: 19rpx;
+  margin: 28rpx 0;
+  text-align: center;
+}
+
+.invite-code {
+  background: var(--love-soft, #f8f1f2);
+  border: 2rpx dashed var(--love-primary, #d7a1aa);
+  border-radius: 24rpx;
+  color: var(--love-primary-dark, #a95360);
+  font-size: 48rpx;
+  font-weight: 600;
+  letter-spacing: 12rpx;
+  margin-top: 30rpx;
+  padding: 30rpx 12rpx;
+  text-align: center;
+}
+
+.retry-link {
+  color: #9a777c;
+  font-size: 21rpx;
+  margin-top: 28rpx;
+  text-align: center;
+}

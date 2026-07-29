@@ -1,0 +1,97 @@
+<view class="auth-page {{themeClass}}">
+  <view class="auth-brand">
+    <view class="brand-heart">♡</view>
+    <view class="brand-title">两人菜单</view>
+    <view class="brand-note">登录后，把喜欢的事同步给彼此</view>
+  </view>
+
+  <view class="loading-card" wx:if="{{loading}}">正在连接微信云端...</view>
+
+  <view class="error-card" wx:elif="{{cloudError}}">
+    <view class="error-title">云开发尚未就绪</view>
+    <view class="error-note">{{cloudError}}</view>
+    <view class="retry-button" bind:tap="loadSession">重新连接</view>
+  </view>
+
+  <view class="auth-card" wx:elif="{{loggedOut}}">
+    <view class="card-title">欢迎回来</view>
+    <view class="card-note">点击后将使用当前微信身份进入你之前的空间</view>
+    <button class="primary-button" bind:tap="startLogin">微信登录</button>
+  </view>
+
+  <block wx:elif="{{session}}">
+    <view class="auth-card" wx:if="{{!session.user.profileCompleted}}">
+      <view class="card-step">STEP 1</view>
+      <view class="card-title">先认识一下你</view>
+      <view class="card-note">头像和昵称由你主动选择，仅用于情侣空间展示</view>
+      <button class="avatar-button" open-type="chooseAvatar" bind:chooseavatar="chooseAvatar">
+        <image class="avatar-image" wx:if="{{avatarUrl}}" src="{{avatarUrl}}" mode="aspectFill" />
+        <view class="avatar-placeholder" wx:else>＋</view>
+      </button>
+      <input
+        class="nickname-input"
+        type="nickname"
+        value="{{nickname}}"
+        maxlength="20"
+        placeholder="输入你的昵称"
+        bindinput="updateNickname"
+      />
+      <view class="gender-label">选择性别</view>
+      <view class="gender-picker">
+        <view
+          class="gender-option {{gender === 'female' ? 'gender-option-active' : ''}}"
+          data-gender="female"
+          bind:tap="selectGender"
+        >女</view>
+        <view
+          class="gender-option {{gender === 'male' ? 'gender-option-active' : ''}}"
+          data-gender="male"
+          bind:tap="selectGender"
+        >男</view>
+      </view>
+      <view class="gender-help">微信不再提供性别信息，请手动选择；之后会自动沿用</view>
+      <button class="primary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="saveProfile">保存并继续</button>
+    </view>
+
+    <view class="auth-card" wx:elif="{{!session.couple}}">
+      <view class="card-step">STEP 2</view>
+      <view class="card-title">创建或加入空间</view>
+      <view class="card-note">可以先创建空间自己使用，之后再从“我们”页面邀请 TA 加入</view>
+      <button class="primary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="createSpace">
+        以后再绑定
+      </button>
+      <view class="divider"><text>或者</text></view>
+      <input
+        class="invite-input"
+        value="{{inviteCode}}"
+        maxlength="8"
+        placeholder="输入 8 位邀请码"
+        bindinput="updateInviteCode"
+      />
+      <view class="anniversary-label">你们从哪一天开始在一起？</view>
+      <picker mode="date" value="{{anniversary}}" end="{{maxDate}}" bindchange="changeAnniversary">
+        <view class="anniversary-picker">{{anniversary}} <text>选择日期 ›</text></view>
+      </picker>
+      <button class="secondary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="joinSpace">
+        加入 TA 的空间
+      </button>
+    </view>
+
+    <view class="auth-card" wx:elif="{{session.couple.status === 'pending'}}">
+      <view class="card-step">WAITING</view>
+      <view class="card-title">等待 TA 加入</view>
+      <view class="card-note">邀请码 24 小时内有效，可复制或直接分享给 TA</view>
+      <view class="invite-code" bind:tap="copyInvite">{{inviteCode || '点击下方重新生成'}}</view>
+      <button class="primary-button" wx:if="{{inviteCode}}" open-type="share">分享给 TA</button>
+      <button class="secondary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="createSpace">
+        {{inviteCode ? '重新生成邀请码' : '生成邀请码'}}
+      </button>
+      <view class="retry-link" bind:tap="loadSession">TA 已加入？刷新状态</view>
+    </view>
+
+    <view class="auth-card" wx:else>
+      <view class="card-title">连接成功</view>
+      <view class="card-note">正在进入你们的两人菜单...</view>
+    </view>
+  </block>
+</view>

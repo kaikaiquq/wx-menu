@@ -1,0 +1,23 @@
+<view class="{{themeClass}}">
+<t-tab-bar
+ t-class="couple-tab-bar"
+ value="{{active}}"
+ bindchange="onChange"
+ split="{{false}}"
+>
+	<t-tab-bar-item
+	 wx:for="{{list}}"
+	 wx:for-item="item"
+	 wx:for-index="index"
+	 wx:key="index"
+	>
+		<view class="custom-tab-bar-wrapper">
+			<view class="tab-icon-wrap">
+				<t-icon prefix="wr" name="{{item.icon}}" size="42rpx" />
+			</view>
+			<view class="text">{{ item.text }}</view>
+		</view>
+	</t-tab-bar-item>
+</t-tab-bar>
+</view>
+
