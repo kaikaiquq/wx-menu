@@ -4,6 +4,10 @@
     "ignore": [
       {
         "type": "folder",
+        "value": ".git"
+      },
+      {
+        "type": "folder",
         "value": "docs"
       },
       {
@@ -33,6 +37,14 @@
       {
         "type": "file",
         "value": "jsconfig.json"
+      },
+      {
+        "type": "file",
+        "value": "couple-menu-avatar.svg"
+      },
+      {
+        "type": "file",
+        "value": "LICENSE"
       }
     ],
     "include": []
