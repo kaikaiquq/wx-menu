@@ -38,10 +38,7 @@ Page({
     }));
   },
 
-  async onShow() {
-    this.getTabBar().init();
-    const session = await requireSession({ force: true, requireCouple: false });
-    if (!session) return;
+  buildMembers(session) {
     const selfMember = {
       ...session.user,
       fallbackLabel: session.user.gender === 'male' ? '他' : '她',
@@ -53,47 +50,64 @@ Page({
       publicUserId: '',
     };
     if (!session.couple) {
-      try {
-        const orders = await getPersonalOrders();
-        const latestOrder = this.formatLatestOrder(orders[0]);
-        const displayMembers = await this.withDisplayAvatars([selfMember, partnerPlaceholder]);
+      return { partnerPlaceholder, selfMember, members: [selfMember, partnerPlaceholder] };
+    }
+    const partnerRecord = session.couple.members.find(
+      (member) => member.publicUserId !== session.user.publicUserId,
+    );
+    const partnerMember = partnerRecord
+      ? {
+          ...partnerRecord,
+          fallbackLabel: partnerRecord.gender === 'male' ? '他' : '她',
+        }
+      : null;
+    return {
+      partnerPlaceholder,
+      selfMember,
+      members: [selfMember, partnerMember || partnerPlaceholder],
+    };
+  },
+
+  async onShow() {
+    this.getTabBar().init();
+    // 复用会话缓存，勿 force；头像换链 / 配置 / 订单并行
+    const session = await requireSession({ requireCouple: false });
+    if (!session) return;
+
+    const { members } = this.buildMembers(session);
+    this.setData({
+      coupleStatus: session.couple ? session.couple.status : 'none',
+      selfGender: session.user.gender || '',
+      selfPublicUserId: session.user.publicUserId,
+      themeClass: syncTheme(session.user.gender),
+    });
+
+    try {
+      if (!session.couple) {
+        const [displayMembers, orders] = await Promise.all([
+          this.withDisplayAvatars(members),
+          getPersonalOrders(5),
+        ]);
         this.setData({
-          coupleStatus: 'none',
           displayMembers,
-          latestOrder,
+          latestOrder: this.formatLatestOrder(orders[0]),
           orderCount: orders.length,
           profile: {},
           profileVersion: 0,
-          selfGender: session.user.gender || '',
-          selfPublicUserId: session.user.publicUserId,
-          themeClass: syncTheme(session.user.gender),
         });
-      } catch (error) {
-        wx.showToast({ title: error.message || '个人记录加载失败', icon: 'none' });
+        return;
       }
-      return;
-    }
-    try {
-      const [{ profile, version }, orders] = await Promise.all([getMenuConfig(true), getOrders()]);
-      const latestOrder = this.formatLatestOrder(orders[0]);
-      const partnerRecord = session.couple.members.find(
-        (member) => member.publicUserId !== session.user.publicUserId,
-      );
-      const partnerMember = partnerRecord
-        ? {
-            ...partnerRecord,
-            fallbackLabel: partnerRecord.gender === 'male' ? '他' : '她',
-          }
-        : null;
-      const displayMembers = await this.withDisplayAvatars([
-        selfMember,
-        partnerMember || partnerPlaceholder,
+
+      const [displayMembers, menuConfig, orders] = await Promise.all([
+        this.withDisplayAvatars(members),
+        getMenuConfig(),
+        getOrders(5),
       ]);
+      const { profile, version } = menuConfig;
       this.setData({
         coupleDays: this.getCoupleDays(profile.anniversary),
-        coupleStatus: session.couple.status,
         displayMembers,
-        latestOrder,
+        latestOrder: this.formatLatestOrder(orders[0]),
         maxDate: getToday(),
         orderCount: orders.length,
         profile: {
@@ -101,9 +115,6 @@ Page({
           anniversaryText: profile.anniversary ? profile.anniversary.split('-').join('.') : '',
         },
         profileVersion: version,
-        selfGender: session.user.gender || '',
-        selfPublicUserId: session.user.publicUserId,
-        themeClass: syncTheme(session.user.gender),
       });
     } catch (error) {
       wx.showToast({ title: error.message || '加载失败', icon: 'none' });

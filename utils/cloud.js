@@ -32,23 +32,52 @@ const uploadCloudImage = async (localPath, ownerId, scope = 'couple') => {
   return fileID;
 };
 
+/** tempFileURL 一般约 2 小时有效，本地短缓存避免「我们」页反复换链 */
+const TEMP_URL_TTL_MS = 50 * 60 * 1000;
+const tempUrlCache = new Map();
+
+const getCachedTempUrl = (fileId) => {
+  const hit = tempUrlCache.get(fileId);
+  if (!hit) return '';
+  if (Date.now() > hit.expireAt) {
+    tempUrlCache.delete(fileId);
+    return '';
+  }
+  return hit.url;
+};
+
+const setCachedTempUrl = (fileId, url) => {
+  if (!fileId || !url) return;
+  tempUrlCache.set(fileId, { expireAt: Date.now() + TEMP_URL_TTL_MS, url });
+};
+
 /** 把 cloud:// 转成可展示的临时 https 链接；避免被当成页面相对路径 */
 const resolveCloudFileUrls = async (fileList = []) => {
   const ids = [...new Set(fileList.filter((id) => typeof id === 'string' && id.startsWith('cloud://')))];
-  if (!ids.length || !wx.cloud?.getTempFileURL) return {};
+  if (!ids.length) return {};
+
+  const map = {};
+  const missing = [];
+  ids.forEach((id) => {
+    const cached = getCachedTempUrl(id);
+    if (cached) map[id] = cached;
+    else missing.push(id);
+  });
+
+  if (!missing.length || !wx.cloud?.getTempFileURL) return map;
 
   try {
-    const { fileList: result } = await wx.cloud.getTempFileURL({ fileList: ids });
-    const map = {};
+    const { fileList: result } = await wx.cloud.getTempFileURL({ fileList: missing });
     (result || []).forEach((item) => {
       if (item.fileID && item.tempFileURL && item.status === 0) {
         map[item.fileID] = item.tempFileURL;
+        setCachedTempUrl(item.fileID, item.tempFileURL);
       }
     });
     return map;
   } catch (error) {
     console.warn('resolveCloudFileUrls failed', error);
-    return {};
+    return map;
   }
 };
 
@@ -58,8 +87,13 @@ const resolveCloudFileUrl = async (fileId) => {
   return map[fileId] || '';
 };
 
+const clearTempUrlCache = () => {
+  tempUrlCache.clear();
+};
+
 module.exports = {
   callCloud,
+  clearTempUrlCache,
   resolveCloudFileUrl,
   resolveCloudFileUrls,
   uploadCloudImage,

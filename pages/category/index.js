@@ -18,11 +18,11 @@ Page({
 
   async onShow() {
     this.getTabBar().init();
-    const session = await requireSession({ force: true });
+    const session = await requireSession();
     if (!session) return;
     this.setData({ themeClass: syncTheme(session.user.gender) });
     try {
-      const [{ categories, menuItems }, cart] = await Promise.all([getMenuConfig(true), getCart(true)]);
+      const [{ categories, menuItems }, cart] = await Promise.all([getMenuConfig(), getCart()]);
       this.setData({
         wishCount: cart.reduce((count, item) => count + item.quantity, 0),
         categories: withLetterAvatars(categories),

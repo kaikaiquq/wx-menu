@@ -48,12 +48,24 @@ const bootstrap = async (openid) => {
     try {
       const coupleRecord = (await db.collection('couples').doc(user.coupleId).get()).data;
       if (coupleRecord.members.includes(openid) && coupleRecord.status !== 'dissolved') {
-        const members = await Promise.all(
-          coupleRecord.members.map(async (memberOpenid) => {
-            const member = await db.collection('users').doc(memberOpenid).get();
-            return member.data;
-          }),
-        );
+        let members = [];
+        try {
+          const memberResult = await db
+            .collection('users')
+            .where({ _id: _.in(coupleRecord.members) })
+            .limit(10)
+            .get();
+          const byId = Object.fromEntries((memberResult.data || []).map((item) => [item._id, item]));
+          members = coupleRecord.members.map((memberOpenid) => byId[memberOpenid]).filter(Boolean);
+        } catch (batchError) {
+          // 兼容部分环境不支持 _id + _.in，回退逐个读取
+          members = await Promise.all(
+            coupleRecord.members.map(async (memberOpenid) => {
+              const member = await db.collection('users').doc(memberOpenid).get();
+              return member.data;
+            }),
+          );
+        }
         couple = {
           coupleId: coupleRecord._id,
           members: members.map(publicUser),

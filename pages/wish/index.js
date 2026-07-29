@@ -14,10 +14,10 @@ Page({
 
   async onShow() {
     this.getTabBar().init();
-    const session = await requireSession({ force: true });
+    const session = await requireSession();
     if (session) {
       this.setData({ themeClass: syncTheme(session.user.gender) });
-      this.refreshData(true);
+      this.refreshData(false);
     }
   },
 

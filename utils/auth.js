@@ -1,9 +1,14 @@
 const { callCloud } = require('./cloud');
 
 let session = null;
+let sessionFetchedAt = 0;
 let bootstrapPromise = null;
 let redirecting = false;
 const LOGGED_OUT_KEY = 'couple.menu.loggedOut';
+/** 切 Tab 复用会话，避免每次都打 authApi */
+const SESSION_TTL_MS = 90 * 1000;
+
+const isSessionFresh = () => session && Date.now() - sessionFetchedAt < SESSION_TTL_MS;
 
 const bootstrap = async (force = false, interactive = false) => {
   if (wx.getStorageSync(LOGGED_OUT_KEY) && !interactive) {
@@ -11,12 +16,13 @@ const bootstrap = async (force = false, interactive = false) => {
     error.code = 'LOGGED_OUT';
     throw error;
   }
-  if (session && !force) return session;
+  if (!force && isSessionFresh()) return session;
   if (bootstrapPromise && !force) return bootstrapPromise;
 
   bootstrapPromise = callCloud('authApi', 'bootstrap')
     .then((data) => {
       session = data;
+      sessionFetchedAt = Date.now();
       if (data.user?.gender) {
         const { syncTheme } = require('./theme');
         syncTheme(data.user.gender);
@@ -116,7 +122,19 @@ const requireSession = async ({ force = false, requireCouple = true } = {}) => {
 
 const clearSession = () => {
   session = null;
+  sessionFetchedAt = 0;
   bootstrapPromise = null;
+};
+
+/** 启动时预热会话，首个 Tab 少等一轮云函数冷启动 */
+const prefetchSession = () => {
+  if (isLoggedOut()) return Promise.resolve(null);
+  return bootstrap(false).catch((error) => {
+    if (error.code !== 'LOGGED_OUT') {
+      console.warn('prefetchSession failed', error.message || error);
+    }
+    return null;
+  });
 };
 
 module.exports = {
@@ -129,6 +147,7 @@ module.exports = {
   joinCouple,
   login,
   logout,
+  prefetchSession,
   refreshSession,
   requireSession,
   unbindPartner,

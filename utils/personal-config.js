@@ -8,10 +8,14 @@ let personalConfigCache = {
   profile: {},
   version: 0,
 };
+let personalFetchedAt = 0;
+const PERSONAL_TTL_MS = 60 * 1000;
 
 const getPersonalConfig = async (force = false) => {
-  if (!force && personalConfigCache.version > 0) return clone(personalConfigCache);
+  const fresh = personalConfigCache.version > 0 && Date.now() - personalFetchedAt < PERSONAL_TTL_MS;
+  if (!force && fresh) return clone(personalConfigCache);
   personalConfigCache = await callCloud('dataApi', 'getPersonalConfig');
+  personalFetchedAt = Date.now();
   return clone(personalConfigCache);
 };
 
@@ -40,6 +44,7 @@ const savePersonalConfig = async (config) => {
     },
     expectedVersion: config.version,
   });
+  personalFetchedAt = Date.now();
   return clone(personalConfigCache);
 };
 
@@ -50,6 +55,7 @@ const clearPersonalConfigCache = () => {
     profile: {},
     version: 0,
   };
+  personalFetchedAt = 0;
 };
 
 module.exports = {

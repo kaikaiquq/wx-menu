@@ -10,12 +10,15 @@ const defaultConfig = {
   version: 0,
 };
 let configCache = clone(defaultConfig);
+let configFetchedAt = 0;
+const CONFIG_TTL_MS = 60 * 1000;
 
 const getDefaultConfig = () => clone(defaultConfig);
 const getCachedMenuConfig = () => clone(configCache);
 
 const getMenuConfig = async (force = false) => {
-  if (!force && configCache.version > 0) return getCachedMenuConfig();
+  const fresh = configCache.version > 0 && Date.now() - configFetchedAt < CONFIG_TTL_MS;
+  if (!force && fresh) return getCachedMenuConfig();
   const cloudConfig = await callCloud('dataApi', 'getConfig');
   configCache = {
     categories: cloudConfig.categories,
@@ -23,6 +26,7 @@ const getMenuConfig = async (force = false) => {
     profile: cloudConfig.profile,
     version: cloudConfig.version,
   };
+  configFetchedAt = Date.now();
   return getCachedMenuConfig();
 };
 
@@ -52,6 +56,7 @@ const saveMenuConfig = async (config) => {
     expectedVersion: config.version,
   });
   configCache = savedConfig;
+  configFetchedAt = Date.now();
   return getCachedMenuConfig();
 };
 
@@ -63,6 +68,7 @@ const saveSharedMessage = async (message, version) => {
     message,
   });
   configCache = savedConfig;
+  configFetchedAt = Date.now();
   return getCachedMenuConfig();
 };
 
@@ -74,6 +80,7 @@ const saveSharedAnniversary = async (anniversary, version) => {
     expectedVersion: version,
   });
   configCache = savedConfig;
+  configFetchedAt = Date.now();
   return getCachedMenuConfig();
 };
 
@@ -86,6 +93,7 @@ const getFeaturedItems = (items) => {
 
 const clearConfigCache = () => {
   configCache = clone(defaultConfig);
+  configFetchedAt = 0;
 };
 
 module.exports = {

@@ -1,6 +1,7 @@
 import updateManager from './common/updateManager';
 const { envId } = require('./config/cloud');
 const { applyWindowTheme, getStoredThemeClass } = require('./utils/theme');
+const { isLoggedOut, prefetchSession } = require('./utils/auth');
 
 App({
   globalData: {
@@ -19,6 +20,9 @@ App({
       traceUser: true,
     });
     this.globalData.cloudReady = true;
+    if (!isLoggedOut()) {
+      prefetchSession();
+    }
   },
   onShow: function () {
     applyWindowTheme();

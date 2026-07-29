@@ -20,13 +20,13 @@ Page({
 
   async onShow() {
     this.getTabBar().init();
-    const session = await requireSession({ force: true });
+    const session = await requireSession();
     if (!session) return;
     this.setData({ themeClass: syncTheme(session.user.gender) });
     const now = new Date();
     const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
     try {
-      const [menuConfig, wishList, orders] = await Promise.all([getMenuConfig(true), getCart(true), getOrders(20)]);
+      const [menuConfig, wishList, orders] = await Promise.all([getMenuConfig(), getCart(), getOrders(10)]);
       const { categories, menuItems, profile } = menuConfig;
       const latestOrder = orders[0];
       const activeRecord = orders.find((order) => ['等待回应', '进行中'].includes(order.status));
