@@ -11,17 +11,17 @@
     </view>
   </view>
 
-  <view class="hero-card">
+  <view class="hero-card" bind:tap="editSharedMessage">
     <view class="hero-orbit orbit-one"></view>
     <view class="hero-orbit orbit-two"></view>
-    <view class="hero-kicker">OUR LITTLE DATE</view>
-    <view class="hero-title">把普通的一天，<br />过成喜欢的样子。</view>
+    <view class="hero-kicker">要记住ta说的话！</view>
+    <view class="hero-title">{{sharedMessage}}</view>
     <view class="hero-footer">
       <view class="avatar-stack">
         <view class="avatar avatar-pink">她</view>
         <view class="avatar avatar-dark">他</view>
       </view>
-      <view class="hero-note">两个人的小菜单</view>
+      <view class="hero-note">点击修改共同留言</view>
     </view>
   </view>
 

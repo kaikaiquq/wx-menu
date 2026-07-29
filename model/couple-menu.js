@@ -11,6 +11,7 @@ const coupleProfile = {
   anniversary: '2025-07-30',
   herName: '小可爱',
   hisName: '大朋友',
+  message: '把普通的一天，过成喜欢的样子。',
 };
 
 const menuItems = [

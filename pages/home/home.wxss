@@ -97,13 +97,17 @@ page {
 }
 
 .hero-title {
+  display: -webkit-box;
   font-family: 'STSong', 'Songti SC', serif;
-  font-size: 52rpx;
+  font-size: 44rpx;
   font-weight: 600;
   letter-spacing: 2rpx;
   line-height: 1.45;
   margin-top: 34rpx;
+  overflow: hidden;
   position: relative;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .hero-footer {
