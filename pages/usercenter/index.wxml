@@ -90,8 +90,8 @@
   <view class="tool-grid">
     <view class="tool-card tool-card-invite" wx:if="{{coupleStatus === 'pending'}}" bind:tap="openInvite">
       <view class="tool-icon tool-icon-invite">💞</view>
-      <view class="tool-name">邀请 TA 加入</view>
-      <view class="tool-note">生成邀请码，之后绑定也可以</view>
+      <view class="tool-name">绑定情侣空间</view>
+      <view class="tool-note">分享邀请，或输入 TA 的邀请码</view>
     </view>
     <view class="tool-card tool-card-admin" bind:tap="openAdmin">
       <view class="tool-icon tool-icon-dark">⚙️</view>

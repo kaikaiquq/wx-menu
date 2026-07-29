@@ -42,7 +42,7 @@ Page({
                 : `${activeRecord.createdByName || 'TA'} 想点这些`,
           }
         : null;
-      const orderNotice = latestOrder && latestOrder.status !== '已完成'
+      const orderNotice = latestOrder && !['已完成', '已取消'].includes(latestOrder.status)
         ? {
             dateText: this.formatOrderDate(latestOrder.createdAt),
             itemText: latestOrder.items.map((item) => item.name).join('、'),

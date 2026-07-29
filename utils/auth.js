@@ -48,8 +48,12 @@ const createInvite = async (initialConfig) => {
   return data;
 };
 
-const joinCouple = async (code, anniversary) => {
-  const data = await callCloud('coupleApi', 'joinCouple', { anniversary, code });
+const joinCouple = async (code, anniversary, allowMerge = false) => {
+  const data = await callCloud('coupleApi', 'joinCouple', { allowMerge, anniversary, code });
+  const { clearConfigCache } = require('./couple-config');
+  const { clearCartCache } = require('./couple-cart');
+  clearConfigCache();
+  clearCartCache();
   await refreshSession();
   return data;
 };

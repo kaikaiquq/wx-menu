@@ -146,6 +146,11 @@ button::after {
   letter-spacing: 8rpx;
 }
 
+.invite-input-prefilled {
+  color: var(--love-primary-dark, #8d545d);
+  margin-top: 28rpx;
+}
+
 .primary-button,
 .secondary-button,
 .retry-button {

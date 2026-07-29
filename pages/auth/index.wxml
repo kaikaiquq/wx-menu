@@ -55,38 +55,83 @@
 
     <view class="auth-card" wx:elif="{{!session.couple}}">
       <view class="card-step">STEP 2</view>
-      <view class="card-title">创建或加入空间</view>
-      <view class="card-note">可以先创建空间自己使用，之后再从“我们”页面邀请 TA 加入</view>
-      <button class="primary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="createSpace">
-        以后再绑定
-      </button>
-      <view class="divider"><text>或者</text></view>
+      <view class="card-title">{{incomingCode ? 'TA 邀请你加入情侣空间' : '创建或加入空间'}}</view>
+      <view class="card-note" wx:if="{{incomingCode}}">确认邀请码和纪念日后，就可以进入你们的共同空间</view>
+      <block wx:else>
+        <view class="card-note">可以先创建空间自己使用，之后再从“我们”页面邀请 TA 加入</view>
+        <button class="primary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="createSpace">
+          以后再绑定
+        </button>
+        <view class="divider"><text>或者</text></view>
+      </block>
       <input
-        class="invite-input"
-        value="{{inviteCode}}"
+        class="invite-input {{incomingCode ? 'invite-input-prefilled' : ''}}"
+        value="{{incomingCode}}"
         maxlength="8"
         placeholder="输入 8 位邀请码"
-        bindinput="updateInviteCode"
+        disabled="{{incomingCode}}"
+        bindinput="updateIncomingCode"
       />
       <view class="anniversary-label">你们从哪一天开始在一起？</view>
       <picker mode="date" value="{{anniversary}}" end="{{maxDate}}" bindchange="changeAnniversary">
         <view class="anniversary-picker">{{anniversary}} <text>选择日期 ›</text></view>
       </picker>
-      <button class="secondary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="joinSpace">
-        加入 TA 的空间
+      <button class="{{incomingCode ? 'primary-button' : 'secondary-button'}}" loading="{{saving}}" disabled="{{saving}}" bind:tap="joinSpace">
+        {{incomingCode ? '接受邀请并加入' : '确认加入 TA 的空间'}}
       </button>
     </view>
 
+    <view class="auth-card" wx:elif="{{session.couple.status === 'active' && incomingCode}}">
+      <view class="card-title">你已经绑定情侣空间</view>
+      <view class="card-note">已完成双人绑定的空间不能直接合并。如需更换，请先在“我们”页面解除原绑定。</view>
+      <button class="primary-button" bind:tap="returnHome">返回我的空间</button>
+    </view>
+
     <view class="auth-card" wx:elif="{{session.couple.status === 'pending'}}">
-      <view class="card-step">WAITING</view>
-      <view class="card-title">等待 TA 加入</view>
-      <view class="card-note">邀请码 24 小时内有效，可复制或直接分享给 TA</view>
-      <view class="invite-code" bind:tap="copyInvite">{{inviteCode || '点击下方重新生成'}}</view>
-      <button class="primary-button" wx:if="{{inviteCode}}" open-type="share">分享给 TA</button>
-      <button class="secondary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="createSpace">
-        {{inviteCode ? '重新生成邀请码' : '生成邀请码'}}
-      </button>
-      <view class="retry-link" bind:tap="loadSession">TA 已加入？刷新状态</view>
+      <block wx:if="{{incomingCode}}">
+        <view class="card-step">INVITATION</view>
+        <view class="card-title">TA 邀请你加入情侣空间</view>
+        <view class="card-note">确认后，你当前空间的内容会安全合并到你们的共同空间</view>
+        <input
+          class="invite-input invite-input-prefilled"
+          value="{{incomingCode}}"
+          maxlength="8"
+          disabled
+        />
+        <view class="anniversary-label">你们从哪一天开始在一起？</view>
+        <picker mode="date" value="{{anniversary}}" end="{{maxDate}}" bindchange="changeAnniversary">
+          <view class="anniversary-picker">{{anniversary}} <text>选择日期 ›</text></view>
+        </picker>
+        <button class="primary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="joinSpace">
+          接受邀请并加入
+        </button>
+      </block>
+      <block wx:else>
+        <view class="card-step">WAITING</view>
+        <view class="card-title">绑定情侣空间</view>
+        <view class="card-note">邀请码 24 小时内有效，可分享自己的邀请，也可以输入 TA 的邀请码</view>
+        <view class="invite-code" bind:tap="copyInvite">{{inviteCode || '点击下方生成'}}</view>
+        <button class="primary-button" wx:if="{{inviteCode}}" open-type="share">分享给 TA</button>
+        <button class="secondary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="createSpace">
+          {{inviteCode ? '重新生成邀请码' : '生成我的邀请码'}}
+        </button>
+        <view class="divider"><text>或者加入 TA 的空间</text></view>
+        <input
+          class="invite-input"
+          value="{{incomingCode}}"
+          maxlength="8"
+          placeholder="输入对方的 8 位邀请码"
+          bindinput="updateIncomingCode"
+        />
+        <view class="anniversary-label">你们从哪一天开始在一起？</view>
+        <picker mode="date" value="{{anniversary}}" end="{{maxDate}}" bindchange="changeAnniversary">
+          <view class="anniversary-picker">{{anniversary}} <text>选择日期 ›</text></view>
+        </picker>
+        <button class="secondary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="joinSpace">
+          合并内容并加入
+        </button>
+        <view class="retry-link" bind:tap="loadSession">TA 已加入？刷新状态</view>
+      </block>
     </view>
 
     <view class="auth-card" wx:else>

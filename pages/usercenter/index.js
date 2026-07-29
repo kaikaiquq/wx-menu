@@ -106,7 +106,7 @@ Page({
     }
     wx.showModal({
       title: '解除情侣绑定？',
-      content: '解除后你会保留当前空间和数据，对方将退出该空间。之后仍可重新邀请绑定。',
+      content: '解绑后，菜单、心愿单和历史点单会分别保留一份，双方都不会丢失内容，也都可以重新绑定其他人。未完成的共同心愿会结束。',
       confirmText: '确认解绑',
       confirmColor: '#bd6875',
       success: async ({ confirm }) => {

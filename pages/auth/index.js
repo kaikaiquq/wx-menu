@@ -8,6 +8,7 @@ const {
 } = require('../../utils/auth');
 const { getDefaultConfig } = require('../../utils/couple-config');
 const { getStoredThemeClass, getThemeClass } = require('../../utils/theme');
+const LAST_INVITE_KEY = 'couple.menu.lastInvite';
 
 const getToday = () => {
   const date = new Date();
@@ -22,6 +23,7 @@ Page({
     avatarUrl: '',
     cloudError: '',
     gender: '',
+    incomingCode: '',
     inviteCode: '',
     loggedOut: false,
     loading: true,
@@ -34,7 +36,13 @@ Page({
 
   onLoad(options) {
     if (options.invite) {
-      this.setData({ inviteCode: String(options.invite).toUpperCase() });
+      this.setData({
+        incomingCode: String(options.invite).toUpperCase().replace(/\s/g, ''),
+      });
+    }
+    const lastInvite = wx.getStorageSync(LAST_INVITE_KEY);
+    if (lastInvite?.code && Number(lastInvite.expiresAt) > Date.now()) {
+      this.setData({ inviteCode: lastInvite.code });
     }
     if (isLoggedOut()) {
       this.setData({ loading: false, loggedOut: true });
@@ -45,6 +53,7 @@ Page({
 
   onShareAppMessage() {
     return {
+      imageUrl: '/couple-menu-avatar.svg.png',
       path: `/pages/auth/index?invite=${this.data.inviteCode}`,
       title: '邀请你加入我们的两人菜单',
     };
@@ -62,7 +71,7 @@ Page({
         gender: session.user.gender || '',
         themeClass: getThemeClass(session.user.gender),
       });
-      if (session.user.profileCompleted && session.couple?.status === 'active') {
+      if (session.user.profileCompleted && session.couple?.status === 'active' && !this.data.incomingCode) {
         setTimeout(() => wx.switchTab({ url: '/pages/home/home' }), 300);
       }
     } catch (error) {
@@ -85,7 +94,7 @@ Page({
         gender: session.user.gender || '',
         themeClass: getThemeClass(session.user.gender),
       });
-      if (session.user.profileCompleted && session.couple) {
+      if (session.user.profileCompleted && session.couple && !this.data.incomingCode) {
         setTimeout(() => wx.switchTab({ url: '/pages/home/home' }), 300);
       }
     } catch (error) {
@@ -109,8 +118,8 @@ Page({
     this.setData({ gender, themeClass: getThemeClass(gender) });
   },
 
-  updateInviteCode(event) {
-    this.setData({ inviteCode: event.detail.value.toUpperCase().replace(/\s/g, '') });
+  updateIncomingCode(event) {
+    this.setData({ incomingCode: event.detail.value.toUpperCase().replace(/\s/g, '') });
   },
 
   changeAnniversary(event) {
@@ -151,9 +160,10 @@ Page({
     this.setData({ saving: true });
     try {
       const initialConfig = wx.getStorageSync('couple.menu.config') || getDefaultConfig();
-      const { code } = await createInvite(initialConfig);
+      const { code, expiresAt } = await createInvite(initialConfig);
       const session = await bootstrap(true);
       this.setData({ inviteCode: code, saving: false, session });
+      wx.setStorageSync(LAST_INVITE_KEY, { code, expiresAt });
       wx.showToast({ title: '情侣空间已创建', icon: 'success' });
       if (isFirstCreation) {
         setTimeout(() => wx.switchTab({ url: '/pages/home/home' }), 500);
@@ -164,24 +174,42 @@ Page({
     }
   },
 
-  async joinSpace() {
-    if (this.data.inviteCode.length !== 8) {
+  async joinSpace(allowMerge = false) {
+    const mergeAllowed = allowMerge === true;
+    if (this.data.incomingCode.length !== 8) {
       wx.showToast({ title: '请输入 8 位邀请码', icon: 'none' });
       return;
     }
     this.setData({ saving: true });
     try {
-      await joinCouple(this.data.inviteCode, this.data.anniversary);
+      const result = await joinCouple(this.data.incomingCode, this.data.anniversary, mergeAllowed);
       this.setData({ saving: false });
-      wx.showToast({ title: '绑定成功', icon: 'success' });
+      wx.removeStorageSync(LAST_INVITE_KEY);
+      wx.showToast({ title: result.merged ? '空间已合并并绑定' : '绑定成功', icon: 'success' });
       setTimeout(() => wx.switchTab({ url: '/pages/home/home' }), 500);
     } catch (error) {
       this.setData({ saving: false });
+      if (error.code === 'MERGE_REQUIRED') {
+        wx.showModal({
+          title: '合并并加入 TA 的空间？',
+          content: '你当前空间的菜单、心愿单和历史点单会合并过去；留言以邀请方空间为准，纪念日按当前选择保存。',
+          confirmText: '合并并加入',
+          confirmColor: '#bd6875',
+          success: ({ confirm }) => {
+            if (confirm) this.joinSpace(true);
+          },
+        });
+        return;
+      }
       wx.showToast({ title: error.message || '绑定失败', icon: 'none' });
     }
   },
 
   copyInvite() {
     wx.setClipboardData({ data: this.data.inviteCode });
+  },
+
+  returnHome() {
+    wx.switchTab({ url: '/pages/home/home' });
   },
 });
