@@ -58,16 +58,23 @@ Page({
   },
 
   pollTimer: null,
+  signalWatcher: null,
   polling: false,
   conversationFp: '',
   messageFp: '',
   conversationAvatarsReady: false,
   friendAvatarsReady: false,
+  signalWatchReady: false,
+  usingWatch: false,
 
   async onShow() {
     this.getTabBar()?.init?.();
-    const session = await requireSession({ requireCouple: false });
+    let session = await requireSession({ requireCouple: false });
     if (!session) return;
+    if (!session.user?.openid) {
+      session = await requireSession({ force: true, requireCouple: false });
+      if (!session) return;
+    }
     this.setData({
       myPublicUserId: session.user.publicUserId || '',
       themeClass: syncTheme(session.user.gender),
@@ -77,27 +84,34 @@ Page({
       this.setData({ activeId: preferredId });
       wx.removeStorageSync('couple.chat.activeId');
     }
-    // 进入页面只在首次拉头像；之后轮询不再要临时链
     await this.refreshConversations(true, { includeAvatars: !this.conversationAvatarsReady });
-    this.startPolling();
+    // 仅在消息页内监听；对方发消息推送信标后再请求
+    this.startRealtime(session.user.openid);
   },
 
   onHide() {
-    this.stopPolling();
+    this.stopRealtime();
   },
 
   onUnload() {
-    this.stopPolling();
+    this.stopRealtime();
   },
 
-  startPolling() {
-    this.stopPolling();
+  startRealtime(openid) {
+    this.stopRealtime();
+    if (openid && this.startSignalWatch(openid)) {
+      this.usingWatch = true;
+      return;
+    }
+    // watch 不可用时才低频兜底（仅当前页、仅当前会话消息）
+    this.usingWatch = false;
     this.pollTimer = setInterval(() => {
-      this.pollTick();
-    }, 5000);
+      this.pollMessages();
+    }, 30000);
   },
 
-  stopPolling() {
+  stopRealtime() {
+    this.stopSignalWatch();
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
@@ -105,14 +119,73 @@ Page({
     this.polling = false;
   },
 
-  async pollTick() {
-    if (this.polling || this.data.showFriends) return;
+  startSignalWatch(openid) {
+    if (!openid || !wx.cloud?.database) return false;
+    try {
+      const db = wx.cloud.database();
+      this.signalWatchReady = false;
+      this.signalWatcher = db.collection('chatSignals').doc(openid).watch({
+        onChange: (snapshot) => {
+          // 首次 init 不处理，避免进页重复拉
+          if (!this.signalWatchReady) {
+            this.signalWatchReady = true;
+            return;
+          }
+          const doc =
+            (snapshot.docs && snapshot.docs[0]) ||
+            (snapshot.docChanges && snapshot.docChanges[0] && snapshot.docChanges[0].doc) ||
+            null;
+          const conversationId = doc?.conversationId || '';
+          this.onChatSignal(conversationId);
+        },
+        onError: (error) => {
+          console.warn('chatSignals watch failed, fallback polling', error);
+          this.stopSignalWatch();
+          this.usingWatch = false;
+          if (!this.pollTimer) {
+            this.pollTimer = setInterval(() => {
+              this.pollMessages();
+            }, 30000);
+          }
+        },
+      });
+      return true;
+    } catch (error) {
+      console.warn('chatSignals watch unavailable', error);
+      return false;
+    }
+  },
+
+  stopSignalWatch() {
+    if (this.signalWatcher && this.signalWatcher.close) {
+      try {
+        this.signalWatcher.close();
+      } catch (error) {
+        // ignore
+      }
+    }
+    this.signalWatcher = null;
+    this.signalWatchReady = false;
+  },
+
+  async onChatSignal(conversationId) {
+    if (this.data.showFriends) return;
+    const tasks = [
+      this.refreshConversations(false, { includeAvatars: false, skipMessages: true }),
+    ];
+    if (conversationId && conversationId === this.data.activeId) {
+      tasks.unshift(this.loadMessages(this.data.activeId, true));
+    } else if (this.data.activeId) {
+      // 其他会话有新消息：只刷新左侧列表预览
+    }
+    await Promise.all(tasks);
+  },
+
+  async pollMessages() {
+    if (this.polling || this.data.showFriends || !this.data.activeId) return;
     this.polling = true;
     try {
-      await Promise.all([
-        this.data.activeId ? this.loadMessages(this.data.activeId, true) : Promise.resolve(),
-        this.refreshConversations(false, { includeAvatars: false, skipMessages: true }),
-      ]);
+      await this.loadMessages(this.data.activeId, true);
     } finally {
       this.polling = false;
     }

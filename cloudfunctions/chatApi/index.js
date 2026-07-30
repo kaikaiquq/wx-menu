@@ -248,6 +248,8 @@ const sendMessage = async (openid, event) => {
       updatedAt: now(),
     },
   });
+  // 给其他成员推送信标，对方 watch 到后再拉消息（替代高频轮询）
+  await notifyChatSignals(conversation.memberOpenids || [], conversationId, openid);
   return ok({
     message: {
       createdAt: new Date().toISOString(),
@@ -260,6 +262,35 @@ const sendMessage = async (openid, event) => {
     conversationId,
     type: conversation.type,
   });
+};
+
+const notifyChatSignals = async (memberOpenids, conversationId, exceptOpenid) => {
+  const targets = [...new Set((memberOpenids || []).filter((id) => id && id !== exceptOpenid))];
+  await Promise.all(
+    targets.map(async (memberOpenid) => {
+      try {
+        await db.collection('chatSignals').doc(memberOpenid).update({
+          data: {
+            bump: _.inc(1),
+            conversationId,
+            updatedAt: now(),
+          },
+        });
+      } catch (error) {
+        try {
+          await db.collection('chatSignals').doc(memberOpenid).set({
+            data: {
+              bump: 1,
+              conversationId,
+              updatedAt: now(),
+            },
+          });
+        } catch (setError) {
+          console.warn('notifyChatSignals failed', memberOpenid, setError.message || setError);
+        }
+      }
+    }),
+  );
 };
 
 const listFriends = async (openid, event = {}) => {
@@ -487,7 +518,7 @@ exports.main = async (event) => {
     if (error.errCode === -502005 || String(error.message).includes('collection not exists')) {
       return fail(
         'COLLECTION_REQUIRED',
-        '请先创建 conversations / messages / friendships / friendRequests 集合',
+        '请先创建 conversations / messages / friendships / friendRequests / chatSignals 集合',
       );
     }
     return fail(error.code || 'SERVER_ERROR', error.message || '聊天服务暂时不可用');

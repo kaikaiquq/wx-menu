@@ -108,7 +108,7 @@ const bootstrap = async (openid) => {
       : Promise.resolve(null),
   ]);
 
-  return ok({ couple: coupleWithAvatars, user: selfUser });
+  return ok({ couple: coupleWithAvatars, user: { ...selfUser, openid } });
 };
 
 const updateProfile = async (openid, event) => {

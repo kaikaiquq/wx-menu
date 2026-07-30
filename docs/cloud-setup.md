@@ -35,8 +35,20 @@
 - `messages`（聊天消息）
 - `friendships`（好友关系）
 - `friendRequests`（好友申请）
+- `chatSignals`（聊天信标：对方发消息时推送，本端再按需拉取）
 
-所有集合权限统一选择“仅云函数可读写”。不要开放客户端直接写入。
+其余集合权限统一选择“仅云函数可读写”。不要开放客户端直接写入。
+
+`chatSignals` 需要支持客户端 `watch`，请单独设置权限为「自定义安全规则」：
+
+```json
+{
+  "read": "doc._id == auth.openid",
+  "write": false
+}
+```
+
+云函数仍可写入任意用户的信标；客户端只能监听自己的文档。未配置时会自动退回「仅在消息页内、每 30 秒」的低频消息轮询。
 
 建议创建以下索引：
 
@@ -52,6 +64,9 @@
 - `messages`：`conversationId + createdAt`
 - `friendships`：`memberOpenids`；`pairKey`
 - `friendRequests`：`toOpenid`；`fromOpenid`
+- `chatSignals`：文档 `_id` 为用户 openid（一般无需额外索引）
+
+修改聊天推送逻辑后，需要重新部署 `chatApi` 与 `authApi`。
 
 ## 4. 部署云函数
 
