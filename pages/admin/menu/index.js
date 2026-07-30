@@ -5,7 +5,7 @@ const {
 } = require('../utils/couple-config-session');
 const { requireSession } = require('../../../utils/auth');
 const { getPersonalConfig, savePersonalConfig } = require('../../../utils/personal-config');
-const { getContentTemplates } = require('../../../utils/templates');
+const { getContentTemplates } = require('../utils/templates');
 const { withLetterAvatars } = require('../../../utils/letter-avatar');
 const { getStoredThemeClass, syncTheme } = require('../../../utils/theme');
 

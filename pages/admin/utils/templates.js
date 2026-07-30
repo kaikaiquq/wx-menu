@@ -1,6 +1,6 @@
-const { callCloud } = require('./cloud');
-const { categoryTemplates, menuTemplates } = require('../model/templates');
-const { withLetterAvatars } = require('./letter-avatar');
+const { callCloud } = require('../../../utils/cloud');
+const { categoryTemplates, menuTemplates } = require('./template-data');
+const { withLetterAvatars } = require('../../../utils/letter-avatar');
 
 /** 云端旧种子若缺图，用本地同 id 模板补图 */
 const mergeWithLocalImages = (remoteList, localList) => {

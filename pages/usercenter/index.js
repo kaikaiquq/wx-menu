@@ -31,10 +31,14 @@ Page({
   },
 
   async withDisplayAvatars(members) {
-    const urlMap = await resolveCloudFileUrls(members.map((member) => member.avatarFileId));
+    // 优先用云函数下发的 avatarUrl（可看对方上传的文件）；缺的再尝试客户端换链
+    const needResolve = members
+      .filter((member) => !member.avatarUrl && String(member.avatarFileId || '').startsWith('cloud://'))
+      .map((member) => member.avatarFileId);
+    const urlMap = needResolve.length ? await resolveCloudFileUrls(needResolve) : {};
     return members.map((member) => ({
       ...member,
-      avatarUrl: urlMap[member.avatarFileId] || '',
+      avatarUrl: member.avatarUrl || urlMap[member.avatarFileId] || '',
     }));
   },
 
@@ -70,9 +74,17 @@ Page({
 
   async onShow() {
     this.getTabBar().init();
-    // 复用会话缓存，勿 force；头像换链 / 配置 / 订单并行
-    const session = await requireSession({ requireCouple: false });
+    let session = await requireSession({ requireCouple: false });
     if (!session) return;
+
+    // 旧会话缺对方 avatarUrl 时强制刷新一次（部署 authApi 后生效）
+    const partner = session.couple?.members?.find(
+      (member) => member.publicUserId !== session.user.publicUserId,
+    );
+    if (partner?.avatarFileId && !partner.avatarUrl) {
+      session = await requireSession({ force: true, requireCouple: false });
+      if (!session) return;
+    }
 
     const { members } = this.buildMembers(session);
     this.setData({

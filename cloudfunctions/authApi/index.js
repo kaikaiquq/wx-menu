@@ -15,7 +15,6 @@ const getUser = async (openid) => {
   } catch (error) {
     if (error.errCode !== -1 && !String(error.message).includes('not exist')) throw error;
     const user = {
-      _id: openid,
       avatarFileId: '',
       coupleId: null,
       createdAt: now(),
@@ -26,19 +25,60 @@ const getUser = async (openid) => {
       updatedAt: now(),
       version: 1,
     };
-    await db.collection('users').add({ data: user });
-    return user;
+    // 必须用 doc(openid).set，保证 _id === openid，情侣成员才能互相读到
+    await db.collection('users').doc(openid).set({ data: user });
+    return { _id: openid, ...user };
   }
 };
 
 const publicUser = (user) => ({
   avatarFileId: user.avatarFileId || '',
+  avatarUrl: '',
   coupleId: user.coupleId || null,
   gender: user.gender || '',
   nickname: user.nickname || '',
   profileCompleted: Boolean(user.profileCompleted && user.gender),
   publicUserId: user.publicUserId,
 });
+
+/** 云函数侧换临时链：可读取任意用户上传的头像（客户端受「仅创建者可读写」限制） */
+const attachAvatarUrls = async (users) => {
+  const list = (users || []).map((user) => ({ ...user }));
+  const fileList = [
+    ...new Set(list.map((user) => user.avatarFileId).filter((id) => id && id.startsWith('cloud://'))),
+  ];
+  if (!fileList.length) return list;
+  try {
+    const { fileList: result } = await cloud.getTempFileURL({ fileList });
+    const urlMap = {};
+    (result || []).forEach((item) => {
+      if (item.fileID && item.tempFileURL && (!item.status || item.status === 0)) {
+        urlMap[item.fileID] = item.tempFileURL;
+      }
+    });
+    return list.map((user) => ({
+      ...user,
+      avatarUrl: urlMap[user.avatarFileId] || '',
+    }));
+  } catch (error) {
+    console.warn('attachAvatarUrls failed', error.message || error);
+    return list;
+  }
+};
+
+const loadCoupleMembers = async (memberOpenids = []) => {
+  const members = await Promise.all(
+    memberOpenids.map(async (memberOpenid) => {
+      try {
+        return (await db.collection('users').doc(memberOpenid).get()).data;
+      } catch (error) {
+        console.warn('loadCoupleMember failed', memberOpenid, error.message || error);
+        return null;
+      }
+    }),
+  );
+  return members.filter(Boolean).map(publicUser);
+};
 
 const bootstrap = async (openid) => {
   const user = await getUser(openid);
@@ -48,27 +88,10 @@ const bootstrap = async (openid) => {
     try {
       const coupleRecord = (await db.collection('couples').doc(user.coupleId).get()).data;
       if (coupleRecord.members.includes(openid) && coupleRecord.status !== 'dissolved') {
-        let members = [];
-        try {
-          const memberResult = await db
-            .collection('users')
-            .where({ _id: _.in(coupleRecord.members) })
-            .limit(10)
-            .get();
-          const byId = Object.fromEntries((memberResult.data || []).map((item) => [item._id, item]));
-          members = coupleRecord.members.map((memberOpenid) => byId[memberOpenid]).filter(Boolean);
-        } catch (batchError) {
-          // 兼容部分环境不支持 _id + _.in，回退逐个读取
-          members = await Promise.all(
-            coupleRecord.members.map(async (memberOpenid) => {
-              const member = await db.collection('users').doc(memberOpenid).get();
-              return member.data;
-            }),
-          );
-        }
+        const members = await loadCoupleMembers(coupleRecord.members);
         couple = {
           coupleId: coupleRecord._id,
-          members: members.map(publicUser),
+          members,
           status: coupleRecord.status,
           version: coupleRecord.version,
         };
@@ -78,7 +101,14 @@ const bootstrap = async (openid) => {
     }
   }
 
-  return ok({ couple, user: publicUser(user) });
+  const [selfUser, coupleWithAvatars] = await Promise.all([
+    attachAvatarUrls([publicUser(user)]).then((list) => list[0]),
+    couple
+      ? attachAvatarUrls(couple.members).then((members) => ({ ...couple, members }))
+      : Promise.resolve(null),
+  ]);
+
+  return ok({ couple: coupleWithAvatars, user: selfUser });
 };
 
 const updateProfile = async (openid, event) => {

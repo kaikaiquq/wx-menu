@@ -58,9 +58,11 @@ Page({
 
   async applyUserAvatar(session) {
     const avatarFileId = session.user.avatarFileId || '';
-    const avatarUrl = avatarFileId.startsWith('cloud://')
-      ? (await resolveCloudFileUrl(avatarFileId)) || ''
-      : avatarFileId;
+    const avatarUrl =
+      session.user.avatarUrl ||
+      (avatarFileId.startsWith('cloud://')
+        ? (await resolveCloudFileUrl(avatarFileId)) || ''
+        : avatarFileId);
     this.setData({
       avatarFileId,
       avatarUrl,
