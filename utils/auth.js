@@ -23,6 +23,9 @@ const bootstrap = async (force = false, interactive = false) => {
     .then((data) => {
       session = data;
       sessionFetchedAt = Date.now();
+      if (data.user?.openid) {
+        wx.setStorageSync('couple.menu.openid', data.user.openid);
+      }
       if (data.user?.gender) {
         const { syncTheme } = require('./theme');
         syncTheme(data.user.gender);
@@ -36,6 +39,8 @@ const bootstrap = async (force = false, interactive = false) => {
 };
 
 const getSession = () => session;
+
+const getSelfOpenid = () => session?.user?.openid || wx.getStorageSync('couple.menu.openid') || '';
 
 const refreshSession = () => bootstrap(true);
 
@@ -142,6 +147,7 @@ module.exports = {
   clearSession,
   createInvite,
   getActiveInvite,
+  getSelfOpenid,
   getSession,
   isLoggedOut,
   joinCouple,

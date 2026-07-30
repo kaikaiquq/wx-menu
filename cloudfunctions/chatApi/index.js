@@ -183,11 +183,16 @@ const formatConversation = async (conversation, openid, userMap) => {
 };
 
 const listConversations = async (openid, event = {}) => {
-  const withAvatars = event.includeAvatars !== false;
+  // 进页默认不换头像临时链，避免 getTempFileURL 拖慢首屏
+  const withAvatars = event.includeAvatars === true;
   const user = await getUser(openid);
-  await ensureCoupleConversation(openid, user);
 
-  const result = await db.collection('conversations').where({ memberOpenids: openid }).limit(50).get();
+  let result = await db.collection('conversations').where({ memberOpenids: openid }).limit(50).get();
+  const hasCoupleChat = (result.data || []).some((item) => item.type === 'couple');
+  if (!hasCoupleChat && user.coupleId) {
+    await ensureCoupleConversation(openid, user);
+    result = await db.collection('conversations').where({ memberOpenids: openid }).limit(50).get();
+  }
 
   const openids = [...new Set(result.data.flatMap((item) => item.memberOpenids || []))];
   const profiles = await loadUsersByOpenids(openids, { withAvatars });

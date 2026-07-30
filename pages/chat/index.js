@@ -1,4 +1,4 @@
-const { requireSession } = require('../../utils/auth');
+const { getSelfOpenid, requireSession } = require('../../utils/auth');
 const {
   acceptFriendRequest,
   listConversations,
@@ -69,12 +69,9 @@ Page({
 
   async onShow() {
     this.getTabBar()?.init?.();
-    let session = await requireSession({ requireCouple: false });
+    const session = await requireSession({ requireCouple: false });
     if (!session) return;
-    if (!session.user?.openid) {
-      session = await requireSession({ force: true, requireCouple: false });
-      if (!session) return;
-    }
+    const openid = session.user?.openid || getSelfOpenid();
     this.setData({
       myPublicUserId: session.user.publicUserId || '',
       themeClass: syncTheme(session.user.gender),
@@ -84,9 +81,35 @@ Page({
       this.setData({ activeId: preferredId });
       wx.removeStorageSync('couple.chat.activeId');
     }
-    await this.refreshConversations(true, { includeAvatars: !this.conversationAvatarsReady });
-    // 仅在消息页内监听；对方发消息推送信标后再请求
-    this.startRealtime(session.user.openid);
+
+    // 先快速出会话列表（不换头像），再后台补头像；监听不阻塞首屏
+    this.startRealtime(openid);
+    await this.refreshConversations(true, {
+      includeAvatars: false,
+      skipMessages: false,
+    });
+    if (!this.conversationAvatarsReady) {
+      this.loadAvatarsInBackground();
+    }
+  },
+
+  /** 首屏后再补头像，避免 getTempFileURL 卡住进页 */
+  async loadAvatarsInBackground() {
+    if (this._avatarLoading) return;
+    this._avatarLoading = true;
+    try {
+      const { conversations } = await listConversations({ includeAvatars: true });
+      const avatarMap = collectAvatarMap(
+        this.data.avatarMap,
+        conversations.map((item) => item.peer).filter(Boolean),
+      );
+      this.conversationAvatarsReady = true;
+      if (avatarMap) this.setData({ avatarMap });
+    } catch (error) {
+      console.warn('loadAvatarsInBackground failed', error);
+    } finally {
+      this._avatarLoading = false;
+    }
   },
 
   onHide() {
@@ -211,17 +234,12 @@ Page({
           this.data.avatarMap,
           conversations.map((item) => item.peer).filter(Boolean),
         );
-        if (avatarMap) {
-          patch.avatarMap = avatarMap;
-          this.conversationAvatarsReady = true;
-        } else if (conversations.length) {
-          this.conversationAvatarsReady = true;
-        }
+        if (avatarMap) patch.avatarMap = avatarMap;
+        this.conversationAvatarsReady = true;
       }
 
       if (nextFp !== this.conversationFp) {
         this.conversationFp = nextFp;
-        // 展示头像只用 avatarMap，会话数据里不再依赖会变化的临时链
         patch.conversations = conversations.map((item) => ({
           ...item,
           peer: item.peer
@@ -237,8 +255,10 @@ Page({
         patch.activeTitle = active?.title || '消息';
       }
       if (Object.keys(patch).length) this.setData(patch);
+
+      // 消息单独拉，不堵在同一条关键路径的头像逻辑里
       if (!options.skipMessages && activeId) {
-        await this.loadMessages(activeId, !selectDefault);
+        this.loadMessages(activeId, !selectDefault);
       }
     } catch (error) {
       if (this.data.loading) this.setData({ loading: false });

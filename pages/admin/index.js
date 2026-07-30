@@ -154,6 +154,10 @@ Page({
       startConfigSession(saved, this.scope);
       this.setData({ saving: false });
       wx.showToast({ title: '配置已生效', icon: 'success' });
+      setTimeout(() => {
+        clearConfigSession();
+        wx.switchTab({ url: '/pages/usercenter/index' });
+      }, 500);
     } catch (error) {
       this.setData({ saving: false });
       wx.showModal({

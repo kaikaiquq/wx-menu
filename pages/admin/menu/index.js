@@ -3,11 +3,22 @@ const {
   getDraftScope,
   setConfigDraft,
 } = require('../utils/couple-config-session');
-const { requireSession } = require('../../../utils/auth');
+const { getSession, requireSession } = require('../../../utils/auth');
 const { getPersonalConfig, savePersonalConfig } = require('../../../utils/personal-config');
+const { uploadCloudImage, isLocalFilePath } = require('../../../utils/cloud');
 const { getContentTemplates } = require('../utils/templates');
 const { withLetterAvatars } = require('../../../utils/letter-avatar');
 const { getStoredThemeClass, syncTheme } = require('../../../utils/theme');
+
+const toPlainMenuItem = (item) => ({
+  badge: item.badge || '',
+  categoryId: item.categoryId,
+  cost: item.cost || '一个抱抱',
+  description: item.description || '',
+  id: item.id,
+  image: item.image || '',
+  name: item.name || '',
+});
 
 Page({
   data: {
@@ -218,46 +229,84 @@ Page({
 
   async confirmItem() {
     if (!this.validateDraft()) return;
-    const menuItems = [...this.data.menuItems];
     const { categoryIndex, hasImage, avatarText, avatarColor, ...item } = this.data.itemDraft;
-    if (this.data.createAndLinkMode && this.data.editingIndex === menuItems.length) {
+    const plainItem = toPlainMenuItem(item);
+
+    if (this.data.createAndLinkMode && this.data.editingIndex === this.data.menuItems.length) {
       wx.showLoading({ title: '保存到个人库' });
       try {
+        const session = getSession();
+        if (!session?.user?.publicUserId || !session?.couple?.coupleId) {
+          throw new Error('请先登录并绑定共同空间');
+        }
+
         const personalConfig = await getPersonalConfig(true);
         const sharedCategory = this.data.categories[categoryIndex];
+        if (!sharedCategory?.id) throw new Error('请先选择所属分类');
+
         const personalCategories = [...personalConfig.categories];
         let personalCategory = personalCategories.find(
           (category) => category.name === sharedCategory.name,
         );
         if (!personalCategory) {
           personalCategory = {
-            ...sharedCategory,
+            icon: sharedCategory.icon || '♡',
             id: `personal-category-${Date.now()}`,
+            image: '',
+            name: sharedCategory.name,
+            subtitle: sharedCategory.subtitle || '',
           };
           personalCategories.push(personalCategory);
         }
+
+        // 本地图：个人库与共同草稿分别上传，避免共同空间继续引用仅个人可读的 cloud 文件
+        let personalImage = plainItem.image;
+        let sharedImage = plainItem.image;
+        if (plainItem.image && isLocalFilePath(plainItem.image)) {
+          wx.showLoading({ title: '上传图片中' });
+          personalImage = await uploadCloudImage(
+            plainItem.image,
+            session.user.publicUserId,
+            'personal',
+          );
+          sharedImage = await uploadCloudImage(plainItem.image, session.couple.coupleId, 'couple');
+        } else if (plainItem.image) {
+          personalImage = await uploadCloudImage(
+            plainItem.image,
+            session.user.publicUserId,
+            'personal',
+          );
+          sharedImage = await uploadCloudImage(plainItem.image, session.couple.coupleId, 'couple');
+        }
+
         const personalItems = [...personalConfig.menuItems];
-        const itemId = personalItems.some((personalItem) => personalItem.id === item.id)
+        const itemId = personalItems.some((personalItem) => personalItem.id === plainItem.id)
           ? `personal-item-${Date.now()}`
-          : item.id;
+          : plainItem.id;
         personalItems.push({
-          ...item,
+          ...plainItem,
           categoryId: personalCategory.id,
           id: itemId,
+          image: personalImage,
         });
-        const savedPersonal = await savePersonalConfig({
+
+        wx.showLoading({ title: '保存到个人库' });
+        await savePersonalConfig({
           ...personalConfig,
           categories: personalCategories,
           menuItems: personalItems,
         });
-        const savedItem = savedPersonal.menuItems.find((personalItem) => personalItem.id === itemId);
-        menuItems[this.data.editingIndex] = {
-          ...item,
-          id: itemId,
-          image: savedItem?.image || item.image,
-        };
+
         const sharedDraft = getConfigDraft();
+        const menuItems = sharedDraft.menuItems.filter((menuItem) => menuItem.id !== itemId);
+        menuItems.push({
+          ...plainItem,
+          categoryId: plainItem.categoryId || sharedCategory.id,
+          id: itemId,
+          image: sharedImage,
+        });
         setConfigDraft({ ...sharedDraft, menuItems });
+
         wx.hideLoading();
         wx.showToast({ title: '已保存个人库并加入共同草稿', icon: 'none' });
         setTimeout(() => wx.navigateBack(), 600);
@@ -267,8 +316,10 @@ Page({
       }
       return;
     }
-    menuItems[this.data.editingIndex] = item;
+
     const draft = getConfigDraft();
+    const menuItems = [...draft.menuItems];
+    menuItems[this.data.editingIndex] = plainItem;
     setConfigDraft({ ...draft, menuItems });
     this.setData({
       editingIndex: -1,

@@ -26,7 +26,7 @@ const sanitizeConfig = (config = {}) => ({
   categories: (Array.isArray(config.categories) ? config.categories : []).slice(0, 50).map((item) => ({
     icon: String(item.icon || '♡').slice(0, 4),
     id: String(item.id || '').slice(0, 64),
-    image: String(item.image || '').slice(0, 500),
+    image: String(item.image || '').slice(0, 1024),
     name: String(item.name || '').trim().slice(0, 20),
     subtitle: String(item.subtitle || '').slice(0, 40),
   })),
@@ -36,7 +36,7 @@ const sanitizeConfig = (config = {}) => ({
     cost: String(item.cost || '一份小心意').slice(0, 40),
     description: String(item.description || '').slice(0, 100),
     id: String(item.id || '').slice(0, 64),
-    image: String(item.image || '').slice(0, 500),
+    image: String(item.image || '').slice(0, 1024),
     name: String(item.name || '').trim().slice(0, 30),
   })),
   profile: {
@@ -512,7 +512,7 @@ const importLegacy = async (openid, event) => {
   for (const legacyOrder of orders) {
     const legacyItems = (Array.isArray(legacyOrder.items) ? legacyOrder.items : []).slice(0, 100).map((item) => ({
       cost: String(item.cost || '一份小心意').slice(0, 40),
-      image: String(item.image || '').slice(0, 500),
+      image: String(item.image || '').slice(0, 1024),
       menuItemId: String(item.menuItemId || item.id || '').slice(0, 64),
       name: String(item.name || item.nameSnapshot || '旧心愿').slice(0, 30),
       quantity: Math.max(1, Math.min(99, Number(item.quantity) || 1)),

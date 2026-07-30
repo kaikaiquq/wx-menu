@@ -1,6 +1,6 @@
 <view class="space-page {{themeClass}}">
   <view class="space-hero">
-    <view class="space-eyebrow">OUR LITTLE SPACE</view>
+    <view class="hero-glow"></view>
     <view class="couple-row">
       <view
         class="person"
@@ -8,34 +8,39 @@
         bind:tap="handleAvatarTap"
       >
         <image
-          class="person-avatar person-avatar-her"
+          class="person-avatar"
           wx:if="{{displayMembers[0].avatarUrl}}"
           src="{{displayMembers[0].avatarUrl}}"
           mode="aspectFill"
         />
-        <view class="person-avatar person-avatar-her" wx:else>{{displayMembers[0].fallbackLabel}}</view>
+        <view class="person-avatar person-avatar-fallback" wx:else>
+          {{displayMembers[0].fallbackLabel}}
+        </view>
         <view class="person-name">{{displayMembers[0].nickname}}</view>
       </view>
+
       <view class="love-mark">
-        <view class="love-line"></view>
-        <view class="love-heart">♡</view>
-        <view class="love-line"></view>
+        <view class="love-ring">♡</view>
       </view>
+
       <view
         class="person"
         data-public-id="{{displayMembers[1].publicUserId}}"
         bind:tap="handleAvatarTap"
       >
         <image
-          class="person-avatar person-avatar-him"
+          class="person-avatar"
           wx:if="{{displayMembers[1].avatarUrl}}"
           src="{{displayMembers[1].avatarUrl}}"
           mode="aspectFill"
         />
-        <view class="person-avatar person-avatar-him" wx:else>{{displayMembers[1].fallbackLabel}}</view>
+        <view class="person-avatar person-avatar-fallback person-avatar-peer" wx:else>
+          {{displayMembers[1].fallbackLabel}}
+        </view>
         <view class="person-name">{{displayMembers[1].nickname}}</view>
       </view>
     </view>
+
     <block wx:if="{{coupleStatus === 'active'}}">
       <picker
         mode="date"
@@ -43,109 +48,126 @@
         end="{{maxDate}}"
         bindchange="changeAnniversary"
       >
-        <view class="anniversary-editor">
-          <view class="together-text">我们在一起的第</view>
+        <view class="anniversary-block">
+          <view class="together-text">自 {{profile.anniversaryText || '某一天'}} 起在一起的第</view>
           <view class="together-days">{{coupleDays}}<text>天</text></view>
-          <view class="anniversary-pill">纪念日 · {{profile.anniversaryText}} · 点击修改</view>
         </view>
       </picker>
+      <view class="hero-meta">一起点单 {{orderCount}} 次</view>
     </block>
-    <view class="anniversary-pill" wx:else>尚未绑定伴侣</view>
-  </view>
-
-  <view class="stats-row stats-row-single">
-    <view class="stat-card">
-      <view class="stat-value">{{orderCount}}</view>
-      <view class="stat-label">{{coupleStatus === 'active' ? '一起点单' : '保留记录'}}</view>
+    <view class="anniversary-block" wx:else>
+      <view class="together-text">尚未绑定伴侣</view>
+      <view class="hero-meta">个人记录 {{orderCount}} 条</view>
     </view>
   </view>
 
-  <view class="section-heading">
-    <view>
+  <view class="section">
+    <view class="section-head">
       <view class="section-title">最近的小心愿</view>
       <view class="section-subtitle">认真记录每一次选择</view>
     </view>
-  </view>
 
-  <view class="latest-card" wx:if="{{latestOrder}}">
-    <view class="latest-top">
-      <view class="latest-date">{{latestOrder.dateText}}</view>
-      <view class="latest-status">{{latestOrder.status}}</view>
-    </view>
-    <view class="latest-title">{{latestOrder.itemNames}}</view>
-    <view class="latest-note" wx:if="{{latestOrder.note}}">“{{latestOrder.note}}”</view>
-    <view class="latest-avatars">
-      <image
-        class="latest-image"
-        wx:for="{{latestOrder.items}}"
-        wx:key="id"
-        wx:for-item="orderItem"
-        src="{{orderItem.image}}"
-        mode="aspectFill"
-      />
-    </view>
-  </view>
-
-  <view class="latest-empty" wx:else>
-    <view class="latest-empty-icon">♡</view>
-    <view>还没有共同心愿</view>
-    <view class="latest-empty-button" bind:tap="goMenu">
-      {{coupleStatus === 'none' ? '管理我的内容' : '去点第一单'}}
-    </view>
-  </view>
-
-  <view class="section-heading">
-    <view class="section-title">情侣工具箱</view>
-  </view>
-
-  <view class="tool-grid">
-    <view class="tool-card tool-card-invite" wx:if="{{coupleStatus !== 'active'}}" bind:tap="openInvite">
-      <view class="tool-icon tool-icon-invite">💞</view>
-      <view class="tool-name">绑定情侣空间</view>
-      <view class="tool-note">分享邀请，或输入 TA 的邀请码</view>
-    </view>
-    <view class="tool-card tool-card-admin" wx:if="{{coupleStatus === 'active'}}" bind:tap="openAdmin">
-      <view class="tool-icon tool-icon-dark">♡</view>
-      <view class="tool-name">共同空间管理</view>
-      <view class="tool-note">导入彼此喜欢的点单内容</view>
-    </view>
-    <view class="tool-card tool-card-admin" bind:tap="openPersonalLibrary">
-      <view class="tool-icon tool-icon-dark">⚙️</view>
-      <view class="tool-name">我的内容库</view>
-      <view class="tool-note">管理只属于自己的喜好</view>
-    </view>
-    <picker
-      wx:if="{{coupleStatus === 'active'}}"
-      mode="date"
-      value="{{profile.anniversary}}"
-      end="{{maxDate}}"
-      bindchange="changeAnniversary"
-    >
-      <view class="tool-card">
-        <view class="tool-icon tool-icon-pink">📅</view>
-        <view class="tool-name">纪念日</view>
-        <view class="tool-note">点击修改在一起的日子</view>
+    <view class="latest-card" wx:if="{{latestOrder}}">
+      <view class="latest-top">
+        <view class="latest-date">{{latestOrder.dateText}}</view>
+        <view class="latest-status">{{latestOrder.status}}</view>
       </view>
-    </picker>
-    <view class="tool-card" wx:else bind:tap="showComingSoon">
-      <view class="tool-icon tool-icon-pink">📅</view>
-      <view class="tool-name">纪念日</view>
-      <view class="tool-note">重要日子不忘记</view>
+      <view class="latest-title">{{latestOrder.itemNames}}</view>
+      <view class="latest-note" wx:if="{{latestOrder.note}}">“{{latestOrder.note}}”</view>
+      <scroll-view class="latest-thumbs" scroll-x wx:if="{{latestOrder.items.length}}">
+        <image
+          class="latest-image"
+          wx:for="{{latestOrder.items}}"
+          wx:key="id"
+          wx:for-item="orderItem"
+          src="{{orderItem.image}}"
+          mode="aspectFill"
+        />
+      </scroll-view>
     </view>
-    <view class="tool-card" bind:tap="showComingSoon">
-      <view class="tool-icon tool-icon-yellow">🎲</view>
-      <view class="tool-name">随机约会</view>
-      <view class="tool-note">选择困难交给它</view>
+
+    <view class="latest-empty" wx:else>
+      <view class="latest-empty-icon">♡</view>
+      <view class="latest-empty-title">还没有共同心愿</view>
+      <view class="latest-empty-button" bind:tap="goMenu">
+        {{coupleStatus === 'none' ? '管理我的内容' : '去点第一单'}}
+      </view>
     </view>
-    <view class="tool-card" bind:tap="showComingSoon">
-      <view class="tool-icon tool-icon-blue">💌</view>
-      <view class="tool-name">悄悄话</view>
-      <view class="tool-note">写给彼此的小信</view>
+  </view>
+
+  <view class="section">
+    <view class="section-head">
+      <view class="section-title">情侣工具箱</view>
     </view>
-    <view class="tool-card" bind:tap="showComingSoon">
-      <view class="tool-icon tool-icon-green">📷</view>
-      <view class="tool-name">回忆册</view>
-      <view class="tool-note">收藏喜欢的瞬间</view>
+
+    <view class="tool-list">
+      <view class="tool-row tool-row-primary" wx:if="{{coupleStatus !== 'active'}}" bind:tap="openInvite">
+        <view class="tool-icon">＋</view>
+        <view class="tool-copy">
+          <view class="tool-name">绑定情侣空间</view>
+          <view class="tool-note">分享邀请，或输入 TA 的邀请码</view>
+        </view>
+        <view class="tool-arrow">›</view>
+      </view>
+
+      <view class="tool-row tool-row-primary" wx:if="{{coupleStatus === 'active'}}" bind:tap="openAdmin">
+        <view class="tool-icon">♡</view>
+        <view class="tool-copy">
+          <view class="tool-name">共同空间管理</view>
+          <view class="tool-note">导入彼此喜欢的点单内容</view>
+        </view>
+        <view class="tool-arrow">›</view>
+      </view>
+
+      <view class="tool-row" bind:tap="openPersonalLibrary">
+        <view class="tool-icon tool-icon-muted">库</view>
+        <view class="tool-copy">
+          <view class="tool-name">我的内容库</view>
+          <view class="tool-note">管理只属于自己的喜好</view>
+        </view>
+        <view class="tool-arrow">›</view>
+      </view>
+
+      <picker
+        wx:if="{{coupleStatus === 'active'}}"
+        mode="date"
+        value="{{profile.anniversary}}"
+        end="{{maxDate}}"
+        bindchange="changeAnniversary"
+      >
+        <view class="tool-row">
+          <view class="tool-icon tool-icon-muted">日</view>
+          <view class="tool-copy">
+            <view class="tool-name">纪念日</view>
+            <view class="tool-note">{{profile.anniversaryText || '点击设置在一起的日子'}}</view>
+          </view>
+          <view class="tool-arrow">›</view>
+        </view>
+      </picker>
+
+      <view class="tool-row" wx:else bind:tap="showComingSoon">
+        <view class="tool-icon tool-icon-muted">日</view>
+        <view class="tool-copy">
+          <view class="tool-name">纪念日</view>
+          <view class="tool-note">绑定后可设置</view>
+        </view>
+        <view class="tool-arrow">›</view>
+      </view>
+    </view>
+
+    <view class="tool-grid">
+      <view class="tool-tile" bind:tap="showComingSoon">
+        <view class="tool-tile-name">随机约会</view>
+        <view class="tool-tile-note">选择困难交给它</view>
+      </view>
+      <view class="tool-tile" bind:tap="showComingSoon">
+        <view class="tool-tile-name">悄悄话</view>
+        <view class="tool-tile-note">写给彼此的小信</view>
+      </view>
+      <view class="tool-tile" bind:tap="showComingSoon">
+        <view class="tool-tile-name">回忆册</view>
+        <view class="tool-tile-note">收藏喜欢的瞬间</view>
+      </view>
     </view>
   </view>
 

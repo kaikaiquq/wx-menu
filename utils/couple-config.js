@@ -30,22 +30,30 @@ const getMenuConfig = async (force = false) => {
   return getCachedMenuConfig();
 };
 
+const uploadSharedImages = async (items, coupleId) =>
+  Promise.all(
+    items.map(async (item) => {
+      try {
+        return {
+          ...item,
+          image: await uploadCloudImage(item.image, coupleId, 'couple'),
+        };
+      } catch (error) {
+        const label = item.name ? `「${item.name}」` : '内容';
+        const err = new Error(error.message || `${label}图片处理失败，请重新选择图片后再保存`);
+        err.code = error.code || 'IMAGE_UPLOAD_FAILED';
+        throw err;
+      }
+    }),
+  );
+
 const saveMenuConfig = async (config) => {
   const session = getSession();
   if (!session?.couple?.coupleId) throw new Error('请先绑定情侣空间');
+  const coupleId = session.couple.coupleId;
   const [uploadedCategories, uploadedItems] = await Promise.all([
-    Promise.all(
-      config.categories.map(async (item) => ({
-        ...item,
-        image: await uploadCloudImage(item.image, session.couple.coupleId),
-      })),
-    ),
-    Promise.all(
-      config.menuItems.map(async (item) => ({
-        ...item,
-        image: await uploadCloudImage(item.image, session.couple.coupleId),
-      })),
-    ),
+    uploadSharedImages(config.categories || [], coupleId),
+    uploadSharedImages(config.menuItems || [], coupleId),
   ]);
   const savedConfig = await callCloud('dataApi', 'saveConfig', {
     config: {
