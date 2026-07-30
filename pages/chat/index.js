@@ -9,10 +9,11 @@ const {
   rejectFriendRequest,
   removeFriend,
   sendFriendRequest,
+  sendImageMessage,
   sendMessage,
   sendVoiceMessage,
 } = require('../../utils/chat');
-const { resolveCloudFileUrl } = require('../../utils/cloud');
+const { resolveCloudFileUrl, resolveCloudFileUrls } = require('../../utils/cloud');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 const { EMOJI_LIST } = require('./emoji-data');
 
@@ -25,7 +26,12 @@ const conversationFingerprint = (list = []) =>
     .join(';;');
 
 const messageFingerprint = (list = []) =>
-  list.map((item) => `${item.id}|${item.text}|${item.type || 'text'}|${item.voiceFileId || ''}`).join(';;');
+  list
+    .map(
+      (item) =>
+        `${item.id}|${item.text}|${item.msgType || item.type || 'text'}|${item.voiceFileId || ''}|${item.imageFileId || ''}`,
+    )
+    .join(';;');
 
 const pad2 = (value) => String(value).padStart(2, '0');
 
@@ -62,12 +68,27 @@ const formatMessageTime = (value) => {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${time}`;
 };
 
+const resolveMsgType = (item = {}) => {
+  const raw = item.msgType || item.type || '';
+  if (raw === 'voice' || raw === 'image') return raw;
+  if (item.voiceFileId) return 'voice';
+  if (item.imageFileId) return 'image';
+  return 'text';
+};
+
 const decorateMessages = (messages = []) =>
-  messages.map((item) => ({
-    ...item,
-    timeText: formatMessageTime(item.createdAt),
-    type: item.type === 'voice' ? 'voice' : 'text',
-  }));
+  messages.map((item) => {
+    const msgType = resolveMsgType(item);
+    return {
+      ...item,
+      imageFileId: item.imageFileId || '',
+      msgType,
+      timeText: formatMessageTime(item.createdAt),
+      type: msgType,
+      voiceDuration: Number(item.voiceDuration || 0),
+      voiceFileId: item.voiceFileId || '',
+    };
+  });
 
 /** 只在本地缓存里补新头像，已有 openid 绝不覆盖，避免临时链刷新导致闪烁 */
 const collectAvatarMap = (avatarMap = {}, people = []) => {
@@ -105,6 +126,7 @@ Page({
     filteredFriends: [],
     friends: [],
     friendKeyword: '',
+    imageUrlMap: {},
     incoming: [],
     inputFocus: false,
     loading: true,
@@ -117,8 +139,10 @@ Page({
     sending: false,
     showEmoji: false,
     showFriends: false,
+    showVoiceOverlay: false,
     submittingFriend: false,
     themeClass: getStoredThemeClass(),
+    voiceCancelReady: false,
     voiceMode: false,
   },
 
@@ -376,9 +400,13 @@ Page({
       const decorated = decorateMessages(messages);
       const nextFp = messageFingerprint(decorated);
       this.clearLocalUnread(conversationId);
-      if (nextFp === this.messageFp) return;
+      if (nextFp === this.messageFp) {
+        this.resolveMessageImages(decorated);
+        return;
+      }
       this.messageFp = nextFp;
       this.setData({ messages: decorated });
+      this.resolveMessageImages(decorated);
       if (!silent) {
         const target = `msg-${Math.max(decorated.length - 1, 0)}`;
         this.setData({ scrollIntoView: '' });
@@ -389,6 +417,19 @@ Page({
     } catch (error) {
       if (!silent) wx.showToast({ title: error.message || '消息加载失败', icon: 'none' });
     }
+  },
+
+  async resolveMessageImages(messages = []) {
+    const ids = messages
+      .filter((item) => (item.msgType === 'image' || item.type === 'image') && item.imageFileId)
+      .map((item) => item.imageFileId)
+      .filter((id) => id.startsWith('cloud://') && !this.data.imageUrlMap[id]);
+    if (!ids.length) return;
+    const map = await resolveCloudFileUrls(ids);
+    if (!Object.keys(map).length) return;
+    this.setData({
+      imageUrlMap: { ...this.data.imageUrlMap, ...map },
+    });
   },
 
   selectConversation(event) {
@@ -427,8 +468,21 @@ Page({
 
   toggleVoiceMode() {
     const voiceMode = !this.data.voiceMode;
+    if (voiceMode) {
+      // 进入语音模式前先申请权限，避免按住说话时异步授权导致 start/stop 竞态
+      this.ensureRecordAuth().then((ok) => {
+        if (!ok) return;
+        this.setData({
+          voiceMode: true,
+          showEmoji: false,
+          inputFocus: false,
+        });
+      });
+      return;
+    }
+    this.cancelRecording(true);
     this.setData({
-      voiceMode,
+      voiceMode: false,
       showEmoji: false,
       inputFocus: false,
     });
@@ -455,6 +509,96 @@ Page({
     this.setData({ draft });
   },
 
+  openImagePicker() {
+    if (!this.data.activeId || this.data.sending) return;
+    this.dismissComposerExtras();
+    wx.showActionSheet({
+      itemList: ['拍照', '从相册选择'],
+      success: ({ tapIndex }) => {
+        const sourceType = tapIndex === 0 ? ['camera'] : ['album'];
+        this.chooseAndSendImage(sourceType);
+      },
+    });
+  },
+
+  chooseAndSendImage(sourceType) {
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType,
+      sizeType: ['compressed'],
+      success: async ({ tempFiles }) => {
+        const file = tempFiles && tempFiles[0];
+        if (!file?.tempFilePath) return;
+        await this.uploadAndSendImage(file.tempFilePath);
+      },
+      fail: (error) => {
+        if (String(error?.errMsg || '').includes('cancel')) return;
+        wx.showToast({ title: '选择图片失败', icon: 'none' });
+      },
+    });
+  },
+
+  async uploadAndSendImage(tempFilePath) {
+    if (!this.data.activeId || this.data.sending) return;
+    this.setData({ sending: true });
+    wx.showLoading({ title: '发送图片中' });
+    try {
+      const extension = (tempFilePath.split('.').pop() || 'jpg').toLowerCase().split('?')[0];
+      const safeExt = /^[a-z0-9]{1,5}$/.test(extension) ? extension : 'jpg';
+      const cloudPath = `chat/image/${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExt}`;
+      const { fileID } = await wx.cloud.uploadFile({
+        cloudPath,
+        filePath: tempFilePath,
+      });
+      const { message } = await sendImageMessage(this.data.activeId, { imageFileId: fileID });
+      const decorated = decorateMessages([
+        {
+          ...message,
+          imageFileId: message.imageFileId || fileID,
+          msgType: 'image',
+          type: 'image',
+          imageUrl: tempFilePath,
+        },
+      ])[0];
+      const messages = [...this.data.messages, decorated];
+      this.messageFp = messageFingerprint(messages);
+      this.setData({
+        messages,
+        sending: false,
+        showEmoji: false,
+        imageUrlMap: {
+          ...this.data.imageUrlMap,
+          [fileID]: tempFilePath,
+        },
+      });
+      this.conversationFp = '';
+      this.refreshConversations(false, { includeAvatars: false, skipMessages: true });
+      wx.hideLoading();
+      wx.nextTick(() => {
+        this.setData({ scrollIntoView: `msg-${messages.length - 1}` });
+      });
+      this.resolveMessageImages([decorated]);
+    } catch (error) {
+      wx.hideLoading();
+      this.setData({ sending: false });
+      wx.showToast({ title: error.message || '图片发送失败', icon: 'none' });
+    }
+  },
+
+  previewChatImage(event) {
+    const url = event.currentTarget.dataset.url;
+    if (!url) return;
+    const urls = this.data.messages
+      .filter((item) => item.msgType === 'image' || item.type === 'image')
+      .map((item) => item.imageUrl || this.data.imageUrlMap[item.imageFileId] || item.imageFileId)
+      .filter(Boolean);
+    wx.previewImage({
+      current: url,
+      urls: urls.length ? urls : [url],
+    });
+  },
+
   /** 点空白：键盘和表情都收起 */
   dismissComposerExtras() {
     if (!this.data.showEmoji && !this.data.inputFocus) return;
@@ -464,23 +608,49 @@ Page({
     });
   },
 
+  hideVoiceOverlay() {
+    if (!this.data.showVoiceOverlay && !this.data.voiceCancelReady && !this.data.recording) {
+      return;
+    }
+    this.setData({
+      showVoiceOverlay: false,
+      voiceCancelReady: false,
+      recording: false,
+    });
+  },
+
   ensureRecorder() {
     if (this.recorder) return this.recorder;
     const recorder = wx.getRecorderManager();
     recorder.onStart(() => {
+      this._recorderState = 'recording';
       this.recorderStartedAt = Date.now();
-      this.setData({ recording: true });
+      this.setData({
+        recording: true,
+        showVoiceOverlay: true,
+      });
+      // 手指已松开：开始后立刻停，避免 stop-when-idle 报错
+      if (this._pendingStop || !this.voiceTouching) {
+        this._pendingStop = false;
+        this._recorderState = 'stopping';
+        try {
+          recorder.stop();
+        } catch (error) {
+          this._recorderState = 'idle';
+          this.hideVoiceOverlay();
+        }
+      }
     });
     recorder.onStop(async (res) => {
-      const wasTouching = this.voiceTouching;
+      const cancelled = this._voiceCancelled;
+      this._voiceCancelled = false;
       this.voiceTouching = false;
-      this.setData({ recording: false });
-      if (!wasTouching || this._voiceCancelled) {
-        this._voiceCancelled = false;
-        return;
-      }
-      const durationMs = res.duration || Date.now() - this.recorderStartedAt;
-      const durationSec = Math.max(1, Math.round(durationMs / 1000));
+      this._pendingStop = false;
+      this._recorderState = 'idle';
+      this.hideVoiceOverlay();
+      if (cancelled) return;
+
+      const durationMs = Number(res.duration) || 0;
       if (durationMs < 800) {
         wx.showToast({ title: '说话时间太短', icon: 'none' });
         return;
@@ -489,14 +659,25 @@ Page({
         wx.showToast({ title: '录音失败', icon: 'none' });
         return;
       }
-      await this.uploadAndSendVoice(res.tempFilePath, durationSec);
+      await this.uploadAndSendVoice(
+        res.tempFilePath,
+        Math.max(1, Math.round(durationMs / 1000)),
+      );
     });
     recorder.onError((error) => {
+      const msg = String(error?.errMsg || error?.message || '');
       this.voiceTouching = false;
-      this.setData({ recording: false });
-      wx.showToast({ title: error?.errMsg || '录音失败', icon: 'none' });
+      this._pendingStop = false;
+      this._recorderState = 'idle';
+      this.hideVoiceOverlay();
+      if (/recording or paused|is recording|not start/i.test(msg)) {
+        console.warn('recorder benign error', msg);
+        return;
+      }
+      wx.showToast({ title: '录音失败，请重试', icon: 'none' });
     });
     this.recorder = recorder;
+    this._recorderState = 'idle';
     return recorder;
   },
 
@@ -527,29 +708,91 @@ Page({
     }
   },
 
-  async onVoiceTouchStart() {
+  onVoiceTouchStart(event) {
     if (!this.data.activeId || this.data.sending) return;
-    const ok = await this.ensureRecordAuth();
-    if (!ok) return;
+    if (this._recorderState && this._recorderState !== 'idle') return;
+
+    const touch = (event.touches && event.touches[0]) || {};
+    this._touchStartY = Number(touch.clientY || 0);
+    this.stopVoicePlayback();
     this._voiceCancelled = false;
+    this._pendingStop = false;
     this.voiceTouching = true;
-    const recorder = this.ensureRecorder();
-    recorder.start({
-      duration: 60000,
-      format: 'mp3',
-      sampleRate: 16000,
-      numberOfChannels: 1,
-      encodeBitRate: 48000,
+    this._recorderState = 'starting';
+    this.setData({
+      showVoiceOverlay: true,
+      voiceCancelReady: false,
+      recording: true,
     });
+    try {
+      this.ensureRecorder().start({
+        duration: 60000,
+        format: 'mp3',
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        encodeBitRate: 48000,
+      });
+    } catch (error) {
+      this._recorderState = 'idle';
+      this.voiceTouching = false;
+      this.hideVoiceOverlay();
+      console.warn('recorder start failed', error);
+    }
+  },
+
+  onVoiceTouchMove(event) {
+    if (!this.voiceTouching) return;
+    const touch = (event.touches && event.touches[0]) || {};
+    const currentY = Number(touch.clientY || 0);
+    if (!this._touchStartY || !currentY) return;
+    // 上滑超过约 80px 进入取消态
+    const cancelReady = this._touchStartY - currentY > 80;
+    if (cancelReady !== this.data.voiceCancelReady) {
+      this.setData({ voiceCancelReady: cancelReady });
+    }
   },
 
   onVoiceTouchEnd() {
-    if (!this.voiceTouching && !this.data.recording) return;
-    this.voiceTouching = true;
+    const shouldCancel = this.data.voiceCancelReady;
+    // 尚未真正开始：标记待停止，等 onStart 里再 stop
+    if (this._recorderState === 'starting') {
+      this.voiceTouching = false;
+      if (shouldCancel) {
+        this._voiceCancelled = true;
+        this._pendingStop = true;
+        this.hideVoiceOverlay();
+        wx.showToast({ title: '已取消', icon: 'none' });
+        return;
+      }
+      this._pendingStop = true;
+      return;
+    }
+    if (this._recorderState !== 'recording') {
+      this.voiceTouching = false;
+      this.hideVoiceOverlay();
+      return;
+    }
+
+    this.voiceTouching = false;
+    if (shouldCancel) {
+      this._voiceCancelled = true;
+      this._recorderState = 'stopping';
+      this.hideVoiceOverlay();
+      try {
+        this.ensureRecorder().stop();
+      } catch (error) {
+        this._recorderState = 'idle';
+      }
+      wx.showToast({ title: '已取消', icon: 'none' });
+      return;
+    }
+
+    this._recorderState = 'stopping';
     try {
       this.ensureRecorder().stop();
     } catch (error) {
-      this.setData({ recording: false });
+      this._recorderState = 'idle';
+      this.hideVoiceOverlay();
     }
   },
 
@@ -557,20 +800,24 @@ Page({
     this.cancelRecording();
   },
 
-  cancelRecording(silent) {
+  cancelRecording() {
     this._voiceCancelled = true;
     this.voiceTouching = false;
-    if (this.data.recording || this.recorder) {
+    this.setData({ voiceCancelReady: false });
+    if (this._recorderState === 'starting') {
+      this._pendingStop = true;
+      this.hideVoiceOverlay();
+      return;
+    }
+    if (this._recorderState === 'recording') {
+      this._recorderState = 'stopping';
       try {
         this.ensureRecorder().stop();
       } catch (error) {
-        // ignore
+        this._recorderState = 'idle';
       }
     }
-    this.setData({ recording: false });
-    if (!silent) {
-      // no toast on page hide
-    }
+    this.hideVoiceOverlay();
   },
 
   async uploadAndSendVoice(tempFilePath, voiceDuration) {
@@ -587,7 +834,15 @@ Page({
         voiceDuration,
         voiceFileId: fileID,
       });
-      const decorated = decorateMessages([message])[0];
+      const decorated = decorateMessages([
+        {
+          ...message,
+          msgType: 'voice',
+          type: 'voice',
+          voiceDuration,
+          voiceFileId: message.voiceFileId || fileID,
+        },
+      ])[0];
       const messages = [...this.data.messages, decorated];
       this.messageFp = messageFingerprint(messages);
       this.setData({
@@ -596,7 +851,7 @@ Page({
         showEmoji: false,
       });
       this.conversationFp = '';
-      this.refreshConversations(false, { includeAvatars: false });
+      this.refreshConversations(false, { includeAvatars: false, skipMessages: true });
       wx.hideLoading();
       wx.nextTick(() => {
         this.setData({ scrollIntoView: `msg-${messages.length - 1}` });

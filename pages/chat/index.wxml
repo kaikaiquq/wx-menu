@@ -164,12 +164,25 @@
                 <view class="msg-meta mine-meta" wx:else>
                   <text class="msg-time">{{item.timeText}}</text>
                 </view>
-                <view class="message-bubble" wx:if="{{item.type !== 'voice'}}">
+                <view class="message-bubble" wx:if="{{item.msgType === 'text'}}">
                   <view class="message-text">{{item.text}}</view>
                 </view>
                 <view
+                  class="message-bubble image-bubble"
+                  wx:elif="{{item.msgType === 'image'}}"
+                  data-url="{{item.imageUrl || imageUrlMap[item.imageFileId] || item.imageFileId}}"
+                  catch:tap="previewChatImage"
+                >
+                  <image
+                    class="chat-image"
+                    src="{{item.imageUrl || imageUrlMap[item.imageFileId] || item.imageFileId}}"
+                    mode="aspectFit"
+                    lazy-load
+                  />
+                </view>
+                <view
                   class="message-bubble voice-bubble"
-                  wx:else
+                  wx:elif="{{item.msgType === 'voice'}}"
                   data-id="{{item.id}}"
                   data-file="{{item.voiceFileId}}"
                   catch:tap="playVoice"
@@ -203,7 +216,7 @@
       <view class="composer-wrap" wx:if="{{activeId}}">
         <view class="composer">
           <view class="composer-tool" catch:tap="toggleVoiceMode" aria-label="{{voiceMode ? '键盘' : '语音'}}">
-            <view class="tool-icon {{voiceMode ? 'tool-keyboard' : 'tool-mic'}}"></view>
+            <view class="tool-glyph {{voiceMode ? 'glyph-keyboard' : 'glyph-mic'}}"></view>
           </view>
 
           <input
@@ -223,12 +236,13 @@
           />
           <view
             wx:else
-            class="voice-hold {{recording ? 'recording' : ''}}"
+            class="voice-hold {{recording ? 'recording' : ''}} {{voiceCancelReady ? 'cancel-ready' : ''}}"
             bindtouchstart="onVoiceTouchStart"
+            bindtouchmove="onVoiceTouchMove"
             bindtouchend="onVoiceTouchEnd"
             bindtouchcancel="onVoiceTouchCancel"
           >
-            {{recording ? '松开发送' : '按住 说话'}}
+            {{recording ? (voiceCancelReady ? '松开取消' : '松开发送') : '按住 说话'}}
           </view>
 
           <view
@@ -236,7 +250,11 @@
             catch:tap="toggleEmojiPanel"
             aria-label="表情"
           >
-            <view class="tool-icon tool-emoji"></view>
+            <view class="tool-glyph glyph-emoji"></view>
+          </view>
+
+          <view class="composer-tool" catch:tap="openImagePicker" aria-label="图片">
+            <view class="tool-glyph glyph-image"></view>
           </view>
 
           <view
@@ -244,7 +262,7 @@
             catch:tap="submitMessage"
             aria-label="发送"
           >
-            <view class="send-icon"></view>
+            <view class="tool-glyph glyph-send"></view>
           </view>
         </view>
 
@@ -262,6 +280,25 @@
           </scroll-view>
         </view>
       </view>
+    </view>
+  </view>
+
+  <!-- 按住说话提示层（类微信） -->
+  <view class="voice-overlay {{voiceCancelReady ? 'is-cancel' : ''}}" wx:if="{{showVoiceOverlay}}" catch:touchmove="noop">
+    <view class="voice-overlay-card">
+      <view class="voice-overlay-mic">
+        <view class="voice-overlay-wave">
+          <view class="vov-bar"></view>
+          <view class="vov-bar"></view>
+          <view class="vov-bar"></view>
+          <view class="vov-bar"></view>
+          <view class="vov-bar"></view>
+        </view>
+      </view>
+      <view class="voice-overlay-title">
+        {{voiceCancelReady ? '松开手指，取消发送' : '松开发送'}}
+      </view>
+      <view class="voice-overlay-sub" wx:if="{{!voiceCancelReady}}">手指上滑，取消发送</view>
     </view>
   </view>
 </view>

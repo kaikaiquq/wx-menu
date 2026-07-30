@@ -13,6 +13,13 @@ const sendVoiceMessage = (conversationId, { voiceFileId, voiceDuration }) =>
     voiceDuration,
     voiceFileId,
   });
+const sendImageMessage = (conversationId, { imageFileId }) =>
+  callCloud('chatApi', 'sendMessage', {
+    conversationId,
+    imageFileId,
+    msgType: 'image',
+    text: '[图片]',
+  });
 const listFriends = (options = {}) => callCloud('chatApi', 'listFriends', options);
 const listFriendRequests = () => callCloud('chatApi', 'listFriendRequests');
 const sendFriendRequest = (publicUserId) => callCloud('chatApi', 'sendFriendRequest', { publicUserId });
@@ -34,6 +41,7 @@ module.exports = {
   rejectFriendRequest,
   removeFriend,
   sendFriendRequest,
+  sendImageMessage,
   sendMessage,
   sendVoiceMessage,
 };

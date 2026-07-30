@@ -219,17 +219,24 @@ const listMessages = async (openid, event) => {
   const messages = result.data
     .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
     .slice(-limit)
-    .map((item) => ({
-      createdAt: item.createdAt,
-      fromNickname: item.fromNickname || '',
-      fromOpenid: item.fromOpenid,
-      id: item._id,
-      isMine: item.fromOpenid === openid,
-      text: item.text || '',
-      type: item.type === 'voice' ? 'voice' : 'text',
-      voiceDuration: Number(item.voiceDuration || 0),
-      voiceFileId: item.voiceFileId || '',
-    }));
+    .map((item) => {
+      const hasVoice = Boolean(item.voiceFileId) || item.type === 'voice';
+      const hasImage = Boolean(item.imageFileId) || item.type === 'image';
+      const msgType = hasVoice ? 'voice' : hasImage ? 'image' : 'text';
+      return {
+        createdAt: item.createdAt,
+        fromNickname: item.fromNickname || '',
+        fromOpenid: item.fromOpenid,
+        id: item._id,
+        imageFileId: item.imageFileId || '',
+        isMine: item.fromOpenid === openid,
+        msgType,
+        text: item.text || '',
+        type: msgType,
+        voiceDuration: Number(item.voiceDuration || 0),
+        voiceFileId: item.voiceFileId || '',
+      };
+    });
 
   // 打开会话即视为已读，清零未读角标
   try {
@@ -251,10 +258,12 @@ const sendMessage = async (openid, event) => {
   const conversationId = String(event.conversationId || '');
   if (!conversationId) return fail('INVALID_PARAMS', '缺少会话');
 
-  const msgType = event.msgType === 'voice' ? 'voice' : 'text';
+  const rawType = String(event.msgType || 'text');
+  const msgType = rawType === 'voice' || rawType === 'image' ? rawType : 'text';
   let text = String(event.text || '').trim().slice(0, 500);
   let voiceFileId = '';
   let voiceDuration = 0;
+  let imageFileId = '';
 
   if (msgType === 'voice') {
     voiceFileId = String(event.voiceFileId || '').trim();
@@ -263,6 +272,12 @@ const sendMessage = async (openid, event) => {
       return fail('INVALID_PARAMS', '语音文件无效');
     }
     text = text || '[语音]';
+  } else if (msgType === 'image') {
+    imageFileId = String(event.imageFileId || '').trim();
+    if (!imageFileId.startsWith('cloud://')) {
+      return fail('INVALID_PARAMS', '图片文件无效');
+    }
+    text = text || '[图片]';
   } else if (!text) {
     return fail('INVALID_PARAMS', '消息不能为空');
   }
@@ -275,6 +290,7 @@ const sendMessage = async (openid, event) => {
     createdAt: now(),
     fromNickname: nickname,
     fromOpenid: openid,
+    imageFileId: msgType === 'image' ? imageFileId : '',
     text,
     type: msgType,
     voiceDuration: msgType === 'voice' ? voiceDuration : 0,
@@ -288,7 +304,11 @@ const sendMessage = async (openid, event) => {
     }
   });
   const preview =
-    msgType === 'voice' ? `[语音] ${voiceDuration}"` : text.slice(0, 80);
+    msgType === 'voice'
+      ? `[语音] ${voiceDuration}"`
+      : msgType === 'image'
+        ? '[图片]'
+        : text.slice(0, 80);
   await db.collection('conversations').doc(conversationId).update({
     data: {
       lastMessageAt: now(),
@@ -305,7 +325,9 @@ const sendMessage = async (openid, event) => {
       fromNickname: nickname,
       fromOpenid: openid,
       id: addResult._id,
+      imageFileId: msgType === 'image' ? imageFileId : '',
       isMine: true,
+      msgType,
       text,
       type: msgType,
       voiceDuration: msgType === 'voice' ? voiceDuration : 0,
