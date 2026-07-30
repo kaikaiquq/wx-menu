@@ -225,7 +225,10 @@ const listMessages = async (openid, event) => {
       fromOpenid: item.fromOpenid,
       id: item._id,
       isMine: item.fromOpenid === openid,
-      text: item.text,
+      text: item.text || '',
+      type: item.type === 'voice' ? 'voice' : 'text',
+      voiceDuration: Number(item.voiceDuration || 0),
+      voiceFileId: item.voiceFileId || '',
     }));
 
   // 打开会话即视为已读，清零未读角标
@@ -246,9 +249,24 @@ const listMessages = async (openid, event) => {
 
 const sendMessage = async (openid, event) => {
   const conversationId = String(event.conversationId || '');
-  const text = String(event.text || '').trim().slice(0, 500);
   if (!conversationId) return fail('INVALID_PARAMS', '缺少会话');
-  if (!text) return fail('INVALID_PARAMS', '消息不能为空');
+
+  const msgType = event.msgType === 'voice' ? 'voice' : 'text';
+  let text = String(event.text || '').trim().slice(0, 500);
+  let voiceFileId = '';
+  let voiceDuration = 0;
+
+  if (msgType === 'voice') {
+    voiceFileId = String(event.voiceFileId || '').trim();
+    voiceDuration = Math.max(1, Math.min(60, Math.round(Number(event.voiceDuration) || 1)));
+    if (!voiceFileId.startsWith('cloud://')) {
+      return fail('INVALID_PARAMS', '语音文件无效');
+    }
+    text = text || '[语音]';
+  } else if (!text) {
+    return fail('INVALID_PARAMS', '消息不能为空');
+  }
+
   const conversation = await assertConversationMember(conversationId, openid);
   const user = await getUser(openid);
   const nickname = user.nickname || '用户';
@@ -258,6 +276,9 @@ const sendMessage = async (openid, event) => {
     fromNickname: nickname,
     fromOpenid: openid,
     text,
+    type: msgType,
+    voiceDuration: msgType === 'voice' ? voiceDuration : 0,
+    voiceFileId: msgType === 'voice' ? voiceFileId : '',
   };
   const addResult = await db.collection('messages').add({ data: message });
   const unreadUpdates = {};
@@ -266,16 +287,17 @@ const sendMessage = async (openid, event) => {
       unreadUpdates[`unreadBy.${memberOpenid}`] = _.inc(1);
     }
   });
+  const preview =
+    msgType === 'voice' ? `[语音] ${voiceDuration}"` : text.slice(0, 80);
   await db.collection('conversations').doc(conversationId).update({
     data: {
       lastMessageAt: now(),
       lastMessageFrom: openid,
-      lastMessageText: text.slice(0, 80),
+      lastMessageText: preview,
       updatedAt: now(),
       ...unreadUpdates,
     },
   });
-  // 给其他成员推送信标，对方 watch 到后再拉消息（替代高频轮询）
   await notifyChatSignals(conversation.memberOpenids || [], conversationId, openid);
   return ok({
     message: {
@@ -285,6 +307,9 @@ const sendMessage = async (openid, event) => {
       id: addResult._id,
       isMine: true,
       text,
+      type: msgType,
+      voiceDuration: msgType === 'voice' ? voiceDuration : 0,
+      voiceFileId: msgType === 'voice' ? voiceFileId : '',
     },
     conversationId,
     type: conversation.type,

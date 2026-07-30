@@ -10,9 +10,11 @@ const {
   removeFriend,
   sendFriendRequest,
   sendMessage,
+  sendVoiceMessage,
 } = require('../../utils/chat');
 const { resolveCloudFileUrl } = require('../../utils/cloud');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
+const { EMOJI_LIST } = require('./emoji-data');
 
 const conversationFingerprint = (list = []) =>
   list
@@ -22,7 +24,8 @@ const conversationFingerprint = (list = []) =>
     )
     .join(';;');
 
-const messageFingerprint = (list = []) => list.map((item) => `${item.id}|${item.text}`).join(';;');
+const messageFingerprint = (list = []) =>
+  list.map((item) => `${item.id}|${item.text}|${item.type || 'text'}|${item.voiceFileId || ''}`).join(';;');
 
 const pad2 = (value) => String(value).padStart(2, '0');
 
@@ -63,6 +66,7 @@ const decorateMessages = (messages = []) =>
   messages.map((item) => ({
     ...item,
     timeText: formatMessageTime(item.createdAt),
+    type: item.type === 'voice' ? 'voice' : 'text',
   }));
 
 /** 只在本地缓存里补新头像，已有 openid 绝不覆盖，避免临时链刷新导致闪烁 */
@@ -97,19 +101,25 @@ Page({
     avatarMap: {},
     conversations: [],
     draft: '',
+    emojiList: EMOJI_LIST,
     filteredFriends: [],
     friends: [],
     friendKeyword: '',
     incoming: [],
+    inputFocus: false,
     loading: true,
     messages: [],
     myOpenid: '',
     myPublicUserId: '',
+    playingVoiceId: '',
+    recording: false,
     scrollIntoView: '',
     sending: false,
+    showEmoji: false,
     showFriends: false,
     submittingFriend: false,
     themeClass: getStoredThemeClass(),
+    voiceMode: false,
   },
 
   pollTimer: null,
@@ -121,6 +131,10 @@ Page({
   friendAvatarsReady: false,
   signalWatchReady: false,
   usingWatch: false,
+  recorder: null,
+  recorderStartedAt: 0,
+  voiceTouching: false,
+  audioCtx: null,
 
   async onShow() {
     this.getTabBar()?.init?.();
@@ -181,10 +195,14 @@ Page({
 
   onHide() {
     this.stopRealtime();
+    this.stopVoicePlayback();
+    this.cancelRecording(true);
   },
 
   onUnload() {
     this.stopRealtime();
+    this.stopVoicePlayback();
+    this.cancelRecording(true);
   },
 
   startRealtime(openid) {
@@ -377,11 +395,14 @@ Page({
     const id = event.currentTarget.dataset.id;
     const active = this.data.conversations.find((item) => item.id === id);
     if (!id || id === this.data.activeId) return;
+    this.stopVoicePlayback();
     this.messageFp = '';
     this.setData({
       activeId: id,
       activeTitle: active?.title || '消息',
+      inputFocus: false,
       messages: [],
+      showEmoji: false,
       showFriends: false,
     });
     this.loadMessages(id, false);
@@ -391,9 +412,250 @@ Page({
     this.setData({ draft: event.detail.value });
   },
 
+  onInputFocus() {
+    // 点输入框：收起表情，只留键盘
+    this.setData({
+      inputFocus: true,
+      showEmoji: false,
+      voiceMode: false,
+    });
+  },
+
+  onInputBlur() {
+    this.setData({ inputFocus: false });
+  },
+
+  toggleVoiceMode() {
+    const voiceMode = !this.data.voiceMode;
+    this.setData({
+      voiceMode,
+      showEmoji: false,
+      inputFocus: false,
+    });
+  },
+
+  toggleEmojiPanel() {
+    if (this.data.showEmoji) {
+      // 表情已开 → 关掉，回到可输入状态但不强行弹键盘
+      this.setData({ showEmoji: false });
+      return;
+    }
+    // 输入/键盘模式 → 切到表情：先失焦收键盘，再出表情面板
+    this.setData({
+      inputFocus: false,
+      voiceMode: false,
+      showEmoji: true,
+    });
+  },
+
+  insertEmoji(event) {
+    const emoji = event.currentTarget.dataset.emoji || '';
+    if (!emoji) return;
+    const draft = `${this.data.draft || ''}${emoji}`.slice(0, 500);
+    this.setData({ draft });
+  },
+
+  /** 点空白：键盘和表情都收起 */
+  dismissComposerExtras() {
+    if (!this.data.showEmoji && !this.data.inputFocus) return;
+    this.setData({
+      showEmoji: false,
+      inputFocus: false,
+    });
+  },
+
+  ensureRecorder() {
+    if (this.recorder) return this.recorder;
+    const recorder = wx.getRecorderManager();
+    recorder.onStart(() => {
+      this.recorderStartedAt = Date.now();
+      this.setData({ recording: true });
+    });
+    recorder.onStop(async (res) => {
+      const wasTouching = this.voiceTouching;
+      this.voiceTouching = false;
+      this.setData({ recording: false });
+      if (!wasTouching || this._voiceCancelled) {
+        this._voiceCancelled = false;
+        return;
+      }
+      const durationMs = res.duration || Date.now() - this.recorderStartedAt;
+      const durationSec = Math.max(1, Math.round(durationMs / 1000));
+      if (durationMs < 800) {
+        wx.showToast({ title: '说话时间太短', icon: 'none' });
+        return;
+      }
+      if (!res.tempFilePath) {
+        wx.showToast({ title: '录音失败', icon: 'none' });
+        return;
+      }
+      await this.uploadAndSendVoice(res.tempFilePath, durationSec);
+    });
+    recorder.onError((error) => {
+      this.voiceTouching = false;
+      this.setData({ recording: false });
+      wx.showToast({ title: error?.errMsg || '录音失败', icon: 'none' });
+    });
+    this.recorder = recorder;
+    return recorder;
+  },
+
+  async ensureRecordAuth() {
+    const setting = await new Promise((resolve) => {
+      wx.getSetting({ success: resolve, fail: () => resolve({}) });
+    });
+    if (setting.authSetting && setting.authSetting['scope.record']) return true;
+    try {
+      await new Promise((resolve, reject) => {
+        wx.authorize({
+          scope: 'scope.record',
+          success: resolve,
+          fail: reject,
+        });
+      });
+      return true;
+    } catch (error) {
+      wx.showModal({
+        title: '需要麦克风权限',
+        content: '请在设置中开启录音权限，才能发送语音消息',
+        confirmText: '去设置',
+        success: ({ confirm }) => {
+          if (confirm) wx.openSetting({});
+        },
+      });
+      return false;
+    }
+  },
+
+  async onVoiceTouchStart() {
+    if (!this.data.activeId || this.data.sending) return;
+    const ok = await this.ensureRecordAuth();
+    if (!ok) return;
+    this._voiceCancelled = false;
+    this.voiceTouching = true;
+    const recorder = this.ensureRecorder();
+    recorder.start({
+      duration: 60000,
+      format: 'mp3',
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      encodeBitRate: 48000,
+    });
+  },
+
+  onVoiceTouchEnd() {
+    if (!this.voiceTouching && !this.data.recording) return;
+    this.voiceTouching = true;
+    try {
+      this.ensureRecorder().stop();
+    } catch (error) {
+      this.setData({ recording: false });
+    }
+  },
+
+  onVoiceTouchCancel() {
+    this.cancelRecording();
+  },
+
+  cancelRecording(silent) {
+    this._voiceCancelled = true;
+    this.voiceTouching = false;
+    if (this.data.recording || this.recorder) {
+      try {
+        this.ensureRecorder().stop();
+      } catch (error) {
+        // ignore
+      }
+    }
+    this.setData({ recording: false });
+    if (!silent) {
+      // no toast on page hide
+    }
+  },
+
+  async uploadAndSendVoice(tempFilePath, voiceDuration) {
+    if (!this.data.activeId || this.data.sending) return;
+    this.setData({ sending: true });
+    wx.showLoading({ title: '发送语音中' });
+    try {
+      const cloudPath = `chat/voice/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
+      const { fileID } = await wx.cloud.uploadFile({
+        cloudPath,
+        filePath: tempFilePath,
+      });
+      const { message } = await sendVoiceMessage(this.data.activeId, {
+        voiceDuration,
+        voiceFileId: fileID,
+      });
+      const decorated = decorateMessages([message])[0];
+      const messages = [...this.data.messages, decorated];
+      this.messageFp = messageFingerprint(messages);
+      this.setData({
+        messages,
+        sending: false,
+        showEmoji: false,
+      });
+      this.conversationFp = '';
+      this.refreshConversations(false, { includeAvatars: false });
+      wx.hideLoading();
+      wx.nextTick(() => {
+        this.setData({ scrollIntoView: `msg-${messages.length - 1}` });
+      });
+    } catch (error) {
+      wx.hideLoading();
+      this.setData({ sending: false });
+      wx.showToast({ title: error.message || '语音发送失败', icon: 'none' });
+    }
+  },
+
+  stopVoicePlayback() {
+    if (this.audioCtx) {
+      try {
+        this.audioCtx.stop();
+        this.audioCtx.destroy();
+      } catch (error) {
+        // ignore
+      }
+      this.audioCtx = null;
+    }
+    if (this.data.playingVoiceId) this.setData({ playingVoiceId: '' });
+  },
+
+  async playVoice(event) {
+    const { id, file } = event.currentTarget.dataset;
+    if (!file) return;
+    if (this.data.playingVoiceId === id) {
+      this.stopVoicePlayback();
+      return;
+    }
+    this.stopVoicePlayback();
+    let url = file;
+    if (String(file).startsWith('cloud://')) {
+      url = (await resolveCloudFileUrl(file)) || '';
+    }
+    if (!url) {
+      wx.showToast({ title: '语音无法播放', icon: 'none' });
+      return;
+    }
+    const audio = wx.createInnerAudioContext();
+    this.audioCtx = audio;
+    audio.src = url;
+    this.setData({ playingVoiceId: id });
+    audio.onEnded(() => {
+      if (this.data.playingVoiceId === id) this.setData({ playingVoiceId: '' });
+      this.audioCtx = null;
+    });
+    audio.onError(() => {
+      this.setData({ playingVoiceId: '' });
+      this.audioCtx = null;
+      wx.showToast({ title: '播放失败', icon: 'none' });
+    });
+    audio.play();
+  },
+
   async submitMessage() {
     const text = (this.data.draft || '').trim();
-    if (!text || !this.data.activeId || this.data.sending) return;
+    if (!text || !this.data.activeId || this.data.sending || this.data.voiceMode) return;
     this.setData({ sending: true });
     try {
       const { message } = await sendMessage(this.data.activeId, text);
@@ -404,6 +666,7 @@ Page({
         draft: '',
         messages,
         sending: false,
+        showEmoji: false,
       });
       this.conversationFp = '';
       this.refreshConversations(false, { includeAvatars: false });
@@ -417,7 +680,11 @@ Page({
   },
 
   async openFriendsPanel() {
-    this.setData({ showFriends: true });
+    this.setData({
+      showFriends: true,
+      showEmoji: false,
+      inputFocus: false,
+    });
     await this.refreshFriendsPanel();
   },
 

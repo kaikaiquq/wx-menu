@@ -30,7 +30,18 @@
           </view>
         </scroll-view>
         <view class="sidebar-friends-btn" bind:tap="openFriendsPanel">
-          <view class="friends-icon">友</view>
+          <view class="friends-icon" aria-label="好友">
+            <view class="friends-people">
+              <view class="people-person people-back">
+                <view class="people-head"></view>
+                <view class="people-body"></view>
+              </view>
+              <view class="people-person people-front">
+                <view class="people-head"></view>
+                <view class="people-body"></view>
+              </view>
+            </view>
+          </view>
         </view>
       </block>
 
@@ -112,7 +123,7 @@
     </view>
 
     <view class="chat-main">
-      <view class="chat-header">
+      <view class="chat-header" bind:tap="dismissComposerExtras">
         <view class="chat-header-title">{{activeTitle}}</view>
       </view>
 
@@ -122,6 +133,7 @@
           scroll-y
           scroll-into-view="{{scrollIntoView}}"
           scroll-with-animation="{{false}}"
+          bind:tap="dismissComposerExtras"
         >
           <view wx:if="{{activeId && !messages.length}}" class="message-empty">还没有消息</view>
           <view
@@ -152,8 +164,22 @@
                 <view class="msg-meta mine-meta" wx:else>
                   <text class="msg-time">{{item.timeText}}</text>
                 </view>
-                <view class="message-bubble">
+                <view class="message-bubble" wx:if="{{item.type !== 'voice'}}">
                   <view class="message-text">{{item.text}}</view>
+                </view>
+                <view
+                  class="message-bubble voice-bubble"
+                  wx:else
+                  data-id="{{item.id}}"
+                  data-file="{{item.voiceFileId}}"
+                  catch:tap="playVoice"
+                >
+                  <view class="voice-wave {{playingVoiceId === item.id ? 'playing' : ''}}">
+                    <view class="voice-bar"></view>
+                    <view class="voice-bar"></view>
+                    <view class="voice-bar"></view>
+                  </view>
+                  <view class="voice-duration">{{item.voiceDuration || 1}}"</view>
                 </view>
               </view>
 
@@ -174,17 +200,67 @@
         <view class="friends-dismiss-mask" wx:if="{{showFriends}}" bind:tap="closeFriendsPanel"></view>
       </view>
 
-      <view class="composer" wx:if="{{activeId}}">
-        <input
-          class="composer-input"
-          value="{{draft}}"
-          maxlength="500"
-          confirm-type="send"
-          placeholder="说点什么…"
-          bindinput="updateDraft"
-          bindconfirm="submitMessage"
-        />
-        <view class="composer-send {{draft ? '' : 'disabled'}}" bind:tap="submitMessage">发送</view>
+      <view class="composer-wrap" wx:if="{{activeId}}">
+        <view class="composer">
+          <view class="composer-tool" catch:tap="toggleVoiceMode" aria-label="{{voiceMode ? '键盘' : '语音'}}">
+            <view class="tool-icon {{voiceMode ? 'tool-keyboard' : 'tool-mic'}}"></view>
+          </view>
+
+          <input
+            wx:if="{{!voiceMode}}"
+            class="composer-input"
+            value="{{draft}}"
+            maxlength="500"
+            confirm-type="send"
+            placeholder="说点什么…"
+            focus="{{inputFocus}}"
+            adjust-position="{{true}}"
+            hold-keyboard="{{false}}"
+            bindinput="updateDraft"
+            bindconfirm="submitMessage"
+            bindfocus="onInputFocus"
+            bindblur="onInputBlur"
+          />
+          <view
+            wx:else
+            class="voice-hold {{recording ? 'recording' : ''}}"
+            bindtouchstart="onVoiceTouchStart"
+            bindtouchend="onVoiceTouchEnd"
+            bindtouchcancel="onVoiceTouchCancel"
+          >
+            {{recording ? '松开发送' : '按住 说话'}}
+          </view>
+
+          <view
+            class="composer-tool {{showEmoji ? 'active' : ''}}"
+            catch:tap="toggleEmojiPanel"
+            aria-label="表情"
+          >
+            <view class="tool-icon tool-emoji"></view>
+          </view>
+
+          <view
+            class="composer-send {{draft || sending ? '' : 'disabled'}}"
+            catch:tap="submitMessage"
+            aria-label="发送"
+          >
+            <view class="send-icon"></view>
+          </view>
+        </view>
+
+        <view class="emoji-panel" wx:if="{{showEmoji}}" catch:tap="noop">
+          <scroll-view class="emoji-scroll" scroll-y>
+            <view class="emoji-grid">
+              <view
+                class="emoji-item"
+                wx:for="{{emojiList}}"
+                wx:key="*this"
+                data-emoji="{{item}}"
+                catch:tap="insertEmoji"
+              >{{item}}</view>
+            </view>
+          </scroll-view>
+        </view>
       </view>
     </view>
   </view>

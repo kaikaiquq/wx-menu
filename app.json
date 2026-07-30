@@ -50,5 +50,10 @@
     "navigationBarTitleText": "两人菜单",
     "navigationBarTextStyle": "black"
   },
+  "permission": {
+    "scope.record": {
+      "desc": "用于发送语音消息"
+    }
+  },
   "sitemapLocation": "sitemap.json"
 }

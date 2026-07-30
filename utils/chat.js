@@ -3,7 +3,16 @@ const { callCloud } = require('./cloud');
 const listConversations = (options = {}) => callCloud('chatApi', 'listConversations', options);
 const listMessages = (conversationId, limit = 30) =>
   callCloud('chatApi', 'listMessages', { conversationId, limit });
-const sendMessage = (conversationId, text) => callCloud('chatApi', 'sendMessage', { conversationId, text });
+const sendMessage = (conversationId, text, extra = {}) =>
+  callCloud('chatApi', 'sendMessage', { conversationId, text, ...extra });
+const sendVoiceMessage = (conversationId, { voiceFileId, voiceDuration }) =>
+  callCloud('chatApi', 'sendMessage', {
+    conversationId,
+    msgType: 'voice',
+    text: '[语音]',
+    voiceDuration,
+    voiceFileId,
+  });
 const listFriends = (options = {}) => callCloud('chatApi', 'listFriends', options);
 const listFriendRequests = () => callCloud('chatApi', 'listFriendRequests');
 const sendFriendRequest = (publicUserId) => callCloud('chatApi', 'sendFriendRequest', { publicUserId });
@@ -26,4 +35,5 @@ module.exports = {
   removeFriend,
   sendFriendRequest,
   sendMessage,
+  sendVoiceMessage,
 };
