@@ -25,6 +25,11 @@ const bootstrap = async (force = false, interactive = false) => {
       sessionFetchedAt = Date.now();
       if (data.user?.openid) {
         wx.setStorageSync('couple.menu.openid', data.user.openid);
+        try {
+          require('./chat-unread').start();
+        } catch (error) {
+          // ignore
+        }
       }
       if (data.user?.gender) {
         const { syncTheme } = require('./theme');
@@ -46,7 +51,13 @@ const refreshSession = () => bootstrap(true);
 
 const login = async () => {
   wx.removeStorageSync(LOGGED_OUT_KEY);
-  return bootstrap(true, true);
+  const session = await bootstrap(true, true);
+  try {
+    require('./chat-unread').start();
+  } catch (error) {
+    // ignore
+  }
+  return session;
 };
 
 const updateProfile = async ({ nickname, avatarFileId, gender }) => {
@@ -82,6 +93,11 @@ const unbindPartner = async () => {
 const logout = () => {
   wx.setStorageSync(LOGGED_OUT_KEY, true);
   clearSession();
+  try {
+    require('./chat-unread').stop();
+  } catch (error) {
+    // ignore
+  }
   const { clearConfigCache } = require('./couple-config');
   const { clearCartCache } = require('./couple-wish');
   const { clearPersonalConfigCache } = require('./personal-config');

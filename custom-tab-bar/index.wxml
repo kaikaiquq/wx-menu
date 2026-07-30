@@ -6,7 +6,12 @@
     data-index="{{index}}"
     bind:tap="onChange"
   >
-    <view class="tab-icon">{{item.icon}}</view>
+    <view class="tab-icon-wrap">
+      <view class="tab-icon">{{item.icon}}</view>
+      <view class="tab-badge" wx:if="{{index === 2 && chatUnread > 0}}">
+        {{chatUnread > 99 ? '99+' : chatUnread}}
+      </view>
+    </view>
     <view class="tab-text">{{item.text}}</view>
   </view>
 </view>

@@ -2,6 +2,7 @@ import updateManager from './common/updateManager';
 const { applyWindowTheme, getStoredThemeClass } = require('./utils/theme');
 const { isLoggedOut, prefetchSession } = require('./utils/auth');
 const { initCloud } = require('./utils/cloud');
+const chatUnread = require('./utils/chat-unread');
 
 App({
   globalData: {
@@ -19,7 +20,8 @@ App({
       await initCloud();
       this.globalData.cloudReady = true;
       if (!isLoggedOut()) {
-        prefetchSession();
+        await prefetchSession();
+        chatUnread.start();
       }
     } catch (error) {
       this.globalData.cloudReady = false;
@@ -35,5 +37,10 @@ App({
   onShow() {
     applyWindowTheme();
     updateManager();
+    chatUnread.onAppShow();
+  },
+
+  onHide() {
+    // 保持 watch，后台仍尽量收信标；不在这里 stop
   },
 });

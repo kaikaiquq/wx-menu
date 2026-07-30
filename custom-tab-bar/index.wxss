@@ -34,10 +34,32 @@
   color: var(--love-primary, #bd6875);
 }
 
+.tab-icon-wrap {
+  height: 42rpx;
+  position: relative;
+  width: 48rpx;
+}
+
 .tab-icon {
   font-size: 34rpx;
   height: 42rpx;
   line-height: 42rpx;
+  text-align: center;
+}
+
+.tab-badge {
+  background: #e54d42;
+  border-radius: 18rpx;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 600;
+  line-height: 28rpx;
+  min-width: 28rpx;
+  padding: 0 8rpx;
+  position: absolute;
+  right: -18rpx;
+  text-align: center;
+  top: -8rpx;
 }
 
 .tab-text {

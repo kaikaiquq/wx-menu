@@ -13,8 +13,9 @@ const {
   sendMessage,
   sendVoiceMessage,
 } = require('../../utils/chat');
-const { resolveCloudFileUrl, resolveCloudFileUrls, getCloud, uploadFileToCloud } = require('../../utils/cloud');
+const { resolveCloudFileUrl, resolveCloudFileUrls, uploadFileToCloud } = require('../../utils/cloud');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
+const chatUnread = require('../../utils/chat-unread');
 const { EMOJI_LIST } = require('./emoji-data');
 
 const conversationFingerprint = (list = []) =>
@@ -155,6 +156,7 @@ Page({
   friendAvatarsReady: false,
   signalWatchReady: false,
   usingWatch: false,
+  unreadUnsubscribe: null,
   recorder: null,
   recorderStartedAt: 0,
   voiceTouching: false,
@@ -162,6 +164,7 @@ Page({
 
   async onShow() {
     this.getTabBar()?.init?.();
+    chatUnread.start();
     const session = await requireSession({ requireCouple: false });
     if (!session) return;
     const openid = session.user?.openid || getSelfOpenid();
@@ -231,18 +234,27 @@ Page({
 
   startRealtime(openid) {
     this.stopRealtime();
-    if (openid && this.startSignalWatch(openid)) {
-      this.usingWatch = true;
-      return;
+    // 复用全局信标；本页只订阅回调拉消息，离开页面不关全局 watch
+    this.unreadUnsubscribe = chatUnread.subscribe((event) => {
+      if (event?.type === 'signal') {
+        this.onChatSignal(event.conversationId || '');
+      }
+    });
+    this.usingWatch = true;
+    chatUnread.start();
+    // 全局兜底之外，页内再低频刷当前会话（仅消息页可见时）
+    if (openid) {
+      this.pollTimer = setInterval(() => {
+        this.pollMessages();
+      }, 30000);
     }
-    // watch 不可用时才低频兜底（仅当前页、仅当前会话消息）
-    this.usingWatch = false;
-    this.pollTimer = setInterval(() => {
-      this.pollMessages();
-    }, 30000);
   },
 
   stopRealtime() {
+    if (this.unreadUnsubscribe) {
+      this.unreadUnsubscribe();
+      this.unreadUnsubscribe = null;
+    }
     this.stopSignalWatch();
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
@@ -251,43 +263,9 @@ Page({
     this.polling = false;
   },
 
-  startSignalWatch(openid) {
-    if (!openid) return false;
-    try {
-      const cloud = getCloud();
-      if (!cloud?.database) return false;
-      const db = cloud.database();
-      this.signalWatchReady = false;
-      this.signalWatcher = db.collection('chatSignals').doc(openid).watch({
-        onChange: (snapshot) => {
-          // 首次 init 不处理，避免进页重复拉
-          if (!this.signalWatchReady) {
-            this.signalWatchReady = true;
-            return;
-          }
-          const doc =
-            (snapshot.docs && snapshot.docs[0]) ||
-            (snapshot.docChanges && snapshot.docChanges[0] && snapshot.docChanges[0].doc) ||
-            null;
-          const conversationId = doc?.conversationId || '';
-          this.onChatSignal(conversationId);
-        },
-        onError: (error) => {
-          console.warn('chatSignals watch failed, fallback polling', error);
-          this.stopSignalWatch();
-          this.usingWatch = false;
-          if (!this.pollTimer) {
-            this.pollTimer = setInterval(() => {
-              this.pollMessages();
-            }, 30000);
-          }
-        },
-      });
-      return true;
-    } catch (error) {
-      console.warn('chatSignals watch unavailable', error);
-      return false;
-    }
+  startSignalWatch() {
+    // 已迁移到 utils/chat-unread 全局监听
+    return false;
   },
 
   stopSignalWatch() {
@@ -372,6 +350,9 @@ Page({
       }
       if (Object.keys(patch).length) this.setData(patch);
 
+      const listForBadge = patch.conversations || this.data.conversations;
+      chatUnread.syncFromConversations(listForBadge);
+
       // 消息单独拉，不堵在同一条关键路径的头像逻辑里
       if (!options.skipMessages && activeId) {
         this.loadMessages(activeId, !selectDefault);
@@ -387,12 +368,12 @@ Page({
     const conversations = this.data.conversations;
     const index = conversations.findIndex((item) => item.id === conversationId);
     if (index < 0 || !conversations[index].unreadCount) return;
+    const nextList = conversations.map((item, i) => (i === index ? { ...item, unreadCount: 0 } : item));
     this.setData({
       [`conversations[${index}].unreadCount`]: 0,
     });
-    this.conversationFp = conversationFingerprint(
-      conversations.map((item, i) => (i === index ? { ...item, unreadCount: 0 } : item)),
-    );
+    this.conversationFp = conversationFingerprint(nextList);
+    chatUnread.syncFromConversations(nextList);
   },
 
   async loadMessages(conversationId, silent) {
