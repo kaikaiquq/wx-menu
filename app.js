@@ -1,7 +1,7 @@
 import updateManager from './common/updateManager';
-const { envId } = require('./config/cloud');
 const { applyWindowTheme, getStoredThemeClass } = require('./utils/theme');
 const { isLoggedOut, prefetchSession } = require('./utils/auth');
+const { initCloud } = require('./utils/cloud');
 
 App({
   globalData: {
@@ -9,22 +9,30 @@ App({
     themeClass: getStoredThemeClass(),
   },
 
-  onLaunch: function () {
+  onLaunch() {
     applyWindowTheme();
-    if (!wx.cloud) {
-      console.error('当前基础库不支持微信云开发');
-      return;
-    }
-    wx.cloud.init({
-      env: envId || undefined,
-      traceUser: true,
-    });
-    this.globalData.cloudReady = true;
-    if (!isLoggedOut()) {
-      prefetchSession();
+    this.bootstrapCloud();
+  },
+
+  async bootstrapCloud() {
+    try {
+      await initCloud();
+      this.globalData.cloudReady = true;
+      if (!isLoggedOut()) {
+        prefetchSession();
+      }
+    } catch (error) {
+      this.globalData.cloudReady = false;
+      console.error('云开发初始化失败', error);
+      wx.showToast({
+        title: '云服务初始化失败，请检查多端云开发配置',
+        icon: 'none',
+        duration: 3000,
+      });
     }
   },
-  onShow: function () {
+
+  onShow() {
     applyWindowTheme();
     updateManager();
   },

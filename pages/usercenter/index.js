@@ -1,7 +1,7 @@
 const { getMenuConfig, saveSharedAnniversary } = require('../../utils/couple-config');
 const { getOrders, getPersonalOrders } = require('../../utils/couple-wish');
 const { getSession, logout, requireSession, unbindPartner, updateProfile } = require('../../utils/auth');
-const { resolveCloudFileUrls } = require('../../utils/cloud');
+const { resolveCloudFileUrls, uploadFileToCloud } = require('../../utils/cloud');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 const getToday = () => {
@@ -248,11 +248,10 @@ Page({
         avatarFileId = originalCloudId;
       } else if (avatarFileId && !avatarFileId.startsWith('cloud://')) {
         const extension = avatarFileId.split('.').pop().split('?')[0] || 'jpg';
-        const { fileID } = await wx.cloud.uploadFile({
-          cloudPath: `users/avatars/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`,
-          filePath: avatarFileId,
-        });
-        avatarFileId = fileID;
+        avatarFileId = await uploadFileToCloud(
+          avatarFileId,
+          `users/avatars/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`,
+        );
       }
       await updateProfile({ avatarFileId, gender, nickname });
       this.setData({ savingProfile: false, showProfileEditor: false });

@@ -7,7 +7,7 @@ const {
   login,
   updateProfile,
 } = require('../../utils/auth');
-const { resolveCloudFileUrl } = require('../../utils/cloud');
+const { resolveCloudFileUrl, uploadFileToCloud } = require('../../utils/cloud');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 const getToday = () => {
@@ -86,9 +86,12 @@ Page({
         setTimeout(() => wx.switchTab({ url: '/pages/home/home' }), 300);
       }
     } catch (error) {
+      const needLogin =
+        error.code === 'NEED_MULTI_END_LOGIN' || error.code === 'LOGGED_OUT';
       this.setData({
-        cloudError: error.message || '请先按文档开通并部署微信云开发',
+        cloudError: needLogin ? '' : error.message || '请先按文档开通并部署微信云开发',
         loading: false,
+        loggedOut: needLogin || this.data.loggedOut,
       });
     }
   },
@@ -150,11 +153,10 @@ Page({
         avatarFileId = this.data.avatarFileId;
       } else if (avatarFileId && !avatarFileId.startsWith('cloud://')) {
         const extension = avatarFileId.split('.').pop().split('?')[0] || 'jpg';
-        const { fileID } = await wx.cloud.uploadFile({
-          cloudPath: `users/avatars/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`,
-          filePath: avatarFileId,
-        });
-        avatarFileId = fileID;
+        avatarFileId = await uploadFileToCloud(
+          avatarFileId,
+          `users/avatars/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`,
+        );
       } else if (!avatarFileId) {
         avatarFileId = this.data.avatarFileId;
       }

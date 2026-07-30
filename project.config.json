@@ -91,7 +91,7 @@
     "useStaticServer": true,
     "compileWorklet": false,
     "localPlugins": false,
-    "condition": false,
+    "condition": true,
     "swc": false,
     "disableSWC": true
   },
@@ -101,7 +101,9 @@
   "appid": "wx4e667c42d7b8543b",
   "projectname": "couple-menu",
   "simulatorType": "wechat",
-  "simulatorPluginLibVersion": {},
+  "simulatorPluginLibVersion": {
+    "wxext14566970e7e9f62": "2.27.3"
+  },
   "condition": {
     "miniprogram": {
       "list": [
@@ -129,5 +131,6 @@
   "editorSetting": {
     "tabIndent": "insertSpaces",
     "tabSize": 2
-  }
+  },
+  "projectArchitecture": "multiPlatform"
 }

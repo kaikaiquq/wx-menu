@@ -19,7 +19,7 @@ const bootstrap = async (force = false, interactive = false) => {
   if (!force && isSessionFresh()) return session;
   if (bootstrapPromise && !force) return bootstrapPromise;
 
-  bootstrapPromise = callCloud('authApi', 'bootstrap')
+  bootstrapPromise = callCloud('authApi', 'bootstrap', {}, { interactiveLogin: interactive })
     .then((data) => {
       session = data;
       sessionFetchedAt = Date.now();

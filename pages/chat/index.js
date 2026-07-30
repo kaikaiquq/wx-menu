@@ -13,7 +13,7 @@ const {
   sendMessage,
   sendVoiceMessage,
 } = require('../../utils/chat');
-const { resolveCloudFileUrl, resolveCloudFileUrls } = require('../../utils/cloud');
+const { resolveCloudFileUrl, resolveCloudFileUrls, getCloud, uploadFileToCloud } = require('../../utils/cloud');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 const { EMOJI_LIST } = require('./emoji-data');
 
@@ -252,9 +252,11 @@ Page({
   },
 
   startSignalWatch(openid) {
-    if (!openid || !wx.cloud?.database) return false;
+    if (!openid) return false;
     try {
-      const db = wx.cloud.database();
+      const cloud = getCloud();
+      if (!cloud?.database) return false;
+      const db = cloud.database();
       this.signalWatchReady = false;
       this.signalWatcher = db.collection('chatSignals').doc(openid).watch({
         onChange: (snapshot) => {
@@ -547,10 +549,7 @@ Page({
       const extension = (tempFilePath.split('.').pop() || 'jpg').toLowerCase().split('?')[0];
       const safeExt = /^[a-z0-9]{1,5}$/.test(extension) ? extension : 'jpg';
       const cloudPath = `chat/image/${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExt}`;
-      const { fileID } = await wx.cloud.uploadFile({
-        cloudPath,
-        filePath: tempFilePath,
-      });
+      const fileID = await uploadFileToCloud(tempFilePath, cloudPath);
       const { message } = await sendImageMessage(this.data.activeId, { imageFileId: fileID });
       const decorated = decorateMessages([
         {
@@ -826,10 +825,7 @@ Page({
     wx.showLoading({ title: '发送语音中' });
     try {
       const cloudPath = `chat/voice/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
-      const { fileID } = await wx.cloud.uploadFile({
-        cloudPath,
-        filePath: tempFilePath,
-      });
+      const fileID = await uploadFileToCloud(tempFilePath, cloudPath);
       const { message } = await sendVoiceMessage(this.data.activeId, {
         voiceDuration,
         voiceFileId: fileID,

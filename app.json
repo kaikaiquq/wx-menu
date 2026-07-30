@@ -42,6 +42,7 @@
     ]
   },
   "lazyCodeLoading": "requiredComponents",
+  "useAuthorizePage": true,
   "usingComponents": {},
   "window": {
     "backgroundTextStyle": "light",
