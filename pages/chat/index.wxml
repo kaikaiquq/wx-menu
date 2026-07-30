@@ -22,6 +22,9 @@
               <view class="conversation-avatar conversation-avatar-fallback" wx:else>
                 {{item.isCouple ? '♡' : (item.type === 'group' ? '群' : (item.title[0] || '友'))}}
               </view>
+              <view class="unread-badge" wx:if="{{item.unreadCount > 0 && activeId !== item.id}}">
+                {{item.unreadCount > 99 ? '99+' : item.unreadCount}}
+              </view>
               <view class="couple-badge" wx:if="{{item.isCouple}}">对象</view>
             </view>
           </view>
@@ -127,10 +130,44 @@
             wx:key="id"
             id="msg-{{index}}"
           >
-            <view class="message-bubble" wx:if="{{item.fromOpenid !== 'system'}}">
-              <view class="message-name" wx:if="{{!item.isMine}}">{{item.fromNickname}}</view>
-              <view class="message-text">{{item.text}}</view>
-            </view>
+            <block wx:if="{{item.fromOpenid !== 'system'}}">
+              <!-- 对方：头像在左 -->
+              <view class="msg-avatar-wrap" wx:if="{{!item.isMine}}">
+                <image
+                  class="msg-avatar"
+                  wx:if="{{avatarMap[item.fromOpenid]}}"
+                  src="{{avatarMap[item.fromOpenid]}}"
+                  mode="aspectFill"
+                />
+                <view class="msg-avatar msg-avatar-fallback" wx:else>
+                  {{item.fromNickname[0] || '友'}}
+                </view>
+              </view>
+
+              <view class="msg-body">
+                <view class="msg-meta" wx:if="{{!item.isMine}}">
+                  <text class="msg-name">{{item.fromNickname}}</text>
+                  <text class="msg-time">{{item.timeText}}</text>
+                </view>
+                <view class="msg-meta mine-meta" wx:else>
+                  <text class="msg-time">{{item.timeText}}</text>
+                </view>
+                <view class="message-bubble">
+                  <view class="message-text">{{item.text}}</view>
+                </view>
+              </view>
+
+              <!-- 自己：头像在右，时间在头像左侧（meta 右对齐） -->
+              <view class="msg-avatar-wrap" wx:if="{{item.isMine}}">
+                <image
+                  class="msg-avatar"
+                  wx:if="{{avatarMap[myOpenid]}}"
+                  src="{{avatarMap[myOpenid]}}"
+                  mode="aspectFill"
+                />
+                <view class="msg-avatar msg-avatar-fallback" wx:else>我</view>
+              </view>
+            </block>
             <view class="system-text" wx:else>{{item.text}}</view>
           </view>
         </scroll-view>

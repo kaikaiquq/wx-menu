@@ -11,14 +11,59 @@ const {
   sendFriendRequest,
   sendMessage,
 } = require('../../utils/chat');
+const { resolveCloudFileUrl } = require('../../utils/cloud');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 
 const conversationFingerprint = (list = []) =>
   list
-    .map((item) => `${item.id}|${item.title}|${item.lastMessageText || ''}|${item.isCouple ? 1 : 0}`)
+    .map(
+      (item) =>
+        `${item.id}|${item.title}|${item.lastMessageText || ''}|${item.isCouple ? 1 : 0}|${item.unreadCount || 0}`,
+    )
     .join(';;');
 
 const messageFingerprint = (list = []) => list.map((item) => `${item.id}|${item.text}`).join(';;');
+
+const pad2 = (value) => String(value).padStart(2, '0');
+
+const toDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'number') return new Date(value);
+  if (typeof value === 'string') {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof value === 'object') {
+    if (value.$date) return toDate(value.$date);
+    if (typeof value.seconds === 'number') return new Date(value.seconds * 1000);
+    if (typeof value._seconds === 'number') return new Date(value._seconds * 1000);
+  }
+  return null;
+};
+
+/** 聊天时间：今天 HH:mm / 昨天 HH:mm / MM-DD HH:mm / YYYY-MM-DD HH:mm */
+const formatMessageTime = (value) => {
+  const date = toDate(value);
+  if (!date) return '';
+  const now = new Date();
+  const time = `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfThatDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayDiff = Math.round((startOfToday - startOfThatDay) / 86400000);
+  if (dayDiff === 0) return time;
+  if (dayDiff === 1) return `昨天 ${time}`;
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${time}`;
+  }
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${time}`;
+};
+
+const decorateMessages = (messages = []) =>
+  messages.map((item) => ({
+    ...item,
+    timeText: formatMessageTime(item.createdAt),
+  }));
 
 /** 只在本地缓存里补新头像，已有 openid 绝不覆盖，避免临时链刷新导致闪烁 */
 const collectAvatarMap = (avatarMap = {}, people = []) => {
@@ -35,6 +80,15 @@ const collectAvatarMap = (avatarMap = {}, people = []) => {
   return changed ? next : null;
 };
 
+const collectPeopleFromConversations = (conversations = []) => {
+  const people = [];
+  conversations.forEach((item) => {
+    if (item.peer) people.push(item.peer);
+    (item.members || []).forEach((member) => people.push(member));
+  });
+  return people;
+};
+
 Page({
   data: {
     activeId: '',
@@ -49,6 +103,7 @@ Page({
     incoming: [],
     loading: true,
     messages: [],
+    myOpenid: '',
     myPublicUserId: '',
     scrollIntoView: '',
     sending: false,
@@ -72,10 +127,22 @@ Page({
     const session = await requireSession({ requireCouple: false });
     if (!session) return;
     const openid = session.user?.openid || getSelfOpenid();
-    this.setData({
+    const patch = {
+      myOpenid: openid || '',
       myPublicUserId: session.user.publicUserId || '',
       themeClass: syncTheme(session.user.gender),
-    });
+    };
+    // 自己头像：优先已有临时链，否则换链一次
+    if (openid && !this.data.avatarMap[openid]) {
+      let myAvatar = session.user.avatarUrl || '';
+      if (!myAvatar && String(session.user.avatarFileId || '').startsWith('cloud://')) {
+        myAvatar = (await resolveCloudFileUrl(session.user.avatarFileId)) || '';
+      }
+      if (myAvatar) {
+        patch.avatarMap = { ...this.data.avatarMap, [openid]: myAvatar };
+      }
+    }
+    this.setData(patch);
     const preferredId = wx.getStorageSync('couple.chat.activeId') || '';
     if (preferredId) {
       this.setData({ activeId: preferredId });
@@ -101,7 +168,7 @@ Page({
       const { conversations } = await listConversations({ includeAvatars: true });
       const avatarMap = collectAvatarMap(
         this.data.avatarMap,
-        conversations.map((item) => item.peer).filter(Boolean),
+        collectPeopleFromConversations(conversations),
       );
       this.conversationAvatarsReady = true;
       if (avatarMap) this.setData({ avatarMap });
@@ -232,7 +299,7 @@ Page({
       if (includeAvatars) {
         const avatarMap = collectAvatarMap(
           this.data.avatarMap,
-          conversations.map((item) => item.peer).filter(Boolean),
+          collectPeopleFromConversations(conversations),
         );
         if (avatarMap) patch.avatarMap = avatarMap;
         this.conversationAvatarsReady = true;
@@ -242,12 +309,17 @@ Page({
         this.conversationFp = nextFp;
         patch.conversations = conversations.map((item) => ({
           ...item,
+          unreadCount: Math.max(0, Number(item.unreadCount || 0)),
           peer: item.peer
             ? {
                 ...item.peer,
                 avatarUrl: '',
               }
             : null,
+          members: (item.members || []).map((member) => ({
+            ...member,
+            avatarUrl: '',
+          })),
         }));
       }
       if (activeId !== this.data.activeId) patch.activeId = activeId;
@@ -266,16 +338,31 @@ Page({
     }
   },
 
+  clearLocalUnread(conversationId) {
+    if (!conversationId) return;
+    const conversations = this.data.conversations;
+    const index = conversations.findIndex((item) => item.id === conversationId);
+    if (index < 0 || !conversations[index].unreadCount) return;
+    this.setData({
+      [`conversations[${index}].unreadCount`]: 0,
+    });
+    this.conversationFp = conversationFingerprint(
+      conversations.map((item, i) => (i === index ? { ...item, unreadCount: 0 } : item)),
+    );
+  },
+
   async loadMessages(conversationId, silent) {
     try {
       const { messages } = await listMessages(conversationId, 40);
       if (this.data.activeId !== conversationId) return;
-      const nextFp = messageFingerprint(messages);
+      const decorated = decorateMessages(messages);
+      const nextFp = messageFingerprint(decorated);
+      this.clearLocalUnread(conversationId);
       if (nextFp === this.messageFp) return;
       this.messageFp = nextFp;
-      this.setData({ messages });
+      this.setData({ messages: decorated });
       if (!silent) {
-        const target = `msg-${Math.max(messages.length - 1, 0)}`;
+        const target = `msg-${Math.max(decorated.length - 1, 0)}`;
         this.setData({ scrollIntoView: '' });
         wx.nextTick(() => {
           this.setData({ scrollIntoView: target });
@@ -310,7 +397,8 @@ Page({
     this.setData({ sending: true });
     try {
       const { message } = await sendMessage(this.data.activeId, text);
-      const messages = [...this.data.messages, message];
+      const decorated = decorateMessages([message])[0];
+      const messages = [...this.data.messages, decorated];
       this.messageFp = messageFingerprint(messages);
       this.setData({
         draft: '',

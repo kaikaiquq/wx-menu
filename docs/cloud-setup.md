@@ -60,7 +60,7 @@
 - `orders`：`coupleId + createdAt`；`coupleId + status + createdAt`
 - `userOrders`：`ownerOpenid + createdAt`
 - `mutationRequests`：`expiresAt`
-- `conversations`：`memberOpenids`；`coupleId + type`；`directKey + type`
+- `conversations`：`memberOpenids`；`coupleId + type`；`directKey + type`（会话文档可用 `unreadBy.{openid}` 存未读数，打开会话后清零）
 - `messages`：`conversationId + createdAt`
 - `friendships`：`memberOpenids`；`pairKey`
 - `friendRequests`：`toOpenid`；`fromOpenid`

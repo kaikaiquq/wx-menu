@@ -179,6 +179,7 @@ const formatConversation = async (conversation, openid, userMap) => {
     peer: others[0] || null,
     title,
     type: conversation.type,
+    unreadCount: Math.max(0, Number(conversation.unreadBy?.[openid] || 0)),
   };
 };
 
@@ -226,6 +227,20 @@ const listMessages = async (openid, event) => {
       isMine: item.fromOpenid === openid,
       text: item.text,
     }));
+
+  // 打开会话即视为已读，清零未读角标
+  try {
+    await db.collection('conversations').doc(conversationId).update({
+      data: {
+        [`readAtBy.${openid}`]: now(),
+        [`unreadBy.${openid}`]: 0,
+        updatedAt: now(),
+      },
+    });
+  } catch (error) {
+    console.warn('mark conversation read failed', error.message || error);
+  }
+
   return ok({ messages });
 };
 
@@ -245,12 +260,19 @@ const sendMessage = async (openid, event) => {
     text,
   };
   const addResult = await db.collection('messages').add({ data: message });
+  const unreadUpdates = {};
+  (conversation.memberOpenids || []).forEach((memberOpenid) => {
+    if (memberOpenid && memberOpenid !== openid) {
+      unreadUpdates[`unreadBy.${memberOpenid}`] = _.inc(1);
+    }
+  });
   await db.collection('conversations').doc(conversationId).update({
     data: {
       lastMessageAt: now(),
       lastMessageFrom: openid,
       lastMessageText: text.slice(0, 80),
       updatedAt: now(),
+      ...unreadUpdates,
     },
   });
   // 给其他成员推送信标，对方 watch 到后再拉消息（替代高频轮询）
