@@ -1,7 +1,7 @@
 page {
   background: #f4f5f5;
   color: #292421;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 220rpx);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 40rpx);
 }
 
 .wish-page {
@@ -177,7 +177,7 @@ page {
   align-items: center;
   background: rgba(255, 255, 255, 0.96);
   border-radius: 28rpx;
-  bottom: calc(env(safe-area-inset-bottom) + 112rpx);
+  bottom: calc(env(safe-area-inset-bottom) + 24rpx);
   box-shadow: 0 12rpx 50rpx rgba(61, 48, 43, 0.14);
   display: flex;
   justify-content: space-between;

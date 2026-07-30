@@ -122,6 +122,19 @@ page {
   padding: 10rpx 22rpx;
 }
 
+.public-id-pill {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 30rpx;
+  color: #efe6e2;
+  font-size: 18rpx;
+  margin-top: 14rpx;
+  max-width: 90%;
+  overflow: hidden;
+  padding: 10rpx 22rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .stats-row {
   display: grid;
   gap: 16rpx;

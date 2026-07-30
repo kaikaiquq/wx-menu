@@ -1,0 +1,168 @@
+page {
+  background: #f4f5f5;
+  color: #292421;
+}
+
+.friends-page {
+  background: var(--love-bg, #f4f5f5);
+  min-height: 100vh;
+  padding: 28rpx 28rpx calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  box-shadow: 0 10rpx 28rpx rgba(75, 59, 53, 0.05);
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+}
+
+.card-label {
+  font-size: 22rpx;
+  font-weight: 600;
+  margin-bottom: 14rpx;
+}
+
+.card-hint {
+  color: #a69c96;
+  font-size: 18rpx;
+  margin-top: 12rpx;
+}
+
+.my-id-row,
+.add-row {
+  align-items: center;
+  display: flex;
+  gap: 12rpx;
+}
+
+.my-id {
+  background: #f7f3f1;
+  border-radius: 16rpx;
+  flex: 1;
+  font-size: 24rpx;
+  overflow: hidden;
+  padding: 16rpx 18rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-input {
+  background: #f7f3f1;
+  border-radius: 16rpx;
+  flex: 1;
+  font-size: 24rpx;
+  height: 72rpx;
+  padding: 0 18rpx;
+}
+
+.primary-btn,
+.ghost-btn,
+.danger-btn,
+.link-btn {
+  flex-shrink: 0;
+  font-size: 22rpx;
+}
+
+.primary-btn {
+  background: var(--love-primary, #bd6875);
+  border-radius: 999rpx;
+  color: #fff;
+  padding: 16rpx 24rpx;
+}
+
+.primary-btn.sm {
+  padding: 12rpx 20rpx;
+}
+
+.ghost-btn {
+  border: 1rpx solid #d9a4ab;
+  border-radius: 999rpx;
+  color: var(--love-primary, #bd6875);
+  padding: 12rpx 18rpx;
+}
+
+.danger-btn {
+  color: #b9616e;
+  padding: 12rpx 8rpx;
+}
+
+.link-btn {
+  color: var(--love-primary, #bd6875);
+}
+
+.section-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin: 28rpx 4rpx 14rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+
+.empty-line {
+  color: #a69c96;
+  font-size: 22rpx;
+  padding: 12rpx 8rpx 24rpx;
+}
+
+.request-row,
+.friend-row {
+  align-items: center;
+  display: flex;
+  gap: 14rpx;
+  padding: 16rpx 0;
+}
+
+.request-row + .request-row,
+.friend-row + .friend-row {
+  border-top: 1rpx solid rgba(0, 0, 0, 0.05);
+}
+
+.request-info,
+.friend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.request-name,
+.friend-name {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.request-sub,
+.friend-sub {
+  color: #a69c96;
+  font-size: 18rpx;
+  margin-top: 4rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request-actions,
+.friend-actions {
+  align-items: center;
+  display: flex;
+  gap: 10rpx;
+}
+
+.friend-avatar {
+  border-radius: 18rpx;
+  flex-shrink: 0;
+  height: 72rpx;
+  width: 72rpx;
+}
+
+.friend-avatar-fallback {
+  align-items: center;
+  background: var(--love-soft, #f7e7e9);
+  color: var(--love-primary, #bd6875);
+  display: flex;
+  font-size: 28rpx;
+  justify-content: center;
+}

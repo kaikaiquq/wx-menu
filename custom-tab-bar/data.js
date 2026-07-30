@@ -10,9 +10,9 @@ module.exports = [
     url: '/pages/category/index',
   },
   {
-    icon: '☆',
-    text: '心愿',
-    url: '/pages/wish/index',
+    icon: '💬',
+    text: '消息',
+    url: '/pages/chat/index',
   },
   {
     icon: '◎',

@@ -31,12 +31,16 @@
 - `userOrders`
 - `mutationRequests`
 - `contentTemplates`（推荐分类/菜单模板，可选；首次拉取时会自动写入默认模板）
+- `conversations`（聊天会话）
+- `messages`（聊天消息）
+- `friendships`（好友关系）
+- `friendRequests`（好友申请）
 
 所有集合权限统一选择“仅云函数可读写”。不要开放客户端直接写入。
 
 建议创建以下索引：
 
-- `users`：`coupleId`
+- `users`：`coupleId`；`publicUserId`
 - `couples`：`members`
 - `coupleInvites`：`codeHash` 唯一索引；`coupleId + status`
 - `coupleConfigs`：`coupleId` 唯一索引
@@ -44,6 +48,10 @@
 - `orders`：`coupleId + createdAt`；`coupleId + status + createdAt`
 - `userOrders`：`ownerOpenid + createdAt`
 - `mutationRequests`：`expiresAt`
+- `conversations`：`memberOpenids`；`coupleId + type`；`directKey + type`
+- `messages`：`conversationId + createdAt`
+- `friendships`：`memberOpenids`；`pairKey`
+- `friendRequests`：`toOpenid`；`fromOpenid`
 
 ## 4. 部署云函数
 
@@ -52,6 +60,7 @@
 1. `authApi`
 2. `coupleApi`
 3. `dataApi`
+4. `chatApi`
 
 每一个都选择“上传并部署：云端安装依赖”。部署成功后，云开发控制台会出现同名函数。
 

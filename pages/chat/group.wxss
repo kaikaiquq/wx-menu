@@ -1,0 +1,83 @@
+page {
+  background: #f4f5f5;
+}
+
+.group-page {
+  background: var(--love-bg, #f4f5f5);
+  min-height: 100vh;
+  padding: 28rpx;
+}
+
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+}
+
+.card-label,
+.section-title {
+  font-size: 24rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.title-input {
+  background: #f7f3f1;
+  border-radius: 16rpx;
+  font-size: 26rpx;
+  height: 72rpx;
+  padding: 0 18rpx;
+}
+
+.friend-row {
+  align-items: center;
+  display: flex;
+  gap: 16rpx;
+  padding: 18rpx 0;
+}
+
+.friend-row + .friend-row {
+  border-top: 1rpx solid rgba(0, 0, 0, 0.05);
+}
+
+.friend-row.checked .friend-name {
+  color: var(--love-primary, #bd6875);
+  font-weight: 600;
+}
+
+.check {
+  align-items: center;
+  border: 2rpx solid #d9a4ab;
+  border-radius: 10rpx;
+  color: var(--love-primary, #bd6875);
+  display: flex;
+  font-size: 22rpx;
+  height: 36rpx;
+  justify-content: center;
+  width: 36rpx;
+}
+
+.friend-row.checked .check {
+  background: var(--love-soft, #f7e7e9);
+}
+
+.friend-name {
+  font-size: 26rpx;
+}
+
+.empty {
+  color: #a69c96;
+  font-size: 22rpx;
+  padding: 20rpx 8rpx;
+}
+
+.create-btn {
+  background: #292421;
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 26rpx;
+  margin-top: 32rpx;
+  padding: 26rpx;
+  text-align: center;
+}

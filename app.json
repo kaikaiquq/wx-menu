@@ -2,6 +2,9 @@
   "pages": [
     "pages/home/home",
     "pages/category/index",
+    "pages/chat/index",
+    "pages/chat/friends",
+    "pages/chat/group",
     "pages/wish/index",
     "pages/usercenter/index",
     "pages/auth/index"
@@ -29,8 +32,8 @@
         "text": "点单"
       },
       {
-        "pagePath": "pages/wish/index",
-        "text": "心愿"
+        "pagePath": "pages/chat/index",
+        "text": "消息"
       },
       {
         "pagePath": "pages/usercenter/index",

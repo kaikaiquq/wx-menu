@@ -94,7 +94,7 @@ Page({
   },
 
   openWish() {
-    wx.switchTab({ url: '/pages/wish/index' });
+    wx.navigateTo({ url: '/pages/wish/index' });
   },
 
   formatOrderDate(createdAt) {

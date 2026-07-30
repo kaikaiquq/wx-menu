@@ -1,0 +1,154 @@
+<view class="chat-page {{themeClass}}">
+  <view class="chat-layout">
+    <view class="chat-sidebar {{showFriends ? 'expanded' : ''}}">
+      <block wx:if="{{!showFriends}}">
+        <scroll-view class="conversation-scroll" scroll-y>
+          <view wx:if="{{loading}}" class="sidebar-empty">…</view>
+          <view wx:elif="{{!conversations.length}}" class="sidebar-empty">空</view>
+          <view
+            class="conversation-item {{activeId === item.id ? 'active' : ''}} {{item.isCouple ? 'couple' : ''}}"
+            wx:for="{{conversations}}"
+            wx:key="id"
+            data-id="{{item.id}}"
+            bind:tap="selectConversation"
+          >
+            <view class="conversation-avatar-wrap">
+              <image
+                class="conversation-avatar"
+                wx:if="{{item.peer.openid && avatarMap[item.peer.openid]}}"
+                src="{{avatarMap[item.peer.openid]}}"
+                mode="aspectFill"
+              />
+              <view class="conversation-avatar conversation-avatar-fallback" wx:else>
+                {{item.isCouple ? '♡' : (item.type === 'group' ? '群' : (item.title[0] || '友'))}}
+              </view>
+              <view class="couple-badge" wx:if="{{item.isCouple}}">对象</view>
+            </view>
+          </view>
+        </scroll-view>
+        <view class="sidebar-friends-btn" bind:tap="openFriendsPanel">
+          <view class="friends-icon">友</view>
+        </view>
+      </block>
+
+      <block wx:else>
+        <view class="friends-panel" catch:tap="noop">
+          <view class="friends-panel-head">
+            <view class="friends-panel-title">好友</view>
+            <view class="friends-panel-close" bind:tap="closeFriendsPanel">收起</view>
+          </view>
+
+          <view class="friends-search-row">
+            <input
+              class="friends-search"
+              value="{{friendKeyword}}"
+              placeholder="搜索好友昵称 / ID"
+              maxlength="32"
+              bindinput="updateFriendKeyword"
+            />
+          </view>
+
+          <view class="friends-add-row">
+            <input
+              class="friends-add-input"
+              value="{{addId}}"
+              maxlength="32"
+              placeholder="输入对方用户 ID 添加好友"
+              bindinput="updateAddId"
+            />
+            <view class="friends-add-btn" bind:tap="submitAddFriend">添加</view>
+          </view>
+
+          <view class="my-id-line" bind:tap="copyMyId">
+            轻点复制id· {{myPublicUserId || '—'}}
+          </view>
+
+          <view class="friends-group-btn" bind:tap="openCreateGroup">发起群聊</view>
+
+          <scroll-view class="friends-list-scroll" scroll-y>
+            <view class="friends-list-card">
+              <view class="friends-section" wx:if="{{incoming.length}}">
+                <view class="friends-section-title">新申请</view>
+                <view class="friend-row" wx:for="{{incoming}}" wx:key="id">
+                  <view class="friend-info">
+                    <view class="friend-name">{{item.from.nickname}}</view>
+                    <view class="friend-sub">{{item.from.publicUserId}}</view>
+                  </view>
+                  <view class="friend-actions">
+                    <view class="mini-btn" data-id="{{item.id}}" bind:tap="rejectRequest">拒绝</view>
+                    <view class="mini-btn primary" data-id="{{item.id}}" bind:tap="acceptRequest">同意</view>
+                  </view>
+                </view>
+              </view>
+
+              <view class="friends-section-title">好友列表</view>
+              <view wx:if="{{!filteredFriends.length}}" class="friends-empty">暂无好友</view>
+              <view class="friend-row" wx:for="{{filteredFriends}}" wx:key="openid">
+                <image
+                  class="friend-avatar"
+                  wx:if="{{avatarMap[item.openid]}}"
+                  src="{{avatarMap[item.openid]}}"
+                  mode="aspectFill"
+                />
+                <view class="friend-avatar friend-avatar-fallback" wx:else>{{item.nickname[0] || '友'}}</view>
+                <view class="friend-info" data-openid="{{item.openid}}" bind:tap="chatFriend">
+                  <view class="friend-name">{{item.nickname}}</view>
+                  <view class="friend-sub">{{item.publicUserId}}</view>
+                </view>
+                <view
+                  class="mini-btn danger"
+                  data-openid="{{item.openid}}"
+                  data-name="{{item.nickname}}"
+                  bind:tap="removeFriendConfirm"
+                >删除</view>
+              </view>
+            </view>
+          </scroll-view>
+        </view>
+      </block>
+    </view>
+
+    <view class="chat-main">
+      <view class="chat-header">
+        <view class="chat-header-title">{{activeTitle}}</view>
+      </view>
+
+      <view class="message-wrap">
+        <scroll-view
+          class="message-scroll"
+          scroll-y
+          scroll-into-view="{{scrollIntoView}}"
+          scroll-with-animation="{{false}}"
+        >
+          <view wx:if="{{activeId && !messages.length}}" class="message-empty">还没有消息</view>
+          <view
+            class="message-row {{item.isMine ? 'mine' : ''}} {{item.fromOpenid === 'system' ? 'system' : ''}}"
+            wx:for="{{messages}}"
+            wx:key="id"
+            id="msg-{{index}}"
+          >
+            <view class="message-bubble" wx:if="{{item.fromOpenid !== 'system'}}">
+              <view class="message-name" wx:if="{{!item.isMine}}">{{item.fromNickname}}</view>
+              <view class="message-text">{{item.text}}</view>
+            </view>
+            <view class="system-text" wx:else>{{item.text}}</view>
+          </view>
+        </scroll-view>
+        <view class="friends-dismiss-mask" wx:if="{{showFriends}}" bind:tap="closeFriendsPanel"></view>
+      </view>
+
+      <view class="composer" wx:if="{{activeId}}">
+        <input
+          class="composer-input"
+          value="{{draft}}"
+          maxlength="500"
+          confirm-type="send"
+          placeholder="说点什么…"
+          bindinput="updateDraft"
+          bindconfirm="submitMessage"
+        />
+        <view class="composer-send {{draft ? '' : 'disabled'}}" bind:tap="submitMessage">发送</view>
+      </view>
+    </view>
+  </view>
+</view>

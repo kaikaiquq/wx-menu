@@ -319,6 +319,15 @@ Page({
     }
   },
 
+  copyPublicId() {
+    const id = this.data.selfPublicUserId;
+    if (!id) return;
+    wx.setClipboardData({
+      data: id,
+      success: () => wx.showToast({ title: '已复制用户 ID', icon: 'none' }),
+    });
+  },
+
   showComingSoon() {
     wx.showToast({ title: '这个功能正在准备中', icon: 'none' });
   },

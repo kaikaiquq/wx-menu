@@ -1,0 +1,29 @@
+<view class="group-page {{themeClass}}">
+  <view class="card">
+    <view class="card-label">群名称</view>
+    <input
+      class="title-input"
+      value="{{title}}"
+      maxlength="20"
+      placeholder="例如：周末约饭群"
+      bindinput="updateTitle"
+    />
+  </view>
+
+  <view class="section-title">选择好友（至少 2 位）· 已选 {{selectedCount}}</view>
+  <view class="card" wx:if="{{friends.length}}">
+    <view
+      class="friend-row {{selected[item.openid] ? 'checked' : ''}}"
+      wx:for="{{friends}}"
+      wx:key="openid"
+      data-openid="{{item.openid}}"
+      bind:tap="toggleFriend"
+    >
+      <view class="check">{{selected[item.openid] ? '✓' : ''}}</view>
+      <view class="friend-name">{{item.nickname}}</view>
+    </view>
+  </view>
+  <view class="empty" wx:else>请先添加好友再拉群</view>
+
+  <view class="create-btn" bind:tap="submit">创建群聊</view>
+</view>

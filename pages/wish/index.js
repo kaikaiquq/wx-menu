@@ -13,7 +13,6 @@ Page({
   },
 
   async onShow() {
-    this.getTabBar().init();
     const session = await requireSession();
     if (session) {
       this.setData({ themeClass: syncTheme(session.user.gender) });

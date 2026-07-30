@@ -1,0 +1,67 @@
+<view class="friends-page {{themeClass}}">
+  <view class="card my-id-card">
+    <view class="card-label">我的用户 ID</view>
+    <view class="my-id-row">
+      <view class="my-id">{{myPublicUserId || '加载中…'}}</view>
+      <view class="link-btn" bind:tap="copyMyId">复制</view>
+    </view>
+    <view class="card-hint">把 ID 发给别人，对方可在下方添加你</view>
+  </view>
+
+  <view class="card">
+    <view class="card-label">添加好友</view>
+    <view class="add-row">
+      <input
+        class="add-input"
+        value="{{addId}}"
+        maxlength="32"
+        placeholder="输入对方用户 ID"
+        bindinput="updateAddId"
+      />
+      <view class="primary-btn" bind:tap="submitAdd">添加</view>
+    </view>
+  </view>
+
+  <view class="section-head">
+    <view class="section-title">好友申请</view>
+  </view>
+  <view class="card" wx:if="{{incoming.length}}">
+    <view class="request-row" wx:for="{{incoming}}" wx:key="id">
+      <view class="request-info">
+        <view class="request-name">{{item.from.nickname}}</view>
+        <view class="request-sub">ID {{item.from.publicUserId}}</view>
+      </view>
+      <view class="request-actions">
+        <view class="ghost-btn" data-id="{{item.id}}" bind:tap="rejectRequest">拒绝</view>
+        <view class="primary-btn sm" data-id="{{item.id}}" bind:tap="acceptRequest">同意</view>
+      </view>
+    </view>
+  </view>
+  <view class="empty-line" wx:else>暂无新的好友申请</view>
+
+  <view class="section-head">
+    <view class="section-title">我的好友</view>
+    <view class="link-btn" bind:tap="openCreateGroup">拉群聊</view>
+  </view>
+  <view wx:if="{{loading}}" class="empty-line">加载中…</view>
+  <view class="card" wx:elif="{{friends.length}}">
+    <view class="friend-row" wx:for="{{friends}}" wx:key="openid">
+      <image class="friend-avatar" wx:if="{{item.avatarUrl}}" src="{{item.avatarUrl}}" mode="aspectFill" />
+      <view class="friend-avatar friend-avatar-fallback" wx:else>{{item.nickname[0] || '友'}}</view>
+      <view class="friend-info">
+        <view class="friend-name">{{item.nickname}}</view>
+        <view class="friend-sub">ID {{item.publicUserId}}</view>
+      </view>
+      <view class="friend-actions">
+        <view class="ghost-btn" data-openid="{{item.openid}}" bind:tap="chatFriend">聊天</view>
+        <view
+          class="danger-btn"
+          data-openid="{{item.openid}}"
+          data-name="{{item.nickname}}"
+          bind:tap="removeFriendConfirm"
+        >删除</view>
+      </view>
+    </view>
+  </view>
+  <view class="empty-line" wx:else>还没有好友，先用 ID 添加一位吧</view>
+</view>
