@@ -1,11 +1,23 @@
 const TabMenu = require('./data');
-const { getTotal, syncTabBar } = require('../utils/chat-unread');
+const { getTotal } = require('../utils/chat-unread');
 
 const getStoredThemeClass = () => {
   const gender = wx.getStorageSync('couple.menu.gender');
   if (gender === 'male') return 'theme-male';
   if (gender === 'female') return 'theme-female';
   return '';
+};
+
+const readUnread = () => {
+  try {
+    const app = getApp();
+    if (typeof app?.globalData?.chatUnread === 'number') {
+      return Math.max(0, app.globalData.chatUnread);
+    }
+  } catch (error) {
+    // ignore
+  }
+  return Math.max(0, Number(getTotal() || 0));
 };
 
 Component({
@@ -18,13 +30,13 @@ Component({
 
   lifetimes: {
     attached() {
-      this.setData({ chatUnread: getTotal() });
+      this.setData({ chatUnread: readUnread() });
     },
   },
 
   pageLifetimes: {
     show() {
-      this.setData({ chatUnread: getTotal() });
+      this.setData({ chatUnread: readUnread() });
     },
   },
 
@@ -48,10 +60,9 @@ Component({
       const active = this.data.list.findIndex((item) => item.url.slice(1) === route);
       this.setData({
         active: active < 0 ? 0 : active,
-        chatUnread: getTotal(),
+        chatUnread: readUnread(),
         themeClass: getStoredThemeClass(),
       });
-      syncTabBar();
     },
   },
 });

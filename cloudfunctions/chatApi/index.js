@@ -11,6 +11,16 @@ const now = () => db.serverDate();
 const isNotFound = (error) =>
   error?.errCode === -1 || String(error?.message || '').toLowerCase().includes('not exist');
 
+const isCollectionMissing = (error) => {
+  const message = String(error?.message || error || '');
+  return (
+    error?.errCode === -502005 ||
+    message.includes('collection not exists') ||
+    message.includes('Db or Table not exist') ||
+    message.includes('DATABASE_COLLECTION_NOT_EXIST')
+  );
+};
+
 const pairKey = (a, b) => [a, b].sort().join('_');
 
 const getUser = async (openid) => {
@@ -367,6 +377,60 @@ const notifyChatSignals = async (memberOpenids, conversationId, exceptOpenid) =>
   );
 };
 
+/** 确保当前用户有可 watch 的信标文档（不存在则创建；集合未建时软失败） */
+const ensureChatSignal = async (openid) => {
+  if (!openid) return ok({ created: false, skipped: true });
+  try {
+    await db.collection('chatSignals').doc(openid).get();
+    return ok({ created: false });
+  } catch (error) {
+    if (isCollectionMissing(error)) {
+      console.warn('chatSignals 集合不存在，跳过信标初始化');
+      return ok({ created: false, missingCollection: true });
+    }
+    if (!isNotFound(error)) {
+      console.warn('ensureChatSignal get failed', error.message || error);
+      return ok({ created: false, skipped: true });
+    }
+    try {
+      await db.collection('chatSignals').doc(openid).set({
+        data: {
+          bump: 0,
+          conversationId: '',
+          updatedAt: now(),
+        },
+      });
+      return ok({ created: true });
+    } catch (setError) {
+      if (isCollectionMissing(setError)) {
+        console.warn('chatSignals 集合不存在，跳过信标初始化');
+        return ok({ created: false, missingCollection: true });
+      }
+      console.warn('ensureChatSignal set failed', setError.message || setError);
+      return ok({ created: false, skipped: true });
+    }
+  }
+};
+
+/** 轻量未读汇总：给 Tab 角标 / 前台轮询用（不依赖 chatSignals） */
+const getUnreadSummary = async (openid) => {
+  // 信标可选；失败不影响未读角标
+  try {
+    await ensureChatSignal(openid);
+  } catch (error) {
+    console.warn('ensureChatSignal ignored', error.message || error);
+  }
+  const result = await db.collection('conversations').where({ memberOpenids: openid }).limit(50).get();
+  let total = 0;
+  const byId = {};
+  (result.data || []).forEach((item) => {
+    const count = Math.max(0, Number(item.unreadBy?.[openid] || 0));
+    byId[item._id] = count;
+    total += count;
+  });
+  return ok({ byId, total });
+};
+
 const listFriends = async (openid, event = {}) => {
   const withAvatars = event.includeAvatars !== false;
   const result = await db
@@ -578,6 +642,8 @@ exports.main = async (event) => {
     if (event.action === 'listConversations') return listConversations(OPENID, event);
     if (event.action === 'listMessages') return listMessages(OPENID, event);
     if (event.action === 'sendMessage') return sendMessage(OPENID, event);
+    if (event.action === 'getUnreadSummary') return getUnreadSummary(OPENID);
+    if (event.action === 'ensureChatSignal') return ensureChatSignal(OPENID);
     if (event.action === 'listFriends') return listFriends(OPENID, event);
     if (event.action === 'listFriendRequests') return listFriendRequests(OPENID);
     if (event.action === 'sendFriendRequest') return sendFriendRequest(OPENID, event);

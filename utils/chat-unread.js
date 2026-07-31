@@ -1,21 +1,28 @@
 /**
- * 全局聊天未读：在任意 Tab 都能第一时间更新消息角标。
- * 优先 watch chatSignals；失败则 30s 轮询兜底。
+ * 全局聊天未读：
+ * - 暂时关闭全局轮询（getUnreadSummary），避免后台一直打云函数
+ * - 仅消息页内自行轮询；读消息时用 syncFromConversations 更新角标
+ * - watch chatSignals 仍可尝试（失败不影响）
  */
-const { listConversations } = require('./chat');
+const { ensureChatSignal, getUnreadSummary } = require('./chat');
 const { getCloud, initCloud } = require('./cloud');
 const { getSelfOpenid, isLoggedOut } = require('./auth');
 
-const CHAT_TAB_INDEX = 2;
-const POLL_MS = 30000;
+const POLL_MS = 3000;
+const UNREAD_STORAGE_KEY = 'couple.menu.chatUnread';
 
-let totalUnread = 0;
+/** 临时开关：全局未读轮询（true 才在任意 Tab 轮询） */
+const ENABLE_GLOBAL_POLL = false;
+
+let totalUnread = Math.max(0, Number(wx.getStorageSync(UNREAD_STORAGE_KEY) || 0));
 let started = false;
 let refreshing = false;
+let pendingRefresh = false;
 let signalWatcher = null;
 let signalWatchReady = false;
 let pollTimer = null;
 let usingWatch = false;
+let watchedOpenid = '';
 const listeners = new Set();
 
 const getTotal = () => totalUnread;
@@ -38,25 +45,40 @@ const emit = (payload) => {
 
 const applyToTabBar = (count) => {
   try {
-    const pages = getCurrentPages();
-    const page = pages[pages.length - 1];
-    const tabBar = page && typeof page.getTabBar === 'function' ? page.getTabBar() : null;
-    if (tabBar && typeof tabBar.setChatUnread === 'function') {
-      tabBar.setChatUnread(count);
-    } else if (tabBar) {
-      tabBar.setData({ chatUnread: count });
-    }
+    const app = getApp();
+    if (app?.globalData) app.globalData.chatUnread = count;
   } catch (error) {
-    // 非 Tab 页没有 getTabBar，忽略
+    // ignore
+  }
+
+  try {
+    const pages = getCurrentPages() || [];
+    pages.forEach((page) => {
+      if (!page || typeof page.getTabBar !== 'function') return;
+      const tabBar = page.getTabBar();
+      if (!tabBar) return;
+      if (typeof tabBar.setChatUnread === 'function') {
+        tabBar.setChatUnread(count);
+      } else {
+        tabBar.setData({ chatUnread: count });
+      }
+    });
+  } catch (error) {
+    // 非 Tab 页忽略
   }
 };
 
-const setTotal = (count, { forceTab = false } = {}) => {
+const setTotal = (count, { forceTab = false, reason = '' } = {}) => {
   const next = Math.max(0, Number(count) || 0);
   const changed = next !== totalUnread;
   totalUnread = next;
+  try {
+    wx.setStorageSync(UNREAD_STORAGE_KEY, next);
+  } catch (error) {
+    // ignore
+  }
   if (changed || forceTab) applyToTabBar(next);
-  if (changed) emit({ type: 'total', total: next });
+  if (changed) emit({ type: 'total', reason, total: next });
   return next;
 };
 
@@ -66,12 +88,16 @@ const sumUnread = (conversations = []) =>
   conversations.reduce((sum, item) => sum + Math.max(0, Number(item.unreadCount || 0)), 0);
 
 /** 用本地会话列表立刻校正角标（读消息清未读时） */
-const syncFromConversations = (conversations = []) => setTotal(sumUnread(conversations));
+const syncFromConversations = (conversations = []) =>
+  setTotal(sumUnread(conversations), { forceTab: true, reason: 'local' });
 
-const refresh = async () => {
-  if (refreshing) return totalUnread;
+const refresh = async (reason = 'poll') => {
+  if (refreshing) {
+    pendingRefresh = true;
+    return totalUnread;
+  }
   if (isLoggedOut()) {
-    setTotal(0, { forceTab: true });
+    setTotal(0, { forceTab: true, reason: 'logout' });
     return 0;
   }
   const openid = getSelfOpenid();
@@ -79,13 +105,20 @@ const refresh = async () => {
 
   refreshing = true;
   try {
-    const { conversations } = await listConversations({ includeAvatars: false });
-    return setTotal(sumUnread(conversations || []), { forceTab: true });
+    const data = await getUnreadSummary();
+    const next = Math.max(0, Number(data?.total || 0));
+    setTotal(next, { forceTab: true, reason });
+    emit({ type: 'poll', reason, total: next, byId: data?.byId || {} });
+    return next;
   } catch (error) {
     console.warn('chat unread refresh failed', error?.message || error);
     return totalUnread;
   } finally {
     refreshing = false;
+    if (pendingRefresh) {
+      pendingRefresh = false;
+      refresh('queued');
+    }
   }
 };
 
@@ -100,6 +133,7 @@ const stopSignalWatch = () => {
   signalWatcher = null;
   signalWatchReady = false;
   usingWatch = false;
+  watchedOpenid = '';
 };
 
 const stopPolling = () => {
@@ -110,15 +144,20 @@ const stopPolling = () => {
 };
 
 const startPolling = () => {
+  // 暂时关闭全局轮询：仅消息页内轮询
+  if (!ENABLE_GLOBAL_POLL) return;
   if (pollTimer) return;
   pollTimer = setInterval(() => {
-    refresh();
+    refresh('interval');
   }, POLL_MS);
 };
 
 const handleSignal = (conversationId) => {
   emit({ type: 'signal', conversationId: conversationId || '' });
-  refresh();
+  // 全局轮询关闭时，信标只通知订阅方（消息页），不主动打 getUnreadSummary
+  if (ENABLE_GLOBAL_POLL) {
+    refresh('signal');
+  }
 };
 
 const startSignalWatch = (openid) => {
@@ -129,6 +168,7 @@ const startSignalWatch = (openid) => {
     const db = cloud.database();
     stopSignalWatch();
     signalWatchReady = false;
+    watchedOpenid = openid;
     signalWatcher = db.collection('chatSignals').doc(openid).watch({
       onChange: (snapshot) => {
         if (!signalWatchReady) {
@@ -142,9 +182,10 @@ const startSignalWatch = (openid) => {
         handleSignal(doc?.conversationId || '');
       },
       onError: (error) => {
-        console.warn('global chatSignals watch failed, fallback polling', error);
+        console.warn('global chatSignals watch failed', error);
         stopSignalWatch();
-        startPolling();
+        // 不再因 watch 失败开启全局轮询
+        // startPolling();
       },
     });
     usingWatch = true;
@@ -162,10 +203,15 @@ const start = async () => {
 
   if (started) {
     syncTabBar();
-    refresh();
+    if (openid !== watchedOpenid) {
+      startSignalWatch(openid);
+    }
+    // startPolling();
+    // refresh('restart');
     return;
   }
   started = true;
+  syncTabBar();
 
   try {
     await initCloud();
@@ -173,24 +219,26 @@ const start = async () => {
     console.warn('chat-unread initCloud failed', error);
   }
 
-  refresh();
+  // try {
+  //   await ensureChatSignal();
+  // } catch (error) {
+  //   console.warn('ensureChatSignal failed', error?.message || error);
+  // }
 
-  if (startSignalWatch(openid)) {
-    // watch 成功时仍保留低频轮询，防止漏推
-    startPolling();
-  } else {
-    startPolling();
-  }
+  // startPolling();
+  startSignalWatch(openid);
+  // refresh('start');
 };
 
 const stop = () => {
   started = false;
   stopSignalWatch();
   stopPolling();
-  setTotal(0, { forceTab: true });
+  pendingRefresh = false;
+  setTotal(0, { forceTab: true, reason: 'stop' });
 };
 
-/** App / Tab 回到前台时：确保监听在跑并立刻刷新 */
+/** App / Tab 回到前台：暂不触发未读轮询 */
 const onAppShow = () => {
   if (isLoggedOut() || !getSelfOpenid()) return;
   if (!started) {
@@ -198,12 +246,11 @@ const onAppShow = () => {
     return;
   }
   syncTabBar();
-  refresh();
-  if (!usingWatch && !pollTimer) startPolling();
+  // startPolling();
+  // refresh('appShow');
 };
 
 module.exports = {
-  CHAT_TAB_INDEX,
   getTotal,
   onAppShow,
   refresh,

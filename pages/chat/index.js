@@ -234,19 +234,19 @@ Page({
 
   startRealtime(openid) {
     this.stopRealtime();
-    // 复用全局信标；本页只订阅回调拉消息，离开页面不关全局 watch
+    // 信标推送（若可用）仍订阅；全局轮询已关，本页自行轮询
     this.unreadUnsubscribe = chatUnread.subscribe((event) => {
-      if (event?.type === 'signal') {
+      if (!event) return;
+      if (event.type === 'signal') {
         this.onChatSignal(event.conversationId || '');
       }
     });
     this.usingWatch = true;
     chatUnread.start();
-    // 全局兜底之外，页内再低频刷当前会话（仅消息页可见时）
     if (openid) {
       this.pollTimer = setInterval(() => {
-        this.pollMessages();
-      }, 30000);
+        this.onChatSignal(this.data.activeId || '');
+      }, 3000);
     }
   },
 
@@ -282,15 +282,28 @@ Page({
 
   async onChatSignal(conversationId) {
     if (this.data.showFriends) return;
-    const tasks = [
-      this.refreshConversations(false, { includeAvatars: false, skipMessages: true }),
-    ];
-    if (conversationId && conversationId === this.data.activeId) {
-      tasks.unshift(this.loadMessages(this.data.activeId, true));
-    } else if (this.data.activeId) {
-      // 其他会话有新消息：只刷新左侧列表预览
+    if (this._signalBusy) {
+      this._signalPending = conversationId || this._signalPending || '';
+      return;
     }
-    await Promise.all(tasks);
+    this._signalBusy = true;
+    try {
+      const tasks = [
+        this.refreshConversations(false, { includeAvatars: false, skipMessages: true }),
+      ];
+      const targetId = conversationId || this.data.activeId;
+      if (targetId && targetId === this.data.activeId) {
+        tasks.unshift(this.loadMessages(this.data.activeId, true));
+      }
+      await Promise.all(tasks);
+    } finally {
+      this._signalBusy = false;
+      if (this._signalPending !== undefined && this._signalPending !== null) {
+        const pending = this._signalPending;
+        this._signalPending = null;
+        this.onChatSignal(pending);
+      }
+    }
   },
 
   async pollMessages() {

@@ -21,17 +21,30 @@
 
 .tab-item {
   align-items: center;
+  box-sizing: border-box;
   color: #a79d97;
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 4rpx;
-  height: 108rpx;
+  height: 92rpx;
   justify-content: center;
+  margin: 8rpx 6rpx;
+  border-radius: 20rpx;
+  padding: 0 4rpx;
 }
 
 .tab-item-active {
+  background: rgba(189, 104, 117, 0.14);
   color: var(--love-primary, #bd6875);
+}
+
+.theme-male .tab-item-active {
+  background: rgba(100, 126, 148, 0.16);
+}
+
+.tab-item-active .tab-text {
+  font-weight: 600;
 }
 
 .tab-icon-wrap {

@@ -6,6 +6,7 @@ const chatUnread = require('./utils/chat-unread');
 
 App({
   globalData: {
+    chatUnread: 0,
     cloudReady: false,
     themeClass: getStoredThemeClass(),
   },
