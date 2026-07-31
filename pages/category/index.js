@@ -1,5 +1,5 @@
 const { addToCart, getCart } = require('../../utils/couple-wish');
-const { getMenuConfig } = require('../../utils/couple-config');
+const { getMenuConfig, hasMenuConfigCache } = require('../../utils/couple-config');
 const { requireSession } = require('../../utils/auth');
 const { withLetterAvatars } = require('../../utils/letter-avatar');
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
@@ -22,7 +22,25 @@ Page({
     if (!session) return;
     this.setData({ themeClass: syncTheme(session.user.gender) });
     try {
-      const [{ categories, menuItems }, cart] = await Promise.all([getMenuConfig(), getCart()]);
+      // 菜单已进内存缓存且本页已渲染过：只刷新心愿数与当前栏目，不再整表 setData
+      if (hasMenuConfigCache() && this._menuVersion != null) {
+        const { version } = await getMenuConfig();
+        if (version === this._menuVersion) {
+          await this.updateWishCount();
+          const activeCategory =
+            wx.getStorageSync('couple.menu.activeCategory') || this.data.activeCategory;
+          if (activeCategory && activeCategory !== this.data.activeCategory) {
+            this.showCategory(activeCategory);
+          }
+          return;
+        }
+      }
+
+      const [{ categories, menuItems, version }, cart] = await Promise.all([
+        getMenuConfig(),
+        getCart(),
+      ]);
+      this._menuVersion = version;
       this.setData({
         wishCount: cart.reduce((count, item) => count + item.quantity, 0),
         categories: withLetterAvatars(categories),
@@ -44,6 +62,10 @@ Page({
   showCategory(activeCategory) {
     const selectedCategory =
       this.data.categories.find((category) => category.id === activeCategory) || this.data.categories[0];
+    if (!selectedCategory) {
+      this.setData({ activeCategory: '', activeCategoryName: '', visibleItems: [] });
+      return;
+    }
     this.setData({
       activeCategory: selectedCategory.id,
       activeCategoryName: selectedCategory.name,
@@ -53,6 +75,7 @@ Page({
 
   selectCategory(event) {
     const activeCategory = event.currentTarget.dataset.id;
+    if (activeCategory === this.data.activeCategory) return;
     wx.setStorageSync('couple.menu.activeCategory', activeCategory);
     this.showCategory(activeCategory);
   },

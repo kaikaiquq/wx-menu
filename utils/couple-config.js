@@ -11,14 +11,15 @@ const defaultConfig = {
 };
 let configCache = clone(defaultConfig);
 let configFetchedAt = 0;
-const CONFIG_TTL_MS = 60 * 1000;
 
 const getDefaultConfig = () => clone(defaultConfig);
 const getCachedMenuConfig = () => clone(configCache);
+const hasMenuConfigCache = () => configFetchedAt > 0;
 
 const getMenuConfig = async (force = false) => {
-  const fresh = configCache.version > 0 && Date.now() - configFetchedAt < CONFIG_TTL_MS;
-  if (!force && fresh) return getCachedMenuConfig();
+  // 拉取成功后常驻内存，切页/切栏目不再打云；仅 force 或 clear 后重拉。
+  // 保存空间内容时 save* 会同步写回 cache，无需再按 TTL 失效。
+  if (!force && configFetchedAt > 0) return getCachedMenuConfig();
   const cloudConfig = await callCloud('dataApi', 'getConfig');
   configCache = {
     categories: cloudConfig.categories,
@@ -110,6 +111,7 @@ module.exports = {
   getDefaultConfig,
   getFeaturedItems,
   getMenuConfig,
+  hasMenuConfigCache,
   saveMenuConfig,
   saveSharedAnniversary,
   saveSharedMessage,

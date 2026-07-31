@@ -3,48 +3,48 @@
   "packOptions": {
     "ignore": [
       {
-        "type": "folder",
-        "value": ".git"
+        "value": ".git",
+        "type": "folder"
       },
       {
-        "type": "folder",
-        "value": "docs"
+        "value": "docs",
+        "type": "folder"
       },
       {
-        "type": "folder",
-        "value": "node_modules"
+        "value": "node_modules",
+        "type": "folder"
       },
       {
-        "type": "folder",
-        "value": "cloudfunctions"
+        "value": "cloudfunctions",
+        "type": "folder"
       },
       {
-        "type": "suffix",
-        "value": ".md"
+        "value": ".md",
+        "type": "suffix"
       },
       {
-        "type": "suffix",
-        "value": ".svg"
+        "value": ".svg",
+        "type": "suffix"
       },
       {
-        "type": "file",
-        "value": "package-lock.json"
+        "value": "package-lock.json",
+        "type": "file"
       },
       {
-        "type": "file",
-        "value": "package.json"
+        "value": "package.json",
+        "type": "file"
       },
       {
-        "type": "file",
-        "value": "jsconfig.json"
+        "value": "jsconfig.json",
+        "type": "file"
       },
       {
-        "type": "file",
-        "value": "couple-menu-avatar.svg"
+        "value": "couple-menu-avatar.svg",
+        "type": "file"
       },
       {
-        "type": "file",
-        "value": "LICENSE"
+        "value": "LICENSE",
+        "type": "file"
       }
     ],
     "include": []
