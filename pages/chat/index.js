@@ -580,15 +580,29 @@ Page({
   },
 
   previewChatImage(event) {
-    const url = event.currentTarget.dataset.url;
-    if (!url) return;
-    const urls = this.data.messages
-      .filter((item) => item.msgType === 'image' || item.type === 'image')
-      .map((item) => item.imageUrl || this.data.imageUrlMap[item.imageFileId] || item.imageFileId)
-      .filter(Boolean);
+    const messageId = event.currentTarget.dataset.id || '';
+    const fileId = event.currentTarget.dataset.fileId || '';
+    // 勿用 data-url 传临时 https：属性里的 & 会被截断，current 对不上 urls，预览会先落到错误图再滑过去
+    const entries = this.data.messages
+      .filter((item) => (item.msgType === 'image' || item.type === 'image') && item.imageFileId)
+      .map((item) => ({
+        id: item.id,
+        fileId: item.imageFileId,
+        url: item.imageUrl || this.data.imageUrlMap[item.imageFileId] || item.imageFileId,
+      }))
+      .filter((item) => item.url);
+    if (!entries.length) return;
+
+    let index = entries.findIndex((item) => messageId && item.id === messageId);
+    if (index < 0) {
+      index = entries.findIndex((item) => fileId && item.fileId === fileId);
+    }
+    if (index < 0) index = 0;
+
+    const urls = entries.map((item) => item.url);
     wx.previewImage({
-      current: url,
-      urls: urls.length ? urls : [url],
+      current: urls[index],
+      urls,
     });
   },
 

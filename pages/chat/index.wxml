@@ -170,7 +170,8 @@
                 <view
                   class="message-bubble image-bubble"
                   wx:elif="{{item.msgType === 'image'}}"
-                  data-url="{{item.imageUrl || imageUrlMap[item.imageFileId] || item.imageFileId}}"
+                  data-id="{{item.id}}"
+                  data-file-id="{{item.imageFileId}}"
                   catch:tap="previewChatImage"
                 >
                   <image

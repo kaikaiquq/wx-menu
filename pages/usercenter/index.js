@@ -18,6 +18,7 @@ Page({
     displayMembers: [],
     editAvatarUrl: '',
     editNickname: '',
+    historyOrders: [],
     latestOrder: null,
     maxDate: getToday(),
     orderCount: 0,
@@ -26,6 +27,7 @@ Page({
     savingProfile: false,
     selfGender: '',
     selfPublicUserId: '',
+    showHistorySheet: false,
     showProfileEditor: false,
     themeClass: getStoredThemeClass(),
   },
@@ -98,11 +100,13 @@ Page({
       if (!session.couple) {
         const [displayMembers, orders] = await Promise.all([
           this.withDisplayAvatars(members),
-          getPersonalOrders(5),
+          getPersonalOrders(50),
         ]);
+        const historyOrders = orders.map((order) => this.formatHistoryOrder(order));
         this.setData({
           displayMembers,
-          latestOrder: this.formatLatestOrder(orders[0]),
+          historyOrders,
+          latestOrder: historyOrders[0] || null,
           orderCount: orders.length,
           profile: {},
           profileVersion: 0,
@@ -113,13 +117,15 @@ Page({
       const [displayMembers, menuConfig, orders] = await Promise.all([
         this.withDisplayAvatars(members),
         getMenuConfig(),
-        getOrders(5),
+        getOrders(50),
       ]);
       const { profile, version } = menuConfig;
+      const historyOrders = orders.map((order) => this.formatHistoryOrder(order));
       this.setData({
         coupleDays: this.getCoupleDays(profile.anniversary),
         displayMembers,
-        latestOrder: this.formatLatestOrder(orders[0]),
+        historyOrders,
+        latestOrder: historyOrders[0] || null,
         maxDate: getToday(),
         orderCount: orders.length,
         profile: {
@@ -138,14 +144,25 @@ Page({
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   },
 
-  formatLatestOrder(order) {
-    return order
-      ? {
-          ...order,
-          dateText: this.formatDate(order.createdAt),
-          itemNames: order.items.map((item) => item.name || item.nameSnapshot).join('、'),
-        }
-      : null;
+  formatHistoryOrder(order) {
+    if (!order) return null;
+    return {
+      ...order,
+      dateText: this.formatDate(order.createdAt),
+      itemNames: (order.items || []).map((item) => item.name || item.nameSnapshot).join('、'),
+      responseText: order.response
+        ? `${order.respondedByName || 'TA'}：${order.response}`
+        : '',
+    };
+  },
+
+  openHistorySheet() {
+    if (!this.data.historyOrders.length) return;
+    this.setData({ showHistorySheet: true });
+  },
+
+  closeHistorySheet() {
+    this.setData({ showHistorySheet: false });
   },
 
   getCoupleDays(anniversary) {

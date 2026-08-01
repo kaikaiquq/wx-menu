@@ -1,9 +1,12 @@
 <view class="home-page {{themeClass}}">
   <view class="page-loading" wx:if="{{loading}}">正在同步你们的菜单...</view>
   <view class="home-header">
-    <view>
+    <view class="header-copy">
       <view class="eyebrow">{{dateText}}</view>
-      <view class="greeting">今天想和你做什么？</view>
+      <view class="greeting-row">
+        <view class="greeting">今天想和你做什么？</view>
+        <view class="wish-alert" wx:if="{{showWishAlert}}" catch:tap="openResponseAlert">!</view>
+      </view>
     </view>
     <view class="wish-pill" bind:tap="openWish">
       <text class="wish-icon">♡</text>
@@ -66,7 +69,10 @@
         <view class="waiting-text" wx:if="{{activeOrder.status === '等待回应' && activeOrder.isMine}}">
           已发给 TA，等待回应…
         </view>
-        <view class="order-action-button" wx:if="{{activeOrder.canRespond}}" bind:tap="respondOrder">回应 TA</view>
+        <block wx:if="{{activeOrder.canRespond}}">
+          <view class="order-reject-button" bind:tap="rejectOrder">拒绝</view>
+          <view class="order-action-button" bind:tap="acceptOrder">答应</view>
+        </block>
         <view class="order-action-button complete-button" wx:if="{{activeOrder.canComplete}}" bind:tap="completeOrder">
           完成心愿
         </view>
@@ -137,6 +143,19 @@
           <view class="add-button" bind:tap="addItem" data-id="{{item.id}}">＋</view>
         </view>
       </view>
+    </view>
+  </view>
+
+  <view class="response-mask" wx:if="{{showResponseSheet && responseAlert}}" catch:tap="closeResponseSheet">
+    <view class="response-sheet" catch:tap="noop">
+      <view class="response-sheet-handle"></view>
+      <view class="response-sheet-title">{{responseAlert.title}}</view>
+      <view class="response-sheet-items">{{responseAlert.itemText}}</view>
+      <view class="response-sheet-bubble" wx:if="{{responseAlert.response}}">
+        {{responseAlert.respondedByName}}：{{responseAlert.response}}
+      </view>
+      <view class="response-sheet-time">{{responseAlert.dateText}}</view>
+      <view class="response-sheet-button" bind:tap="closeResponseSheet">知道了</view>
     </view>
   </view>
 </view>

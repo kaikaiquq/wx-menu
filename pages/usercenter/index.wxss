@@ -141,12 +141,21 @@ page {
   z-index: 1;
 }
 
+.hero-meta-link {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.45);
+  text-underline-offset: 6rpx;
+}
+
 /* —— 分区 —— */
 .section {
   margin-top: 28rpx;
 }
 
 .section-head {
+  align-items: flex-end;
+  display: flex;
+  justify-content: space-between;
   margin: 0 6rpx 16rpx;
 }
 
@@ -163,7 +172,14 @@ page {
   margin-top: 4rpx;
 }
 
-/* —— 最近心愿 —— */
+.section-more {
+  color: var(--love-primary, #bd6875);
+  flex-shrink: 0;
+  font-size: 22rpx;
+  padding: 8rpx 0;
+}
+
+/* —— 已完成心愿 —— */
 .latest-card,
 .latest-empty {
   background: #fff;
@@ -204,6 +220,23 @@ page {
   font-size: 22rpx;
   margin-top: 12rpx;
   padding-left: 14rpx;
+}
+
+.latest-response {
+  background: var(--love-soft, #f7e8ea);
+  border-radius: 16rpx;
+  color: var(--love-primary-dark, #a95360);
+  font-size: 20rpx;
+  line-height: 1.5;
+  margin-top: 12rpx;
+  padding: 14rpx 16rpx;
+}
+
+.latest-hint {
+  color: #c0b6b0;
+  font-size: 18rpx;
+  margin-top: 16rpx;
+  text-align: right;
 }
 
 .latest-thumbs {
@@ -341,6 +374,51 @@ page {
   color: #9a918b;
   font-size: 18rpx;
   margin-top: 8rpx;
+}
+
+/* —— 历史心愿弹层 —— */
+.history-sheet {
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  bottom: calc(108rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  left: 0;
+  max-height: 72vh;
+  padding: 18rpx 28rpx 24rpx;
+  position: absolute;
+  right: 0;
+  width: 100%;
+}
+
+.history-list {
+  flex: 1;
+  margin-top: 18rpx;
+  max-height: 52vh;
+  min-height: 240rpx;
+}
+
+.history-card {
+  background: #f8f6f4;
+  border-radius: 20rpx;
+  margin-bottom: 14rpx;
+  padding: 20rpx;
+}
+
+.history-card:last-child {
+  margin-bottom: 0;
+}
+
+.history-close {
+  background: var(--love-primary, #bd6875);
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+  margin-top: 18rpx;
+  padding: 18rpx 0;
+  text-align: center;
 }
 
 /* —— 资料弹层 —— */

@@ -391,14 +391,20 @@ const getOrders = async (openid, event) => {
   const result = await db.collection('orders').where({ coupleId }).orderBy('createdAt', 'desc').limit(limit).get();
   return ok({
     orders: result.data.map((order) => ({
+      completedAt: order.completedAt || '',
       createdAt: order.createdAt,
       createdByName: order.createdByName || 'TA',
       createdByPublicUserId: order.createdByPublicUserId || '',
+      // 创建者未读：对方已答应/拒绝，自己还没点开看过
+      hasUnreadResponse: Boolean(
+        order.createdBy === openid && order.respondedAt && !order.responseReadAt,
+      ),
       id: order._id,
       isCreatedByCurrentUser: order.createdBy === openid,
       items: order.items,
       note: order.note,
       orderNo: order.orderNo,
+      respondedAt: order.respondedAt || '',
       respondedByName: order.respondedByName || '',
       response: order.response || '',
       status: order.status,
@@ -461,14 +467,14 @@ const updateOrder = async (openid, event) => {
     if (operation === 'respond') {
       if (order.status !== '等待回应') return fail('INVALID_STATUS', '该心愿已经回应过了');
       if (order.createdBy === openid) return fail('CREATOR_CANNOT_RESPOND', '请等待 TA 回应');
-      const response = String(event.response || '').trim().slice(0, 100);
-      if (!response) return fail('RESPONSE_REQUIRED', '请写一句回应');
+      const response = String(event.response || '').trim().slice(0, 100) || '好呀 ♡';
       await transaction.collection('orders').doc(orderId).update({
         data: {
           respondedAt: now(),
           respondedBy: openid,
           respondedByName: user.nickname || 'TA',
           response,
+          responseReadAt: null,
           status: '进行中',
           updatedAt: now(),
           updatedBy: openid,
@@ -476,6 +482,41 @@ const updateOrder = async (openid, event) => {
         },
       });
       return ok({ status: '进行中' });
+    }
+
+    if (operation === 'reject') {
+      if (order.status !== '等待回应') return fail('INVALID_STATUS', '该心愿已经回应过了');
+      if (order.createdBy === openid) return fail('CREATOR_CANNOT_RESPOND', '请等待 TA 回应');
+      const response = String(event.response || '').trim().slice(0, 100) || '这次先不了～';
+      await transaction.collection('orders').doc(orderId).update({
+        data: {
+          respondedAt: now(),
+          respondedBy: openid,
+          respondedByName: user.nickname || 'TA',
+          response,
+          responseReadAt: null,
+          status: '已拒绝',
+          updatedAt: now(),
+          updatedBy: openid,
+          version: _.inc(1),
+        },
+      });
+      return ok({ status: '已拒绝' });
+    }
+
+    if (operation === 'ackResponse') {
+      if (order.createdBy !== openid) return fail('FORBIDDEN', '只有发起方可以确认已读');
+      if (!order.respondedAt) return fail('INVALID_STATUS', '心愿还没有被回应');
+      if (order.responseReadAt) return ok({ status: order.status, alreadyRead: true });
+      await transaction.collection('orders').doc(orderId).update({
+        data: {
+          responseReadAt: now(),
+          updatedAt: now(),
+          updatedBy: openid,
+          version: _.inc(1),
+        },
+      });
+      return ok({ status: order.status, alreadyRead: false });
     }
 
     if (operation === 'complete') {

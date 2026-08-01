@@ -32,11 +32,39 @@ page {
   letter-spacing: 2rpx;
 }
 
+.header-copy {
+  flex: 1;
+  min-width: 0;
+  padding-right: 20rpx;
+}
+
+.greeting-row {
+  align-items: center;
+  display: flex;
+  gap: 12rpx;
+  margin-top: 8rpx;
+}
+
 .greeting {
   font-family: 'STSong', 'Songti SC', serif;
   font-size: 42rpx;
   font-weight: 600;
-  margin-top: 8rpx;
+}
+
+.wish-alert {
+  align-items: center;
+  background: #e34d4d;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  flex-shrink: 0;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  font-size: 28rpx;
+  font-weight: 700;
+  height: 40rpx;
+  justify-content: center;
+  line-height: 1;
+  width: 40rpx;
 }
 
 .wish-pill {
@@ -312,6 +340,7 @@ page {
 .active-order-actions {
   align-items: center;
   display: flex;
+  gap: 16rpx;
   justify-content: flex-end;
   margin-top: 24rpx;
 }
@@ -321,6 +350,15 @@ page {
   font-size: 21rpx;
 }
 
+.order-reject-button {
+  border: 1rpx solid #d9a4ab;
+  border-radius: 999rpx;
+  color: var(--love-primary, #ba6875);
+  font-size: 23rpx;
+  font-weight: 600;
+  padding: 16rpx 30rpx;
+}
+
 .order-action-button {
   background: var(--love-primary, #ba6875);
   border-radius: 999rpx;
@@ -328,6 +366,80 @@ page {
   font-size: 23rpx;
   font-weight: 600;
   padding: 18rpx 34rpx;
+}
+
+.response-mask {
+  align-items: flex-end;
+  background: rgba(30, 24, 22, 0.45);
+  bottom: 0;
+  display: flex;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1000;
+}
+
+.response-sheet {
+  background: #fff;
+  border-radius: 32rpx 32rpx 0 0;
+  bottom: calc(108rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  left: 0;
+  padding: 18rpx 36rpx 28rpx;
+  position: absolute;
+  right: 0;
+  width: 100%;
+}
+
+.response-sheet-handle {
+  background: #e4ddda;
+  border-radius: 8rpx;
+  height: 8rpx;
+  margin: 0 auto 18rpx;
+  width: 64rpx;
+}
+
+.response-sheet-title {
+  font-family: 'STSong', 'Songti SC', serif;
+  font-size: 32rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.response-sheet-items {
+  color: #8f8580;
+  font-size: 22rpx;
+  margin-top: 16rpx;
+  text-align: center;
+}
+
+.response-sheet-bubble {
+  background: var(--love-soft, #f8eded);
+  border-radius: 18rpx;
+  color: var(--love-primary, #ba6875);
+  font-size: 24rpx;
+  line-height: 1.6;
+  margin-top: 22rpx;
+  padding: 20rpx 22rpx;
+}
+
+.response-sheet-time {
+  color: #b2a8a2;
+  font-size: 18rpx;
+  margin-top: 14rpx;
+  text-align: center;
+}
+
+.response-sheet-button {
+  background: var(--love-primary, #ba6875);
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 600;
+  margin-top: 28rpx;
+  padding: 20rpx 0;
+  text-align: center;
 }
 
 .complete-button::before {

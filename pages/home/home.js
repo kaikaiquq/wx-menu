@@ -14,7 +14,10 @@ Page({
     loading: true,
     menuConfig: null,
     orderNotice: null,
+    responseAlert: null,
     sharedMessage: '',
+    showResponseSheet: false,
+    showWishAlert: false,
     themeClass: getStoredThemeClass(),
   },
 
@@ -26,7 +29,7 @@ Page({
     const now = new Date();
     const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
     try {
-      const [menuConfig, wishList, orders] = await Promise.all([getMenuConfig(), getCart(), getOrders(10)]);
+      const [menuConfig, wishList, orders] = await Promise.all([getMenuConfig(), getCart(), getOrders(20)]);
       const { categories, menuItems, profile } = menuConfig;
       const latestOrder = orders[0];
       const activeRecord = orders.find((order) => ['等待回应', '进行中'].includes(order.status));
@@ -44,7 +47,7 @@ Page({
                 : `${activeRecord.createdByName || 'TA'} 想点这些`,
           }
         : null;
-      const orderNotice = latestOrder && !['已完成', '已取消'].includes(latestOrder.status)
+      const orderNotice = latestOrder && !['已完成', '已取消', '已拒绝'].includes(latestOrder.status)
         ? {
             dateText: this.formatOrderDate(latestOrder.createdAt),
             itemText: latestOrder.items.map((item) => item.name).join('、'),
@@ -52,6 +55,21 @@ Page({
               latestOrder.createdByPublicUserId === session.user.publicUserId
                 ? '心愿已经发给 TA'
                 : `${latestOrder.createdByName || 'TA'} 发来一份点单`,
+          }
+        : null;
+      const unread = orders.find((order) => order.hasUnreadResponse);
+      const responseAlert = unread
+        ? {
+            id: unread.id,
+            dateText: this.formatOrderDate(unread.respondedAt || unread.createdAt),
+            itemText: (unread.items || []).map((item) => item.name).join('、'),
+            response: unread.response || '',
+            respondedByName: unread.respondedByName || 'TA',
+            status: unread.status,
+            title:
+              unread.status === '已拒绝'
+                ? `${unread.respondedByName || 'TA'} 拒绝了你的心愿`
+                : `${unread.respondedByName || 'TA'} 答应了你的心愿`,
           }
         : null;
       this.setData({
@@ -63,6 +81,8 @@ Page({
         loading: false,
         menuConfig,
         orderNotice,
+        responseAlert,
+        showWishAlert: Boolean(responseAlert),
         sharedMessage: profile.message || '点击写下一句想记住的话',
       });
     } catch (error) {
@@ -108,25 +128,69 @@ Page({
     wx.switchTab({ url: '/pages/usercenter/index' });
   },
 
-  respondOrder() {
+  openResponseAlert() {
+    if (!this.data.responseAlert) return;
+    this.setData({ showResponseSheet: true, showWishAlert: false });
+    this.ackResponseAlert();
+  },
+
+  closeResponseSheet() {
+    this.setData({ showResponseSheet: false });
+  },
+
+  async ackResponseAlert() {
+    const alert = this.data.responseAlert;
+    if (!alert?.id) return;
+    try {
+      await updateOrder(alert.id, 'ackResponse');
+    } catch (error) {
+      // 已读失败不打断查看
+    }
+  },
+
+  acceptOrder() {
     wx.showModal({
-      title: '回应 TA 的心愿',
+      title: '答应这个心愿？',
       editable: true,
       placeholderText: '例如：好呀，今晚一起完成！',
-      confirmText: '发送回应',
+      confirmText: '答应',
       confirmColor: '#bd6875',
       success: async ({ confirm, content }) => {
-        const response = content?.trim();
-        if (!confirm || !response) return;
-        wx.showLoading({ title: '正在回应' });
+        if (!confirm) return;
+        const response = content?.trim() || '好呀 ♡';
+        wx.showLoading({ title: '正在答应' });
         try {
           await updateOrder(this.data.activeOrder.id, 'respond', response);
           wx.hideLoading();
-          wx.showToast({ title: '已回应 TA', icon: 'success' });
+          wx.showToast({ title: '已答应 TA', icon: 'success' });
           this.onShow();
         } catch (error) {
           wx.hideLoading();
-          wx.showToast({ title: error.message || '回应失败', icon: 'none' });
+          wx.showToast({ title: error.message || '操作失败', icon: 'none' });
+        }
+      },
+    });
+  },
+
+  rejectOrder() {
+    wx.showModal({
+      title: '拒绝这个心愿？',
+      editable: true,
+      placeholderText: '可以说说原因，也可以直接拒绝',
+      confirmText: '拒绝',
+      confirmColor: '#bd6875',
+      success: async ({ confirm, content }) => {
+        if (!confirm) return;
+        const response = content?.trim() || '这次先不了～';
+        wx.showLoading({ title: '正在拒绝' });
+        try {
+          await updateOrder(this.data.activeOrder.id, 'reject', response);
+          wx.hideLoading();
+          wx.showToast({ title: '已拒绝', icon: 'none' });
+          this.onShow();
+        } catch (error) {
+          wx.hideLoading();
+          wx.showToast({ title: error.message || '操作失败', icon: 'none' });
         }
       },
     });
@@ -179,4 +243,6 @@ Page({
       },
     });
   },
+
+  noop() {},
 });

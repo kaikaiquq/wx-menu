@@ -53,37 +53,46 @@
           <view class="together-days">{{coupleDays}}<text>天</text></view>
         </view>
       </picker>
-      <view class="hero-meta">一起点单 {{orderCount}} 次</view>
+      <view class="hero-meta {{historyOrders.length ? 'hero-meta-link' : ''}}" bind:tap="openHistorySheet">
+        一起点单 {{orderCount}} 次
+      </view>
     </block>
     <view class="anniversary-block" wx:else>
       <view class="together-text">尚未绑定伴侣</view>
-      <view class="hero-meta">个人记录 {{orderCount}} 条</view>
+      <view class="hero-meta {{historyOrders.length ? 'hero-meta-link' : ''}}" bind:tap="openHistorySheet">
+        个人记录 {{orderCount}} 条
+      </view>
     </view>
   </view>
 
   <view class="section">
     <view class="section-head">
-      <view class="section-title">最近的小心愿</view>
-      <view class="section-subtitle">认真记录每一次选择</view>
+      <view>
+        <view class="section-title">已完成的心愿</view>
+        <view class="section-subtitle">认真记录每一次选择</view>
+      </view>
+      <view class="section-more" wx:if="{{historyOrders.length}}" bind:tap="openHistorySheet">全部 ›</view>
     </view>
 
-    <view class="latest-card" wx:if="{{latestOrder}}">
+    <view class="latest-card" wx:if="{{latestOrder}}" bind:tap="openHistorySheet">
       <view class="latest-top">
         <view class="latest-date">{{latestOrder.dateText}}</view>
         <view class="latest-status">{{latestOrder.status}}</view>
       </view>
       <view class="latest-title">{{latestOrder.itemNames}}</view>
       <view class="latest-note" wx:if="{{latestOrder.note}}">“{{latestOrder.note}}”</view>
+      <view class="latest-response" wx:if="{{latestOrder.responseText}}">{{latestOrder.responseText}}</view>
       <scroll-view class="latest-thumbs" scroll-x wx:if="{{latestOrder.items.length}}">
         <image
           class="latest-image"
           wx:for="{{latestOrder.items}}"
-          wx:key="id"
+          wx:key="menuItemId"
           wx:for-item="orderItem"
           src="{{orderItem.image}}"
           mode="aspectFill"
         />
       </scroll-view>
+      <view class="latest-hint">点击查看全部历史心愿</view>
     </view>
 
     <view class="latest-empty" wx:else>
@@ -168,6 +177,25 @@
         <view class="tool-tile-name">回忆册</view>
         <view class="tool-tile-note">收藏喜欢的瞬间</view>
       </view>
+    </view>
+  </view>
+
+  <view class="profile-mask" wx:if="{{showHistorySheet}}" catch:tap="closeHistorySheet">
+    <view class="history-sheet" catch:tap="noop">
+      <view class="profile-sheet-handle"></view>
+      <view class="profile-sheet-title">全部历史心愿</view>
+      <scroll-view class="history-list" scroll-y enhanced show-scrollbar="{{false}}">
+        <view class="history-card" wx:for="{{historyOrders}}" wx:key="id">
+          <view class="latest-top">
+            <view class="latest-date">{{item.dateText}}</view>
+            <view class="latest-status">{{item.status}}</view>
+          </view>
+          <view class="latest-title">{{item.itemNames}}</view>
+          <view class="latest-note" wx:if="{{item.note}}">“{{item.note}}”</view>
+          <view class="latest-response" wx:if="{{item.responseText}}">{{item.responseText}}</view>
+        </view>
+      </scroll-view>
+      <view class="history-close" bind:tap="closeHistorySheet">关闭</view>
     </view>
   </view>
 
