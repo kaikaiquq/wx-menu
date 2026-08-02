@@ -464,44 +464,26 @@ const updateOrder = async (openid, event) => {
     const order = (await transaction.collection('orders').doc(orderId).get()).data;
     if (order.coupleId !== coupleId) return fail('FORBIDDEN', '没有操作该心愿的权限');
 
-    if (operation === 'respond') {
+    if (operation === 'respond' || operation === 'reject') {
       if (order.status !== '等待回应') return fail('INVALID_STATUS', '该心愿已经回应过了');
       if (order.createdBy === openid) return fail('CREATOR_CANNOT_RESPOND', '请等待 TA 回应');
-      const response = String(event.response || '').trim().slice(0, 100) || '好呀 ♡';
+      const rejected = operation === 'reject' || String(event.decision || '') === 'reject';
+      const response =
+        String(event.response || '').trim().slice(0, 100) || (rejected ? '这次先不了～' : '好呀 ♡');
+      const status = rejected ? '已拒绝' : '进行中';
       await transaction.collection('orders').doc(orderId).update({
         data: {
           respondedAt: now(),
           respondedBy: openid,
           respondedByName: user.nickname || 'TA',
           response,
-          responseReadAt: null,
-          status: '进行中',
+          status,
           updatedAt: now(),
           updatedBy: openid,
           version: _.inc(1),
         },
       });
-      return ok({ status: '进行中' });
-    }
-
-    if (operation === 'reject') {
-      if (order.status !== '等待回应') return fail('INVALID_STATUS', '该心愿已经回应过了');
-      if (order.createdBy === openid) return fail('CREATOR_CANNOT_RESPOND', '请等待 TA 回应');
-      const response = String(event.response || '').trim().slice(0, 100) || '这次先不了～';
-      await transaction.collection('orders').doc(orderId).update({
-        data: {
-          respondedAt: now(),
-          respondedBy: openid,
-          respondedByName: user.nickname || 'TA',
-          response,
-          responseReadAt: null,
-          status: '已拒绝',
-          updatedAt: now(),
-          updatedBy: openid,
-          version: _.inc(1),
-        },
-      });
-      return ok({ status: '已拒绝' });
+      return ok({ status });
     }
 
     if (operation === 'ackResponse') {

@@ -27,8 +27,10 @@ Page({
     savingProfile: false,
     selfGender: '',
     selfPublicUserId: '',
+    detailOrder: null,
     showHistorySheet: false,
     showProfileEditor: false,
+    showWishDetail: false,
     themeClass: getStoredThemeClass(),
   },
 
@@ -106,7 +108,7 @@ Page({
         this.setData({
           displayMembers,
           historyOrders,
-          latestOrder: historyOrders[0] || null,
+          latestOrder: this.pickFeaturedOrder(historyOrders),
           orderCount: orders.length,
           profile: {},
           profileVersion: 0,
@@ -125,7 +127,7 @@ Page({
         coupleDays: this.getCoupleDays(profile.anniversary),
         displayMembers,
         historyOrders,
-        latestOrder: historyOrders[0] || null,
+        latestOrder: this.pickFeaturedOrder(historyOrders),
         maxDate: getToday(),
         orderCount: orders.length,
         profile: {
@@ -156,13 +158,45 @@ Page({
     };
   },
 
+  /** 优先展示进行中的当前心愿，否则展示最近一条 */
+  pickFeaturedOrder(historyOrders = []) {
+    return (
+      historyOrders.find((order) => ['等待回应', '进行中'].includes(order.status)) ||
+      historyOrders[0] ||
+      null
+    );
+  },
+
   openHistorySheet() {
     if (!this.data.historyOrders.length) return;
-    this.setData({ showHistorySheet: true });
+    this.setData({ showHistorySheet: true, showWishDetail: false, detailOrder: null });
   },
 
   closeHistorySheet() {
     this.setData({ showHistorySheet: false });
+  },
+
+  openWishDetail(event) {
+    const id = event.currentTarget.dataset.id || this.data.latestOrder?.id;
+    const detailOrder =
+      this.data.historyOrders.find((order) => order.id === id) || this.data.latestOrder;
+    if (!detailOrder) return;
+    this._detailFromHistory = this.data.showHistorySheet;
+    this.setData({
+      detailOrder,
+      showWishDetail: true,
+      showHistorySheet: false,
+    });
+  },
+
+  closeWishDetail() {
+    const reopenHistory = this._detailFromHistory && this.data.historyOrders.length;
+    this._detailFromHistory = false;
+    this.setData({
+      showWishDetail: false,
+      detailOrder: null,
+      showHistorySheet: Boolean(reopenHistory),
+    });
   },
 
   getCoupleDays(anniversary) {

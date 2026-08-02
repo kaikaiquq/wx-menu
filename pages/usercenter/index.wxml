@@ -66,15 +66,15 @@
   </view>
 
   <view class="section">
-    <view class="section-head">
+    <view class="section-head" bind:tap="openHistorySheet">
       <view>
         <view class="section-title">已完成的心愿</view>
         <view class="section-subtitle">认真记录每一次选择</view>
       </view>
-      <view class="section-more" wx:if="{{historyOrders.length}}" bind:tap="openHistorySheet">全部 ›</view>
+      <view class="section-more" wx:if="{{historyOrders.length}}">全部 ›</view>
     </view>
 
-    <view class="latest-card" wx:if="{{latestOrder}}" bind:tap="openHistorySheet">
+    <view class="latest-card" wx:if="{{latestOrder}}" bind:tap="openWishDetail" data-id="{{latestOrder.id}}">
       <view class="latest-top">
         <view class="latest-date">{{latestOrder.dateText}}</view>
         <view class="latest-status">{{latestOrder.status}}</view>
@@ -92,7 +92,7 @@
           mode="aspectFill"
         />
       </scroll-view>
-      <view class="latest-hint">点击查看全部历史心愿</view>
+      <view class="latest-hint">点击查看这条心愿详情</view>
     </view>
 
     <view class="latest-empty" wx:else>
@@ -180,12 +180,41 @@
     </view>
   </view>
 
+  <view class="profile-mask" wx:if="{{showWishDetail && detailOrder}}" catch:tap="closeWishDetail">
+    <view class="history-sheet history-sheet-detail" catch:tap="noop">
+      <view class="profile-sheet-handle"></view>
+      <view class="profile-sheet-title">心愿详情</view>
+      <view class="history-card detail-card">
+        <view class="latest-top">
+          <view class="latest-date">{{detailOrder.dateText}}</view>
+          <view class="latest-status">{{detailOrder.status}}</view>
+        </view>
+        <view class="latest-title">{{detailOrder.itemNames}}</view>
+        <view class="latest-note" wx:if="{{detailOrder.note}}">“{{detailOrder.note}}”</view>
+        <view class="latest-response" wx:if="{{detailOrder.responseText}}">{{detailOrder.responseText}}</view>
+        <view class="detail-items" wx:if="{{detailOrder.items.length}}">
+          <view class="detail-item" wx:for="{{detailOrder.items}}" wx:key="menuItemId">
+            <view class="detail-item-name">{{item.name}}</view>
+            <view class="detail-item-meta">{{item.cost}} · ×{{item.quantity}}</view>
+          </view>
+        </view>
+      </view>
+      <view class="history-close" bind:tap="closeWishDetail">关闭</view>
+    </view>
+  </view>
+
   <view class="profile-mask" wx:if="{{showHistorySheet}}" catch:tap="closeHistorySheet">
     <view class="history-sheet" catch:tap="noop">
       <view class="profile-sheet-handle"></view>
       <view class="profile-sheet-title">全部历史心愿</view>
       <scroll-view class="history-list" scroll-y enhanced show-scrollbar="{{false}}">
-        <view class="history-card" wx:for="{{historyOrders}}" wx:key="id">
+        <view
+          class="history-card"
+          wx:for="{{historyOrders}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bind:tap="openWishDetail"
+        >
           <view class="latest-top">
             <view class="latest-date">{{item.dateText}}</view>
             <view class="latest-status">{{item.status}}</view>
