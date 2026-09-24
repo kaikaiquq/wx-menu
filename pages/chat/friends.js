@@ -8,7 +8,7 @@ const {
   removeFriend,
   sendFriendRequest,
 } = require('../../utils/chat');
-const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
+const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../utils/theme');
 
 Page({
   data: {
@@ -110,7 +110,7 @@ Page({
     wx.showModal({
       title: '删除好友？',
       content: `确定删除「${name || '好友'}」吗？不会删除已有聊天记录。`,
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: async ({ confirm }) => {
         if (!confirm) return;
         try {

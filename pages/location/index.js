@@ -1,6 +1,6 @@
 const { requireSession } = require('../../utils/auth');
 const locationSharing = require('../../utils/location-sharing');
-const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
+const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../utils/theme');
 
 const STALE_MS = 90 * 1000;
 const validPoint = (point) => Boolean(
@@ -21,13 +21,13 @@ const describePoint = (point, now) => {
   const timeText = `${dateText}${pad(time.getHours())}:${pad(time.getMinutes())}:${pad(time.getSeconds())}`;
   return { text: `${stale ? '超过 90 秒未更新' : '最近更新'} · ${timeText}`, stale };
 };
-const markerFor = (point, self, stale) => ({
+const markerFor = (point, self, stale, theme) => ({
   id: self ? 1 : 2,
   latitude: point.latitude,
   longitude: point.longitude,
   width: 30,
   height: 38,
-  iconPath: self ? '/assets/location/self-pin.png' : '/assets/location/partner-pin.png',
+  iconPath: `/assets/location/${self ? 'self' : 'partner'}-${theme.key}.png`,
   anchor: { x: 0.5, y: 1 },
   zIndex: self ? 1 : 2,
   callout: {
@@ -37,7 +37,7 @@ const markerFor = (point, self, stale) => ({
     fontSize: 12,
     borderRadius: 10,
     padding: 8,
-    bgColor: self ? '#647e94' : '#bd6875',
+    bgColor: self ? theme.colors.secondary : theme.colors.primary,
   },
 });
 
@@ -154,9 +154,12 @@ Page({
     const partner = hasPartner && validPoint(state.partner) ? state.partner : null;
     const selfDescription = describePoint(self, Date.now());
     const partnerDescription = describePoint(partner, Date.now());
+    const themeKey = this.data.themeClass === 'theme-male' ? 'male'
+      : this.data.themeClass === 'theme-female' ? 'female' : 'neutral';
+    const theme = { key: themeKey, colors: getThemeColors(themeKey) };
     const markers = [];
-    if (self) markers.push(markerFor(self, true, selfDescription.stale));
-    if (partner) markers.push(markerFor(partner, false, partnerDescription.stale));
+    if (self) markers.push(markerFor(self, true, selfDescription.stale, theme));
+    if (partner) markers.push(markerFor(partner, false, partnerDescription.stale, theme));
     const target = this.data.followMode === 'self' ? self || partner : partner || self;
     const patch = {
       loading: false,

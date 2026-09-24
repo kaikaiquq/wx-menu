@@ -1,9 +1,9 @@
 <view class="manage-page {{themeClass}}">
   <view class="manage-heading">
-    <view>
+    <view class="manage-heading-copy">
       <view class="manage-eyebrow">MENU</view>
       <view class="manage-title">菜单管理</view>
-      <view class="manage-note">可点选推荐模板，或自定义新增；修改先暂存草稿</view>
+      <view class="manage-note">收藏每一种喜欢，完成修改后记得保存草稿</view>
     </view>
     <view class="add-item-button" wx:if="{{!isSharedScope}}" bind:tap="openAddOptions">＋ 新增</view>
   </view>
@@ -82,7 +82,7 @@
   <view class="item-editor" wx:if="{{itemDraft}}">
     <view class="editor-handle"></view>
     <view class="editor-header">
-      <view>
+      <view class="editor-header-copy">
         <view class="editor-title">
           {{createAndLinkMode ? '新建并加入共同空间' : (editingIndex === menuItems.length ? '新增点单项' : '编辑点单项')}}
         </view>

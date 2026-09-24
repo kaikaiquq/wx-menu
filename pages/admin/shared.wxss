@@ -1,0 +1,241 @@
+/* 分类与菜单管理共用的版式、表单和弹层。颜色随页面主题继承。 */
+.manage-page {
+  background: var(--love-bg);
+  box-sizing: border-box;
+  color: var(--love-text);
+  min-height: 100vh;
+  padding: 40rpx var(--love-page-gutter) calc(40rpx + env(safe-area-inset-bottom));
+}
+
+.manage-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 20rpx;
+  justify-content: space-between;
+  padding: 8rpx 0 40rpx;
+}
+
+.manage-heading-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.manage-eyebrow {
+  color: var(--love-primary);
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 4rpx;
+}
+
+.manage-title {
+  font-family: var(--love-heading-font);
+  font-size: 48rpx;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 12rpx;
+}
+
+.manage-note {
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.65;
+  margin-top: 16rpx;
+}
+
+.sheet-mask,
+.editor-mask {
+  background: var(--love-overlay);
+  bottom: 0;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1000;
+}
+
+.sheet-mask {
+  align-items: flex-end;
+  display: flex;
+}
+
+.sheet-panel,
+.item-editor {
+  background: var(--love-surface);
+  border-radius: var(--love-radius-card) var(--love-radius-card) 0 0;
+  box-sizing: border-box;
+  color: var(--love-text);
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+  overflow: hidden;
+  padding: 18rpx var(--love-page-gutter) calc(24rpx + env(safe-area-inset-bottom));
+  width: 100%;
+}
+
+.sheet-handle,
+.editor-handle {
+  background: var(--love-border);
+  border-radius: 8rpx;
+  flex-shrink: 0;
+  height: 6rpx;
+  margin: 0 auto 30rpx;
+  width: 56rpx;
+}
+
+.sheet-title,
+.editor-title {
+  font-family: var(--love-heading-font);
+  font-size: 36rpx;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.sheet-note,
+.editor-note {
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.6;
+  margin-top: 12rpx;
+}
+
+.template-scroll {
+  flex-shrink: 1;
+  height: 48vh;
+  margin-top: 28rpx;
+  min-height: 0;
+}
+
+.template-avatar {
+  background: var(--love-soft);
+  border-radius: var(--love-radius-control);
+  display: block;
+  flex-shrink: 0;
+  font-size: 28rpx;
+  height: 80rpx;
+  overflow: hidden;
+  width: 80rpx;
+}
+
+.template-avatar.letter-avatar {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.template-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.template-sub {
+  color: var(--love-text-secondary);
+  font-size: 22rpx;
+  line-height: 1.6;
+  margin-top: 6rpx;
+  word-break: break-all;
+}
+
+.sheet-custom,
+.editor-save {
+  background: var(--love-primary);
+  border-radius: var(--love-radius-control);
+  box-sizing: border-box;
+  color: var(--love-on-primary);
+  flex-shrink: 0;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 28rpx;
+  min-height: 92rpx;
+  padding: 24rpx 20rpx;
+  text-align: center;
+}
+
+.editor-field {
+  margin-bottom: 28rpx;
+}
+
+.field-label {
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.5;
+  margin-bottom: 12rpx;
+}
+
+.editor-input,
+.editor-textarea {
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
+  box-sizing: border-box;
+  color: var(--love-text);
+  font-size: 28rpx;
+  width: 100%;
+}
+
+.editor-input {
+  height: 92rpx;
+  line-height: 92rpx;
+  padding: 0 24rpx;
+}
+
+.editor-textarea {
+  height: 168rpx;
+  line-height: 1.7;
+  padding: 20rpx 24rpx;
+}
+
+.image-row,
+.image-config {
+  align-items: center;
+  display: flex;
+  gap: 24rpx;
+}
+
+.image-preview {
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
+  flex-shrink: 0;
+  height: 132rpx;
+  width: 132rpx;
+}
+
+.image-preview-empty {
+  align-items: center;
+  color: var(--love-text-muted);
+  display: flex;
+  font-size: 22rpx;
+  justify-content: center;
+}
+
+.image-actions {
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-button {
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
+  color: var(--love-primary);
+  display: inline-block;
+  font-size: 24rpx;
+  line-height: 1.5;
+  padding: 16rpx 20rpx;
+}
+
+.clear-image {
+  color: var(--love-danger);
+  font-size: 24rpx;
+  padding-top: 16rpx;
+}
+
+.field-help {
+  color: var(--love-text-muted);
+  font-size: 22rpx;
+  line-height: 1.6;
+  margin-top: 12rpx;
+}

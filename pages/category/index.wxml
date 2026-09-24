@@ -1,10 +1,10 @@
 <view class="menu-page {{themeClass}}">
   <view class="menu-heading">
     <view>
-      <view class="menu-eyebrow">PICK FOR US</view>
+      <view class="menu-eyebrow">为彼此挑选</view>
       <view class="menu-title">今天点什么</view>
     </view>
-    <view class="wish-button" bind:tap="openWish">
+    <view class="wish-button" aria-role="button" aria-label="打开心愿单" bind:tap="openWish">
       <text>♡</text>
       <view class="wish-count" wx:if="{{wishCount}}">{{wishCount}}</view>
     </view>
@@ -18,27 +18,31 @@
   </view>
 
   <view class="menu-body" wx:else>
-    <scroll-view class="category-side" scroll-y>
-      <view
-        class="side-item {{activeCategory === item.id ? 'side-item-active' : ''}}"
-        wx:for="{{categories}}"
-        wx:key="id"
-        data-id="{{item.id}}"
-        bind:tap="selectCategory"
-      >
-        <image
-          class="side-icon side-icon-image"
-          wx:if="{{item.hasImage}}"
-          src="{{item.image}}"
-          mode="aspectFill"
-        />
+    <scroll-view class="category-tabs" scroll-x enhanced show-scrollbar="{{false}}">
+      <view class="category-tab-row">
         <view
-          class="side-icon letter-avatar"
-          wx:elif="{{item.avatarText}}"
-          style="background: {{item.avatarColor}};"
-        >{{item.avatarText}}</view>
-        <view class="side-icon" wx:else>{{item.icon}}</view>
-        <view>{{item.name}}</view>
+          class="side-item {{activeCategory === item.id ? 'side-item-active' : ''}}"
+          wx:for="{{categories}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bind:tap="selectCategory"
+          aria-role="button"
+          aria-label="{{item.name}}，{{activeCategory === item.id ? '已选中' : '点击选择'}}"
+        >
+          <image
+            class="side-icon side-icon-image"
+            wx:if="{{item.hasImage}}"
+            src="{{item.image}}"
+            mode="aspectFill"
+          />
+          <view
+            class="side-icon letter-avatar"
+            wx:elif="{{item.avatarText}}"
+            style="background: {{item.avatarColor}};"
+          >{{item.avatarText}}</view>
+          <view class="side-icon" wx:else>{{item.icon}}</view>
+          <view class="side-name">{{item.name}}</view>
+        </view>
       </view>
     </scroll-view>
 
@@ -60,11 +64,11 @@
           <view class="dish-description">{{item.description}}</view>
           <view class="dish-bottom">
             <view class="dish-price">{{item.cost}}</view>
-            <view class="dish-add" data-id="{{item.id}}" bind:tap="addItem">＋</view>
+            <view class="dish-add" aria-role="button" aria-label="将{{item.name}}加入心愿单" data-id="{{item.id}}" bind:tap="addItem">＋</view>
           </view>
         </view>
       </view>
-      <view class="menu-list-end">— 和你一起，什么都好 —</view>
+      <view class="menu-list-end">和你一起，什么都好</view>
     </scroll-view>
   </view>
 </view>

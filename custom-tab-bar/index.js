@@ -1,12 +1,6 @@
 const TabMenu = require('./data');
 const { getTotal } = require('../utils/chat-unread');
-
-const getStoredThemeClass = () => {
-  const gender = wx.getStorageSync('couple.menu.gender');
-  if (gender === 'male') return 'theme-male';
-  if (gender === 'female') return 'theme-female';
-  return '';
-};
+const { getStoredThemeClass } = require('../utils/theme');
 
 const readUnread = () => {
   try {
@@ -30,13 +24,13 @@ Component({
 
   lifetimes: {
     attached() {
-      this.setData({ chatUnread: readUnread() });
+      this.setData({ chatUnread: readUnread(), themeClass: getStoredThemeClass() });
     },
   },
 
   pageLifetimes: {
     show() {
-      this.setData({ chatUnread: readUnread() });
+      this.setData({ chatUnread: readUnread(), themeClass: getStoredThemeClass() });
     },
   },
 

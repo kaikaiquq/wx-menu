@@ -1,0 +1,74 @@
+/* 全局页面和隔离的自定义 Tab 共用；不在各页重复定义男女主题。 */
+.theme-neutral,
+.theme-female,
+.theme-male {
+  --love-bg: #f4f4f1;
+  --love-surface: #ffffff;
+  --love-surface-muted: #eceeea;
+  --love-text: #252b29;
+  --love-text-secondary: #525c56;
+  --love-text-muted: #5d675f;
+  --love-border: #dfe3dc;
+  --love-primary: #485f52;
+  --love-primary-dark: #34473c;
+  --love-soft: #e6ece6;
+  --love-soft-strong: #d3dfd5;
+  --love-on-primary: #ffffff;
+  --love-danger: #a23840;
+  --love-danger-soft: #f8e9e9;
+  --love-success: #3d6653;
+  --love-success-soft: #e6efe8;
+  --love-warning: #805b29;
+  --love-warning-soft: #f5eddf;
+  --love-overlay: rgba(20, 26, 23, 0.42);
+  --love-radius-card: 22rpx;
+  --love-radius-control: 14rpx;
+  --love-shadow: 0 8rpx 30rpx rgba(27, 35, 30, 0.035);
+  --love-heading-font: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  --love-tab-height: 108rpx;
+  --love-page-gutter: 32rpx;
+  --love-hero-from: #485f52;
+  --love-hero-to: #485f52;
+}
+
+.theme-female {
+  --love-bg: #f6f3ef;
+  --love-surface: #fffcf9;
+  --love-surface-muted: #eee7e1;
+  --love-text: #302825;
+  --love-text-secondary: #635550;
+  --love-text-muted: #72615a;
+  --love-border: #e5dbd3;
+  --love-primary: #855461;
+  --love-primary-dark: #663d48;
+  --love-soft: #efe2e2;
+  --love-soft-strong: #e0cbcd;
+  --love-overlay: rgba(37, 25, 25, 0.42);
+  --love-radius-card: 28rpx;
+  --love-radius-control: 18rpx;
+  --love-shadow: 0 8rpx 30rpx rgba(64, 43, 35, 0.035);
+  --love-heading-font: 'Songti SC', 'STSong', 'Noto Serif CJK SC', serif;
+  --love-hero-from: #855461;
+  --love-hero-to: #855461;
+}
+
+.theme-male {
+  --love-bg: #f0f3f5;
+  --love-surface: #ffffff;
+  --love-surface-muted: #e5ebef;
+  --love-text: #202e38;
+  --love-text-secondary: #485b68;
+  --love-text-muted: #536874;
+  --love-border: #d7e0e6;
+  --love-primary: #344b5e;
+  --love-primary-dark: #223746;
+  --love-soft: #e1e9ef;
+  --love-soft-strong: #cbd9e3;
+  --love-overlay: rgba(17, 30, 40, 0.44);
+  --love-radius-card: 16rpx;
+  --love-radius-control: 10rpx;
+  --love-shadow: 0 8rpx 30rpx rgba(27, 45, 58, 0.035);
+  --love-heading-font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  --love-hero-from: #344b5e;
+  --love-hero-to: #344b5e;
+}

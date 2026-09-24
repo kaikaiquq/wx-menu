@@ -1,43 +1,50 @@
-page {
-  background: #f4f5f5;
-  color: #2a2624;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 130rpx);
-}
-
 .space-page {
-  background: var(--love-bg, #f4f5f5);
+  background: var(--love-bg);
   box-sizing: border-box;
+  color: var(--love-text);
   min-height: 100vh;
-  padding: 24rpx 24rpx 40rpx;
+  padding: 40rpx var(--love-page-gutter) calc(var(--love-tab-height) + 40rpx + env(safe-area-inset-bottom));
 }
 
-/* —— 顶部关系卡 —— */
+.space-heading {
+  padding: 8rpx 0 32rpx;
+}
+
+.space-eyebrow {
+  color: var(--love-primary);
+  font-size: 22rpx;
+  font-weight: 600;
+  letter-spacing: 4rpx;
+}
+
+.space-title {
+  font-family: var(--love-heading-font);
+  font-size: 48rpx;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 12rpx;
+}
+
+.space-caption {
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.6;
+  margin-top: 12rpx;
+}
+
 .space-hero {
-  background: linear-gradient(160deg, var(--love-hero-from), var(--love-hero-to));
-  border-radius: 28rpx;
-  box-shadow: 0 18rpx 40rpx rgba(80, 60, 55, 0.14);
-  color: #fff;
+  background: var(--love-surface);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-card);
   overflow: hidden;
-  padding: 32rpx 28rpx 28rpx;
-  position: relative;
-}
-
-.hero-glow {
-  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.28), transparent 55%);
-  height: 220rpx;
-  left: 0;
-  pointer-events: none;
-  position: absolute;
-  right: 0;
-  top: 0;
+  padding: 36rpx 28rpx 32rpx;
+  text-align: center;
 }
 
 .couple-row {
   align-items: center;
   display: flex;
   justify-content: center;
-  position: relative;
-  z-index: 1;
 }
 
 .person {
@@ -46,33 +53,36 @@ page {
   flex: 1;
   flex-direction: column;
   max-width: 220rpx;
+  min-width: 0;
 }
 
 .person-avatar {
-  background: rgba(255, 255, 255, 0.22);
-  border: 4rpx solid rgba(255, 255, 255, 0.85);
+  background: var(--love-soft);
+  border: 6rpx solid var(--love-surface);
   border-radius: 50%;
-  box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.12);
-  height: 108rpx;
-  width: 108rpx;
+  box-sizing: border-box;
+  height: 116rpx;
+  width: 116rpx;
 }
 
 .person-avatar-fallback {
   align-items: center;
-  color: #fff;
+  color: var(--love-primary);
   display: flex;
-  font-family: 'STSong', 'Songti SC', serif;
-  font-size: 34rpx;
+  font-family: var(--love-heading-font);
+  font-size: 36rpx;
   justify-content: center;
 }
 
 .person-avatar-peer {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--love-surface-muted);
+  color: var(--love-text-secondary);
 }
 
 .person-name {
-  font-size: 22rpx;
+  font-size: 26rpx;
   font-weight: 600;
+  line-height: 1.5;
   margin-top: 12rpx;
   max-width: 100%;
   overflow: hidden;
@@ -85,243 +95,251 @@ page {
   display: flex;
   flex-shrink: 0;
   justify-content: center;
-  margin: 0 8rpx 28rpx;
-  width: 72rpx;
+  margin: 0 12rpx 48rpx;
+  width: 100rpx;
+}
+
+.love-mark::before,
+.love-mark::after {
+  background: var(--love-border);
+  content: '';
+  flex: 1;
+  height: 1rpx;
 }
 
 .love-ring {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.2);
-  border: 2rpx solid rgba(255, 255, 255, 0.45);
-  border-radius: 50%;
-  display: flex;
-  font-size: 28rpx;
-  height: 56rpx;
-  justify-content: center;
-  width: 56rpx;
+  color: var(--love-primary);
+  font-size: 32rpx;
+  line-height: 1;
+  padding: 0 10rpx;
 }
 
 .anniversary-block {
-  margin-top: 22rpx;
-  position: relative;
+  border-top: 1rpx solid var(--love-border);
+  margin-top: 28rpx;
+  padding-top: 28rpx;
   text-align: center;
-  z-index: 1;
 }
 
 .together-text {
-  font-size: 22rpx;
-  letter-spacing: 0.5rpx;
-  opacity: 0.9;
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.6;
 }
 
 .together-days {
-  font-family: 'STSong', 'Songti SC', serif;
-  font-size: 64rpx;
-  font-weight: 600;
-  line-height: 1.05;
-  margin-top: 6rpx;
+  color: var(--love-primary-dark);
+  font-family: var(--love-heading-font);
+  font-size: 96rpx;
+  font-weight: 500;
+  letter-spacing: 2rpx;
+  line-height: 1.2;
+  margin-top: 12rpx;
 }
 
 .together-days text {
-  font-size: 24rpx;
+  color: var(--love-text-secondary);
+  font-size: 26rpx;
   font-weight: 400;
-  margin-left: 6rpx;
+  margin-left: 12rpx;
 }
 
 .hero-meta {
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 999rpx;
+  color: var(--love-text-secondary);
   display: inline-block;
-  font-size: 20rpx;
-  left: 50%;
+  font-size: 24rpx;
+  line-height: 1.5;
   margin-top: 16rpx;
   padding: 8rpx 20rpx;
-  position: relative;
-  transform: translateX(-50%);
-  z-index: 1;
 }
 
 .hero-meta-link {
-  text-decoration: underline;
-  text-decoration-color: rgba(255, 255, 255, 0.45);
-  text-underline-offset: 6rpx;
+  color: var(--love-primary);
 }
 
-/* —— 分区 —— */
 .section {
-  margin-top: 28rpx;
+  margin-top: 44rpx;
 }
 
 .section-head {
-  align-items: flex-end;
+  align-items: center;
   display: flex;
+  gap: 20rpx;
   justify-content: space-between;
-  margin: 0 6rpx 16rpx;
+  margin-bottom: 22rpx;
 }
 
 .section-title {
-  color: #2a2624;
-  font-family: 'STSong', 'Songti SC', serif;
+  font-family: var(--love-heading-font);
   font-size: 34rpx;
   font-weight: 600;
+  line-height: 1.4;
 }
 
 .section-subtitle {
-  color: #9a918b;
-  font-size: 20rpx;
-  margin-top: 4rpx;
+  color: var(--love-text-secondary);
+  font-size: 22rpx;
+  line-height: 1.6;
+  margin-top: 8rpx;
 }
 
 .section-more {
-  color: var(--love-primary, #bd6875);
+  color: var(--love-primary);
   flex-shrink: 0;
-  font-size: 22rpx;
-  padding: 8rpx 0;
+  font-size: 24rpx;
+  padding: 16rpx 0 16rpx 16rpx;
 }
 
-/* —— 已完成心愿 —— */
 .latest-card,
-.latest-empty {
-  background: #fff;
-  border-radius: 24rpx;
-  box-shadow: 0 10rpx 28rpx rgba(70, 55, 50, 0.05);
-  padding: 24rpx;
+.latest-empty,
+.tool-list {
+  background: var(--love-surface);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-card);
+}
+
+.latest-card {
+  padding: 28rpx;
 }
 
 .latest-top {
   align-items: center;
   display: flex;
+  gap: 16rpx;
   justify-content: space-between;
 }
 
 .latest-date {
-  color: #9a918b;
-  font-size: 20rpx;
+  color: var(--love-text-muted);
+  font-size: 22rpx;
+  line-height: 1.5;
 }
 
 .latest-status {
-  background: var(--love-soft, #f7e8ea);
-  border-radius: 999rpx;
-  color: var(--love-primary-dark, #a95360);
-  font-size: 18rpx;
-  padding: 6rpx 14rpx;
+  background: var(--love-soft);
+  border-radius: 8rpx;
+  color: var(--love-primary-dark);
+  flex-shrink: 0;
+  font-size: 22rpx;
+  line-height: 1.5;
+  padding: 6rpx 12rpx;
 }
 
 .latest-title {
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 600;
-  line-height: 1.45;
-  margin-top: 14rpx;
+  line-height: 1.6;
+  margin-top: 20rpx;
+  word-break: break-all;
 }
 
 .latest-note {
-  border-left: 4rpx solid var(--love-primary, #bd6875);
-  color: #8f8680;
-  font-size: 22rpx;
-  margin-top: 12rpx;
-  padding-left: 14rpx;
+  border-left: 3rpx solid var(--love-primary);
+  color: var(--love-text-secondary);
+  font-size: 26rpx;
+  line-height: 1.7;
+  margin-top: 18rpx;
+  padding-left: 18rpx;
+  word-break: break-all;
 }
 
 .latest-response {
-  background: var(--love-soft, #f7e8ea);
-  border-radius: 16rpx;
-  color: var(--love-primary-dark, #a95360);
-  font-size: 20rpx;
-  line-height: 1.5;
-  margin-top: 12rpx;
-  padding: 14rpx 16rpx;
+  background: var(--love-soft);
+  border-radius: var(--love-radius-control);
+  color: var(--love-primary-dark);
+  font-size: 26rpx;
+  line-height: 1.7;
+  margin-top: 20rpx;
+  padding: 20rpx;
+  word-break: break-all;
 }
 
 .latest-hint {
-  color: #c0b6b0;
-  font-size: 18rpx;
-  margin-top: 16rpx;
-  text-align: right;
+  border-top: 1rpx solid var(--love-border);
+  color: var(--love-text-muted);
+  font-size: 22rpx;
+  line-height: 1.5;
+  margin-top: 24rpx;
+  padding-top: 20rpx;
 }
 
 .latest-thumbs {
-  margin-top: 18rpx;
+  margin-top: 24rpx;
   white-space: nowrap;
   width: 100%;
 }
 
 .latest-image {
-  border-radius: 16rpx;
+  border-radius: var(--love-radius-control);
   display: inline-block;
-  height: 88rpx;
-  margin-right: 12rpx;
+  height: 104rpx;
+  margin-right: 14rpx;
   vertical-align: top;
-  width: 88rpx;
+  width: 104rpx;
 }
 
 .latest-empty {
   align-items: center;
   display: flex;
   flex-direction: column;
-  padding: 40rpx 28rpx;
+  padding: 48rpx 28rpx;
 }
 
 .latest-empty-icon {
-  color: var(--love-primary, #bd6875);
-  font-size: 48rpx;
-  margin-bottom: 8rpx;
+  color: var(--love-primary);
+  font-size: 54rpx;
+  line-height: 1.2;
+  margin-bottom: 16rpx;
 }
 
 .latest-empty-title {
-  color: #8f8680;
-  font-size: 24rpx;
+  color: var(--love-text-secondary);
+  font-size: 28rpx;
 }
 
 .latest-empty-button {
-  background: var(--love-primary, #bd6875);
-  border-radius: 999rpx;
-  color: #fff;
-  font-size: 22rpx;
-  margin-top: 20rpx;
-  padding: 14rpx 28rpx;
+  background: var(--love-primary);
+  border-radius: var(--love-radius-control);
+  color: var(--love-on-primary);
+  font-size: 26rpx;
+  line-height: 1.5;
+  margin-top: 28rpx;
+  padding: 22rpx 32rpx;
 }
 
-/* —— 工具箱 —— */
 .tool-list {
-  background: #fff;
-  border-radius: 24rpx;
-  box-shadow: 0 10rpx 28rpx rgba(70, 55, 50, 0.05);
   overflow: hidden;
+  padding: 0 26rpx;
 }
 
 .tool-row {
   align-items: center;
-  border-top: 1rpx solid rgba(0, 0, 0, 0.04);
+  border-top: 1rpx solid var(--love-border);
   display: flex;
-  gap: 16rpx;
-  padding: 22rpx 20rpx;
+  gap: 20rpx;
+  padding: 26rpx 0;
 }
 
-.tool-row:first-child {
+.tool-list > .tool-row:first-child {
   border-top: 0;
-}
-
-.tool-row-primary {
-  background: var(--love-soft, #f7e7e9);
 }
 
 .tool-icon {
   align-items: center;
-  background: var(--love-primary, #bd6875);
-  border-radius: 16rpx;
-  color: #fff;
+  background: var(--love-soft);
+  border-radius: var(--love-radius-control);
+  color: var(--love-primary);
   display: flex;
   flex-shrink: 0;
-  font-size: 26rpx;
-  font-weight: 600;
-  height: 56rpx;
+  font-size: 28rpx;
+  height: 68rpx;
   justify-content: center;
-  width: 56rpx;
+  width: 68rpx;
 }
 
 .tool-icon-muted {
-  background: var(--love-soft-strong, #f2dcdf);
-  color: var(--love-primary-dark, #a95360);
+  background: var(--love-surface-muted);
+  color: var(--love-text-secondary);
 }
 
 .tool-copy {
@@ -330,139 +348,61 @@ page {
 }
 
 .tool-name {
-  font-size: 26rpx;
+  font-size: 28rpx;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .tool-note {
-  color: #9a918b;
-  font-size: 20rpx;
-  margin-top: 4rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--love-text-secondary);
+  font-size: 22rpx;
+  line-height: 1.6;
+  margin-top: 6rpx;
+  word-break: break-all;
 }
 
 .tool-arrow {
-  color: #c4bbb5;
+  color: var(--love-text-muted);
   flex-shrink: 0;
-  font-size: 32rpx;
+  font-size: 34rpx;
   line-height: 1;
 }
 
 .tool-grid {
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-card);
   display: grid;
-  gap: 14rpx;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin-top: 14rpx;
+  margin-top: 20rpx;
+  overflow: hidden;
 }
 
 .tool-tile {
-  background: #fff;
-  border-radius: 20rpx;
-  box-shadow: 0 8rpx 22rpx rgba(70, 55, 50, 0.04);
-  padding: 22rpx 16rpx;
+  border-left: 1rpx solid var(--love-border);
+  padding: 26rpx 18rpx;
+}
+
+.tool-tile:first-child {
+  border-left: 0;
 }
 
 .tool-tile-name {
-  color: var(--love-primary-dark, #a95360);
-  font-size: 24rpx;
+  color: var(--love-primary-dark);
+  font-size: 26rpx;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .tool-tile-note {
-  color: #9a918b;
-  font-size: 18rpx;
-  margin-top: 8rpx;
+  color: var(--love-text-secondary);
+  font-size: 22rpx;
+  line-height: 1.6;
+  margin-top: 10rpx;
 }
 
-/* —— 历史心愿弹层 —— */
-.history-sheet {
-  background: #fff;
-  border-radius: 32rpx 32rpx 0 0;
-  bottom: calc(108rpx + env(safe-area-inset-bottom));
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  left: 0;
-  max-height: 72vh;
-  padding: 18rpx 28rpx 24rpx;
-  position: absolute;
-  right: 0;
-  width: 100%;
-}
-
-.history-list {
-  flex: 1;
-  margin-top: 18rpx;
-  max-height: 52vh;
-  min-height: 240rpx;
-}
-
-.history-card {
-  background: #f8f6f4;
-  border-radius: 20rpx;
-  margin-bottom: 14rpx;
-  padding: 20rpx;
-}
-
-.history-card:last-child {
-  margin-bottom: 0;
-}
-
-.history-sheet-detail {
-  max-height: 70vh;
-}
-
-.detail-card {
-  margin-top: 18rpx;
-}
-
-.detail-items {
-  margin-top: 16rpx;
-}
-
-.detail-item {
-  align-items: center;
-  border-top: 1rpx solid rgba(0, 0, 0, 0.04);
-  display: flex;
-  justify-content: space-between;
-  padding: 14rpx 0;
-}
-
-.detail-item:first-child {
-  border-top: 0;
-}
-
-.detail-item-name {
-  flex: 1;
-  font-size: 24rpx;
-  font-weight: 600;
-  min-width: 0;
-  padding-right: 16rpx;
-}
-
-.detail-item-meta {
-  color: #9a918b;
-  flex-shrink: 0;
-  font-size: 20rpx;
-}
-
-.history-close {
-  background: var(--love-primary, #bd6875);
-  border-radius: 999rpx;
-  color: #fff;
-  font-size: 24rpx;
-  font-weight: 600;
-  margin-top: 18rpx;
-  padding: 18rpx 0;
-  text-align: center;
-}
-
-/* —— 资料弹层 —— */
 .profile-mask {
   align-items: flex-end;
-  background: rgba(30, 24, 22, 0.45);
+  background: var(--love-overlay);
   bottom: 0;
   display: flex;
   left: 0;
@@ -472,38 +412,113 @@ page {
   z-index: 1000;
 }
 
+.history-sheet,
 .profile-sheet {
-  background: #fff;
-  border-radius: 32rpx 32rpx 0 0;
-  bottom: calc(108rpx + env(safe-area-inset-bottom));
+  background: var(--love-surface);
+  border-radius: var(--love-radius-card) var(--love-radius-card) 0 0;
   box-sizing: border-box;
-  left: 0;
-  padding: 18rpx 36rpx 28rpx;
-  position: absolute;
-  right: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;
+  overflow: hidden;
+  padding: 18rpx var(--love-page-gutter) calc(24rpx + env(safe-area-inset-bottom));
   width: 100%;
 }
 
 .profile-sheet-handle {
-  background: #e4ddda;
+  background: var(--love-border);
   border-radius: 8rpx;
-  height: 8rpx;
-  margin: 0 auto 18rpx;
-  width: 64rpx;
+  flex-shrink: 0;
+  height: 6rpx;
+  margin: 0 auto 30rpx;
+  width: 56rpx;
 }
 
 .profile-sheet-title {
-  font-family: 'STSong', 'Songti SC', serif;
-  font-size: 30rpx;
+  flex-shrink: 0;
+  font-family: var(--love-heading-font);
+  font-size: 36rpx;
   font-weight: 600;
+  line-height: 1.4;
+}
+
+.history-list,
+.detail-scroll {
+  flex-shrink: 1;
+  height: 52vh;
+  margin-top: 28rpx;
+  min-height: 0;
+}
+
+.history-card {
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
+  margin-bottom: 16rpx;
+  padding: 24rpx;
+}
+
+.history-card:last-child {
+  margin-bottom: 0;
+}
+
+.detail-items {
+  margin-top: 24rpx;
+}
+
+.detail-item {
+  align-items: flex-start;
+  border-top: 1rpx solid var(--love-border);
+  display: flex;
+  gap: 16rpx;
+  justify-content: space-between;
+  padding: 20rpx 0;
+}
+
+.detail-item-name {
+  flex: 1;
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1.6;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.detail-item-meta {
+  color: var(--love-text-secondary);
+  flex: 0 1 45%;
+  font-size: 24rpx;
+  line-height: 1.65;
+  text-align: right;
+  word-break: break-all;
+}
+
+.history-close {
+  background: var(--love-primary);
+  border-radius: var(--love-radius-control);
+  color: var(--love-on-primary);
+  flex-shrink: 0;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 24rpx;
+  padding: 24rpx;
   text-align: center;
+}
+
+.profile-editor-scroll {
+  flex-shrink: 1;
+  height: 560rpx;
+  max-height: 64vh;
+  min-height: 0;
 }
 
 .profile-avatar-button {
   background: transparent;
+  border-radius: 50%;
   display: block;
   height: 112rpx;
-  margin: 22rpx auto 18rpx;
+  margin: 28rpx auto 24rpx;
   padding: 0;
   width: 112rpx;
 }
@@ -520,20 +535,22 @@ page {
 
 .profile-avatar-empty {
   align-items: center;
-  background: var(--love-soft, #f3e5e7);
-  color: var(--love-primary, #bd6875);
+  background: var(--love-soft);
+  color: var(--love-primary);
   display: flex;
   font-size: 42rpx;
   justify-content: center;
 }
 
 .profile-nickname-input {
-  background: var(--love-soft, #f8f5f2);
-  border-radius: 20rpx;
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
   box-sizing: border-box;
-  font-size: 25rpx;
-  height: 76rpx;
-  line-height: 76rpx;
+  color: var(--love-text);
+  font-size: 28rpx;
+  height: 88rpx;
+  line-height: 88rpx;
   padding: 0 24rpx;
   text-align: center;
   width: 100%;
@@ -542,73 +559,39 @@ page {
 .profile-sheet-actions {
   display: flex;
   gap: 16rpx;
-  margin-top: 20rpx;
+  margin-top: 24rpx;
 }
 
 .profile-cancel,
 .profile-save {
-  border-radius: 24rpx;
+  border-radius: var(--love-radius-control);
   flex: 1;
-  font-size: 25rpx;
-  padding: 18rpx 0;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 24rpx 0;
   text-align: center;
 }
 
 .profile-cancel {
-  background: #f3efec;
-  color: #6f6762;
+  background: var(--love-surface-muted);
+  color: var(--love-text-secondary);
 }
 
 .profile-save {
-  background: var(--love-primary, #bd6875);
-  color: #fff;
+  background: var(--love-primary);
+  color: var(--love-on-primary);
 }
 
 .profile-save-disabled {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .profile-logout {
-  color: #a79d97;
-  font-size: 23rpx;
-  margin-top: 18rpx;
-  padding: 8rpx 0 4rpx;
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.5;
+  margin-top: 8rpx;
+  padding: 24rpx 0;
   text-align: center;
-}
-
-/* —— 女生主题微调 —— */
-.theme-female .space-hero {
-  box-shadow: 0 18rpx 42rpx rgba(168, 80, 96, 0.22);
-}
-
-.theme-female .tool-row-primary {
-  background: linear-gradient(90deg, #f8eaec, #f7e7e9);
-}
-
-.theme-female .tool-tile-name {
-  color: #a95360;
-}
-
-/* —— 男生主题微调 —— */
-.theme-male .space-hero {
-  box-shadow: 0 18rpx 42rpx rgba(70, 95, 115, 0.2);
-}
-
-.theme-male .tool-row-primary {
-  background: linear-gradient(90deg, #e8eef3, #e2eaf0);
-}
-
-.theme-male .tool-tile-name {
-  color: #4d687e;
-}
-
-.theme-male .latest-empty-button,
-.theme-male .profile-save,
-.theme-male .tool-icon {
-  background: var(--love-primary, #647e94);
-}
-
-.theme-male .profile-cancel {
-  background: #e8eef2;
-  color: #5a6a78;
 }

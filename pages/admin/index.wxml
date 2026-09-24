@@ -1,6 +1,6 @@
 <view class="admin-page {{themeClass}}">
   <view class="admin-heading">
-    <view class="admin-eyebrow">EASY SETUP</view>
+    <view class="admin-eyebrow">YOUR COLLECTION</view>
     <view class="admin-title">{{scope === 'personal' ? '我的内容库' : '共同空间管理'}}</view>
     <view class="admin-subtitle">
       {{scope === 'personal' ? '只属于你的喜好，绑定和解绑都不会丢失' : '双方共同可见，可从个人内容库导入'}}
@@ -48,7 +48,7 @@
   <view class="section-heading">
     <view>
       <view class="section-title">内容配置</view>
-      <view class="section-note">进入独立页面管理，界面更清晰</view>
+      <view class="section-note">整理喜欢的内容，留给每一个值得期待的日子</view>
     </view>
   </view>
 
@@ -90,7 +90,7 @@
   </view>
 
   <view class="danger-zone">
-    <view>
+    <view class="danger-copy">
       <view class="danger-title">清空全部内容</view>
       <view class="danger-note">清空当前{{scope === 'personal' ? '个人库' : '共同空间'}}的分类和点单项</view>
     </view>
@@ -107,7 +107,7 @@
   <view class="personal-picker" wx:if="{{showPersonalPicker}}">
     <view class="picker-handle"></view>
     <view class="picker-heading">
-      <view>
+      <view class="picker-heading-copy">
         <view class="picker-title">选择个人内容</view>
         <view class="picker-note">选中的内容会加入共同空间草稿</view>
       </view>

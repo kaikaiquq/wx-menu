@@ -2,7 +2,7 @@ const { getMenuConfig, saveSharedAnniversary } = require('../../utils/couple-con
 const { getOrders, getPersonalOrders } = require('../../utils/couple-wish');
 const { getSession, logout, requireSession, unbindPartner, updateProfile } = require('../../utils/auth');
 const { resolveCloudFileUrls, uploadFileToCloud } = require('../../utils/cloud');
-const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
+const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../utils/theme');
 
 const getToday = () => {
   const date = new Date();
@@ -260,7 +260,7 @@ Page({
       title: '退出登录？',
       content: '退出后需要重新用微信登录才能进入空间。',
       confirmText: '退出登录',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: ({ confirm }) => {
         if (confirm) logout();
       },
@@ -328,7 +328,7 @@ Page({
           content:
             '解绑后，共同空间里的菜单、心愿单、留言和点单记录会全部清空且无法恢复；双方各自的个人内容库不会受到影响。',
           confirmText: '清空并解绑',
-          confirmColor: '#bd6875',
+          confirmColor: getThemeColors().primary,
           success: async ({ confirm }) => {
             if (!confirm) return;
             wx.showLoading({ title: '正在解除绑定' });

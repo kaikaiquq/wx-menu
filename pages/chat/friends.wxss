@@ -1,158 +1,161 @@
-page {
-  background: #f4f5f5;
-  color: #292421;
-}
-
 .friends-page {
-  background: var(--love-bg, #f4f5f5);
+  background: var(--love-bg);
+  box-sizing: border-box;
+  color: var(--love-text);
   min-height: 100vh;
-  padding: 28rpx 28rpx calc(40rpx + env(safe-area-inset-bottom));
+  padding: 32rpx var(--love-page-gutter) calc(40rpx + env(safe-area-inset-bottom));
 }
 
 .card {
-  background: #fff;
-  border-radius: 24rpx;
-  box-shadow: 0 10rpx 28rpx rgba(75, 59, 53, 0.05);
-  margin-bottom: 20rpx;
-  padding: 24rpx;
+  background: var(--love-surface);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-card);
+  margin-bottom: 24rpx;
+  padding: 28rpx;
+}
+
+.my-id-card {
+  background: var(--love-soft);
+  border-color: var(--love-soft-strong);
+  padding-top: 32rpx;
+  padding-bottom: 32rpx;
 }
 
 .card-label {
-  font-size: 22rpx;
-  font-weight: 600;
-  margin-bottom: 14rpx;
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  font-weight: 500;
+  margin-bottom: 18rpx;
 }
 
 .card-hint {
-  color: #a69c96;
-  font-size: 18rpx;
-  margin-top: 12rpx;
+  color: var(--love-text-secondary);
+  font-size: 22rpx;
+  line-height: 1.65;
+  margin-top: 16rpx;
 }
 
 .my-id-row,
 .add-row {
   align-items: center;
   display: flex;
-  gap: 12rpx;
+  gap: 16rpx;
 }
 
 .my-id {
-  background: #f7f3f1;
-  border-radius: 16rpx;
+  color: var(--love-primary-dark);
   flex: 1;
-  font-size: 24rpx;
-  overflow: hidden;
-  padding: 16rpx 18rpx;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 30rpx;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+  line-height: 1.5;
+  min-width: 0;
+  word-break: break-all;
 }
 
 .add-input {
-  background: #f7f3f1;
-  border-radius: 16rpx;
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
+  box-sizing: border-box;
+  color: var(--love-text);
   flex: 1;
-  font-size: 24rpx;
-  height: 72rpx;
-  padding: 0 18rpx;
+  font-size: 28rpx;
+  height: 88rpx;
+  min-width: 0;
+  padding: 0 20rpx;
 }
 
 .primary-btn,
 .ghost-btn,
 .danger-btn,
 .link-btn {
+  align-items: center;
+  border-radius: var(--love-radius-control);
+  box-sizing: border-box;
+  display: flex;
   flex-shrink: 0;
-  font-size: 22rpx;
+  font-size: 26rpx;
+  justify-content: center;
+  min-height: 80rpx;
+  min-width: 80rpx;
+  padding: 0 18rpx;
 }
 
 .primary-btn {
-  background: var(--love-primary, #bd6875);
-  border-radius: 999rpx;
-  color: #fff;
-  padding: 16rpx 24rpx;
+  background: var(--love-primary);
+  color: var(--love-on-primary);
+  min-height: 88rpx;
+  padding: 0 28rpx;
 }
 
-.primary-btn.sm {
-  padding: 12rpx 20rpx;
-}
-
-.ghost-btn {
-  border: 1rpx solid #d9a4ab;
-  border-radius: 999rpx;
-  color: var(--love-primary, #bd6875);
-  padding: 12rpx 18rpx;
-}
-
-.danger-btn {
-  color: #b9616e;
-  padding: 12rpx 8rpx;
-}
-
-.link-btn {
-  color: var(--love-primary, #bd6875);
-}
+.primary-btn.sm { min-height: 80rpx; padding: 0 18rpx; }
+.ghost-btn { background: var(--love-soft); color: var(--love-primary-dark); }
+.danger-btn { color: var(--love-danger); }
+.link-btn { color: var(--love-primary); }
 
 .section-head {
   align-items: center;
   display: flex;
   justify-content: space-between;
-  margin: 28rpx 4rpx 14rpx;
+  margin: 40rpx 0 16rpx;
+  min-height: 72rpx;
 }
 
 .section-title {
-  font-size: 28rpx;
+  font-family: var(--love-heading-font);
+  font-size: 32rpx;
   font-weight: 600;
 }
 
 .empty-line {
-  color: #a69c96;
-  font-size: 22rpx;
-  padding: 12rpx 8rpx 24rpx;
+  color: var(--love-text-muted);
+  font-size: 24rpx;
+  line-height: 1.7;
+  padding: 24rpx 0 32rpx;
 }
 
 .request-row,
 .friend-row {
   align-items: center;
   display: flex;
-  gap: 14rpx;
+  gap: 16rpx;
+  min-height: 104rpx;
   padding: 16rpx 0;
 }
 
 .request-row + .request-row,
-.friend-row + .friend-row {
-  border-top: 1rpx solid rgba(0, 0, 0, 0.05);
-}
-
+.friend-row + .friend-row { border-top: 1rpx solid var(--love-border); }
 .request-info,
-.friend-info {
-  flex: 1;
-  min-width: 0;
-}
+.friend-info { flex: 1; min-width: 0; }
 
 .request-name,
 .friend-name {
-  font-size: 26rpx;
-  font-weight: 600;
+  font-size: 28rpx;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .request-sub,
 .friend-sub {
-  color: #a69c96;
-  font-size: 18rpx;
-  margin-top: 4rpx;
+  color: var(--love-text-muted);
+  font-size: 22rpx;
+  line-height: 1.5;
+  margin-top: 6rpx;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .request-actions,
-.friend-actions {
-  align-items: center;
-  display: flex;
-  gap: 10rpx;
-}
+.friend-actions { align-items: center; display: flex; flex-shrink: 0; gap: 4rpx; }
 
 .friend-avatar {
-  border-radius: 18rpx;
+  border-radius: var(--love-radius-control);
   flex-shrink: 0;
   height: 72rpx;
   width: 72rpx;
@@ -160,8 +163,8 @@ page {
 
 .friend-avatar-fallback {
   align-items: center;
-  background: var(--love-soft, #f7e7e9);
-  color: var(--love-primary, #bd6875);
+  background: var(--love-soft);
+  color: var(--love-primary-dark);
   display: flex;
   font-size: 28rpx;
   justify-content: center;

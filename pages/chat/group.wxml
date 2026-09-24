@@ -10,7 +10,13 @@
     />
   </view>
 
-  <view class="section-title">选择好友（至少 2 位）· 已选 {{selectedCount}}</view>
+  <view class="section-head">
+    <view>
+      <view class="section-title">选择好友</view>
+      <view class="section-hint">至少选择 2 位，一起开启聊天</view>
+    </view>
+    <view class="selection-count">已选 {{selectedCount}}</view>
+  </view>
   <view class="card" wx:if="{{friends.length}}">
     <view
       class="friend-row {{selected[item.openid] ? 'checked' : ''}}"
@@ -18,6 +24,9 @@
       wx:key="openid"
       data-openid="{{item.openid}}"
       bind:tap="toggleFriend"
+      aria-role="checkbox"
+      aria-checked="{{selected[item.openid] ? true : false}}"
+      aria-label="{{item.nickname}}"
     >
       <view class="check">{{selected[item.openid] ? '✓' : ''}}</view>
       <view class="friend-name">{{item.nickname}}</view>
@@ -25,5 +34,5 @@
   </view>
   <view class="empty" wx:else>请先添加好友再拉群</view>
 
-  <view class="create-btn" bind:tap="submit">创建群聊</view>
+  <view class="create-btn" bind:tap="submit" aria-role="button" aria-label="创建群聊">创建群聊</view>
 </view>

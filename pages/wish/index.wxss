@@ -1,211 +1,236 @@
 page {
-  background: #f4f5f5;
-  color: #292421;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 40rpx);
+  min-height: 100%;
 }
 
 .wish-page {
-  background: var(--love-bg, #f4f5f5);
+  background: var(--love-bg);
   box-sizing: border-box;
+  color: var(--love-text);
   min-height: 100vh;
-  padding: 32rpx 28rpx 0;
+  padding: 36rpx var(--love-page-gutter) calc(env(safe-area-inset-bottom) + 208rpx);
 }
 
 .wish-heading {
-  padding: 10rpx 4rpx 34rpx;
+  padding-bottom: 36rpx;
 }
 
 .wish-eyebrow {
-  color: var(--love-primary, #bd7180);
-  font-size: 18rpx;
-  font-weight: 600;
-  letter-spacing: 5rpx;
+  color: var(--love-text-secondary);
+  font-size: 22rpx;
+  letter-spacing: 3rpx;
+  line-height: 1.5;
 }
 
 .wish-title {
-  font-family: 'STSong', 'Songti SC', serif;
+  font-family: var(--love-heading-font);
   font-size: 46rpx;
   font-weight: 600;
-  margin-top: 7rpx;
+  line-height: 1.35;
+  margin-top: 10rpx;
 }
 
 .wish-subtitle {
-  color: #a69c96;
-  font-size: 21rpx;
-  margin-top: 8rpx;
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.5;
+  margin-top: 12rpx;
 }
 
 .wish-card {
-  background: #fff;
-  border-radius: 28rpx;
-  box-shadow: 0 12rpx 34rpx rgba(75, 59, 53, 0.06);
-  display: flex;
+  background: var(--love-surface);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-card);
   margin-bottom: 20rpx;
   overflow: hidden;
-  padding: 18rpx;
+  padding: 24rpx;
+}
+
+.wish-card-content {
+  align-items: flex-start;
+  display: flex;
+  gap: 24rpx;
 }
 
 .wish-image {
-  border-radius: 20rpx;
-  flex: 0 0 190rpx;
-  height: 190rpx;
-  width: 190rpx;
+  border-radius: var(--love-radius-control);
+  flex: 0 0 152rpx;
+  height: 152rpx;
+  width: 152rpx;
 }
 
 .wish-image.letter-avatar {
   display: flex;
-  font-size: 56rpx;
+  font-size: 52rpx;
 }
 
 .wish-info {
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  justify-content: space-between;
   min-width: 0;
-  padding: 8rpx 4rpx 8rpx 24rpx;
+  padding-top: 4rpx;
 }
 
 .wish-name {
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 600;
+  line-height: 1.5;
+  word-break: break-all;
 }
 
 .wish-description {
-  color: #a09791;
+  color: var(--love-text-secondary);
   display: -webkit-box;
-  font-size: 19rpx;
-  line-height: 1.45;
-  margin-top: 9rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  margin-top: 10rpx;
   overflow: hidden;
+  word-break: break-all;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
 
-.wish-bottom,
-.summary-row {
+.wish-bottom {
   align-items: center;
+  border-top: 1rpx solid var(--love-border);
   display: flex;
+  gap: 24rpx;
   justify-content: space-between;
+  margin-top: 24rpx;
+  padding-top: 18rpx;
 }
 
 .wish-price {
-  color: var(--love-primary, #b9606e);
-  font-size: 27rpx;
+  color: var(--love-primary);
+  flex: 1;
+  font-size: 28rpx;
   font-weight: 600;
+  line-height: 1.5;
+  min-width: 0;
+  word-break: break-all;
 }
 
 .stepper {
   align-items: center;
   display: flex;
-  gap: 7rpx;
+  flex-shrink: 0;
+  gap: 6rpx;
 }
 
 .step-button {
   align-items: center;
-  background: #f1ece9;
-  border-radius: 50%;
-  color: #5c514c;
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
+  box-sizing: border-box;
+  color: var(--love-text);
   display: flex;
-  font-size: 27rpx;
-  height: 45rpx;
+  font-size: 30rpx;
+  height: 80rpx;
   justify-content: center;
-  width: 45rpx;
+  width: 80rpx;
 }
 
 .step-button-dark {
-  background: #292421;
-  color: #fff;
+  background: var(--love-primary);
+  border-color: var(--love-primary);
+  color: var(--love-on-primary);
 }
 
 .step-value {
-  font-size: 23rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+  min-width: 48rpx;
   text-align: center;
-  width: 34rpx;
 }
 
-.note-card,
-.summary-card {
-  background: #fff;
-  border-radius: 28rpx;
-  box-shadow: 0 12rpx 34rpx rgba(75, 59, 53, 0.05);
-  margin-top: 26rpx;
+.note-card {
+  background: var(--love-surface);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-card);
+  margin-top: 28rpx;
   padding: 28rpx;
 }
 
 .note-title {
-  font-size: 27rpx;
+  font-family: var(--love-heading-font);
+  font-size: 30rpx;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .note-input {
-  background: #faf7f5;
-  border-radius: 20rpx;
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
   box-sizing: border-box;
-  font-size: 22rpx;
-  height: 150rpx;
-  line-height: 1.6;
+  color: var(--love-text);
+  font-size: 26rpx;
+  height: 188rpx;
+  line-height: 1.65;
   margin-top: 20rpx;
-  padding: 20rpx;
+  padding: 22rpx;
   width: 100%;
 }
 
+.note-placeholder {
+  color: var(--love-text-muted);
+}
+
 .note-count {
-  color: #b7ada7;
-  font-size: 18rpx;
-  margin-top: 10rpx;
-  text-align: right;
-}
-
-.summary-row {
-  font-size: 24rpx;
-}
-
-.summary-price {
-  color: var(--love-primary, #b9606e);
-  font-size: 32rpx;
-  font-weight: 600;
-}
-
-.summary-tip {
-  color: #b0a6a0;
-  font-size: 19rpx;
+  color: var(--love-text-muted);
+  font-size: 22rpx;
   margin-top: 12rpx;
+  text-align: right;
 }
 
 .submit-bar {
   align-items: center;
-  background: rgba(255, 255, 255, 0.96);
-  border-radius: 28rpx;
-  bottom: calc(env(safe-area-inset-bottom) + 24rpx);
-  box-shadow: 0 12rpx 50rpx rgba(61, 48, 43, 0.14);
+  background: var(--love-surface);
+  border-top: 1rpx solid var(--love-border);
+  bottom: 0;
+  box-sizing: border-box;
   display: flex;
+  gap: 24rpx;
   justify-content: space-between;
-  left: 28rpx;
-  padding: 18rpx 20rpx 18rpx 28rpx;
+  left: 0;
+  padding: 24rpx var(--love-page-gutter) calc(env(safe-area-inset-bottom) + 24rpx);
   position: fixed;
-  right: 28rpx;
+  right: 0;
   z-index: 10;
 }
 
+.submit-summary {
+  flex: 1;
+  min-width: 0;
+}
+
 .submit-label {
-  color: #aaa09a;
-  font-size: 18rpx;
+  color: var(--love-text-secondary);
+  font-size: 22rpx;
+  line-height: 1.5;
 }
 
 .submit-price {
-  color: var(--love-primary, #b9606e);
-  font-size: 35rpx;
+  color: var(--love-text);
+  font-size: 34rpx;
   font-weight: 600;
+  line-height: 1.4;
+  margin-top: 2rpx;
+  word-break: break-all;
 }
 
 .submit-button {
-  background: #292421;
-  border-radius: 42rpx;
-  color: #fff;
-  font-size: 25rpx;
+  align-items: center;
+  background: var(--love-primary);
+  border-radius: var(--love-radius-control);
+  box-sizing: border-box;
+  color: var(--love-on-primary);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 28rpx;
   font-weight: 600;
-  padding: 25rpx 38rpx;
+  justify-content: center;
+  min-height: 96rpx;
+  padding: 20rpx 44rpx;
 }
 
 .submit-button-disabled {
@@ -216,39 +241,46 @@ page {
   align-items: center;
   display: flex;
   flex-direction: column;
-  padding-top: 150rpx;
+  padding: 96rpx 20rpx 40rpx;
+  text-align: center;
 }
 
 .empty-heart {
   align-items: center;
-  background: var(--love-soft-strong, #f2dcdf);
-  border-radius: 50%;
-  color: var(--love-primary, #c36c79);
+  background: var(--love-soft);
+  border-radius: var(--love-radius-card);
+  color: var(--love-primary);
   display: flex;
-  font-size: 86rpx;
-  height: 180rpx;
+  font-size: 76rpx;
+  height: 160rpx;
   justify-content: center;
-  width: 180rpx;
+  width: 160rpx;
 }
 
 .empty-title {
-  font-family: 'STSong', 'Songti SC', serif;
+  font-family: var(--love-heading-font);
   font-size: 36rpx;
   font-weight: 600;
-  margin-top: 38rpx;
+  line-height: 1.5;
+  margin-top: 32rpx;
 }
 
 .empty-description {
-  color: #a69c96;
-  font-size: 22rpx;
-  margin-top: 13rpx;
+  color: var(--love-text-secondary);
+  font-size: 26rpx;
+  line-height: 1.65;
+  margin-top: 12rpx;
 }
 
 .empty-button {
-  background: #292421;
-  border-radius: 42rpx;
-  color: #fff;
-  font-size: 24rpx;
-  margin-top: 40rpx;
-  padding: 24rpx 55rpx;
+  align-items: center;
+  background: var(--love-primary);
+  border-radius: var(--love-radius-control);
+  color: var(--love-on-primary);
+  display: flex;
+  font-size: 28rpx;
+  justify-content: center;
+  margin-top: 36rpx;
+  min-height: 88rpx;
+  padding: 0 48rpx;
 }

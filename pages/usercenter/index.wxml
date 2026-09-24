@@ -1,6 +1,10 @@
 <view class="space-page {{themeClass}}">
+  <view class="space-heading">
+    <view class="space-eyebrow">OUR SPACE</view>
+    <view class="space-title">我们</view>
+    <view class="space-caption">把平凡的日子，留成共同的回忆</view>
+  </view>
   <view class="space-hero">
-    <view class="hero-glow"></view>
     <view class="couple-row">
       <view
         class="person"
@@ -184,21 +188,23 @@
     <view class="history-sheet history-sheet-detail" catch:tap="noop">
       <view class="profile-sheet-handle"></view>
       <view class="profile-sheet-title">心愿详情</view>
-      <view class="history-card detail-card">
-        <view class="latest-top">
-          <view class="latest-date">{{detailOrder.dateText}}</view>
-          <view class="latest-status">{{detailOrder.status}}</view>
-        </view>
-        <view class="latest-title">{{detailOrder.itemNames}}</view>
-        <view class="latest-note" wx:if="{{detailOrder.note}}">“{{detailOrder.note}}”</view>
-        <view class="latest-response" wx:if="{{detailOrder.responseText}}">{{detailOrder.responseText}}</view>
-        <view class="detail-items" wx:if="{{detailOrder.items.length}}">
-          <view class="detail-item" wx:for="{{detailOrder.items}}" wx:key="menuItemId">
-            <view class="detail-item-name">{{item.name}}</view>
-            <view class="detail-item-meta">{{item.cost}} · ×{{item.quantity}}</view>
+      <scroll-view class="detail-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <view class="history-card detail-card">
+          <view class="latest-top">
+            <view class="latest-date">{{detailOrder.dateText}}</view>
+            <view class="latest-status">{{detailOrder.status}}</view>
+          </view>
+          <view class="latest-title">{{detailOrder.itemNames}}</view>
+          <view class="latest-note" wx:if="{{detailOrder.note}}">“{{detailOrder.note}}”</view>
+          <view class="latest-response" wx:if="{{detailOrder.responseText}}">{{detailOrder.responseText}}</view>
+          <view class="detail-items" wx:if="{{detailOrder.items.length}}">
+            <view class="detail-item" wx:for="{{detailOrder.items}}" wx:key="menuItemId">
+              <view class="detail-item-name">{{item.name}}</view>
+              <view class="detail-item-meta">{{item.cost}} · ×{{item.quantity}}</view>
+            </view>
           </view>
         </view>
-      </view>
+      </scroll-view>
       <view class="history-close" bind:tap="closeWishDetail">关闭</view>
     </view>
   </view>
@@ -232,25 +238,27 @@
     <view class="profile-sheet" catch:tap="noop">
       <view class="profile-sheet-handle"></view>
       <view class="profile-sheet-title">编辑我的资料</view>
-      <button class="profile-avatar-button" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
-        <image class="profile-avatar" wx:if="{{editAvatarUrl}}" src="{{editAvatarUrl}}" mode="aspectFill" />
-        <view class="profile-avatar profile-avatar-empty" wx:else>＋</view>
-      </button>
-      <input
-        class="profile-nickname-input"
-        type="nickname"
-        value="{{editNickname}}"
-        maxlength="20"
-        placeholder="输入你的昵称"
-        bindinput="updateEditNickname"
-      />
-      <view class="profile-sheet-actions">
-        <view class="profile-cancel" bind:tap="closeProfileEditor">取消</view>
-        <view class="profile-save {{savingProfile ? 'profile-save-disabled' : ''}}" bind:tap="saveSelfProfile">
-          {{savingProfile ? '保存中…' : '保存'}}
+      <scroll-view class="profile-editor-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <button class="profile-avatar-button" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+          <image class="profile-avatar" wx:if="{{editAvatarUrl}}" src="{{editAvatarUrl}}" mode="aspectFill" />
+          <view class="profile-avatar profile-avatar-empty" wx:else>＋</view>
+        </button>
+        <input
+          class="profile-nickname-input"
+          type="nickname"
+          value="{{editNickname}}"
+          maxlength="20"
+          placeholder="输入你的昵称"
+          bindinput="updateEditNickname"
+        />
+        <view class="profile-sheet-actions">
+          <view class="profile-cancel" bind:tap="closeProfileEditor">取消</view>
+          <view class="profile-save {{savingProfile ? 'profile-save-disabled' : ''}}" bind:tap="saveSelfProfile">
+            {{savingProfile ? '保存中…' : '保存'}}
+          </view>
         </view>
-      </view>
-      <view class="profile-logout" bind:tap="logoutAccount">退出登录</view>
+        <view class="profile-logout" bind:tap="logoutAccount">退出登录</view>
+      </scroll-view>
     </view>
   </view>
 </view>

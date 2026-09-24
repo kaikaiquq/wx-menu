@@ -1,3 +1,4 @@
+const { getThemeColors } = require('./theme');
 const { callCloud } = require('./cloud');
 
 const CONFIG_KEY = 'couple.menu.config';
@@ -11,7 +12,7 @@ const askToImport = () =>
       title: '发现本机旧数据',
       content: '是否把之前的菜单和记录导入你的个人内容库？成功后旧本地数据会被清理。',
       confirmText: '导入云端',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: ({ confirm }) => resolve(confirm),
       fail: () => resolve(false),
     });

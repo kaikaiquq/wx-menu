@@ -2,7 +2,7 @@ const { getMenuConfig, saveMenuConfig } = require('../../utils/couple-config');
 const { mergeConfigContent } = require('./utils/merge-config');
 const { getPersonalConfig, savePersonalConfig } = require('../../utils/personal-config');
 const { requireSession } = require('../../utils/auth');
-const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
+const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../utils/theme');
 const {
   clearConfigSession,
   getConfigDraft,
@@ -114,7 +114,7 @@ Page({
       title: '清空全部菜单内容？',
       content: '所有分类和点单项会被清空。当前操作只会暂存，点击“保存并立即生效”后才会真正生效。',
       confirmText: '确认清空',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: ({ confirm }) => {
         if (!confirm) return;
         const draft = getConfigDraft();

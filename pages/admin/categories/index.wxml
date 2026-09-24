@@ -1,8 +1,10 @@
 <view class="manage-page {{themeClass}}">
   <view class="manage-heading">
-    <view class="manage-eyebrow">CATEGORY</view>
-    <view class="manage-title">分类管理</view>
-    <view class="manage-note">可点选推荐模板，或自定义新增；修改先暂存草稿</view>
+    <view class="manage-heading-copy">
+      <view class="manage-eyebrow">COLLECTIONS</view>
+      <view class="manage-title">分类管理</view>
+      <view class="manage-note">将喜欢的事归类，修改会先暂存为草稿</view>
+    </view>
   </view>
 
   <view class="category-list">
@@ -19,7 +21,7 @@
           wx:else
           style="background: {{item.avatarColor}};"
         >{{item.avatarText}}</view>
-        <view>
+        <view class="category-copy">
           <view class="category-name">{{item.name}}</view>
           <view class="category-note">{{item.subtitle || '点击编辑'}}</view>
         </view>
@@ -70,56 +72,58 @@
     <view class="sheet-panel editor-panel" catch:tap="noop">
       <view class="sheet-handle"></view>
       <view class="sheet-title">{{editingIndex >= 0 ? '编辑分类' : '自定义分类'}}</view>
-      <view class="editor-field">
-        <view class="field-label">名称 *</view>
-        <input
-          class="editor-input"
-          value="{{categoryDraft.name}}"
-          maxlength="12"
-          placeholder="例如：周末约会"
-          data-field="name"
-          bindinput="updateCategoryDraft"
-        />
-      </view>
-      <view class="editor-field">
-        <view class="field-label">副标题</view>
-        <input
-          class="editor-input"
-          value="{{categoryDraft.subtitle}}"
-          maxlength="20"
-          placeholder="一句话介绍"
-          data-field="subtitle"
-          bindinput="updateCategoryDraft"
-        />
-      </view>
-      <view class="editor-field">
-        <view class="field-label">图标（可选 emoji）</view>
-        <input
-          class="editor-input"
-          value="{{categoryDraft.icon}}"
-          maxlength="2"
-          placeholder="✨"
-          data-field="icon"
-          bindinput="updateCategoryDraft"
-        />
-      </view>
-      <view class="editor-field">
-        <view class="field-label">分类图片（可选）</view>
-        <view class="image-row">
-          <image
-            class="image-preview"
-            wx:if="{{categoryDraft.image}}"
-            src="{{categoryDraft.image}}"
-            mode="aspectFill"
+      <scroll-view class="category-editor-scroll" scroll-y enhanced show-scrollbar="{{false}}">
+        <view class="editor-field">
+          <view class="field-label">名称 *</view>
+          <input
+            class="editor-input"
+            value="{{categoryDraft.name}}"
+            maxlength="12"
+            placeholder="例如：周末约会"
+            data-field="name"
+            bindinput="updateCategoryDraft"
           />
-          <view class="image-preview image-preview-empty" wx:else>无图</view>
-          <view class="image-actions">
-            <view class="upload-button" bind:tap="chooseCategoryImage">上传图片</view>
-            <view class="clear-image" wx:if="{{categoryDraft.image}}" bind:tap="clearCategoryImage">清除图片</view>
-            <view class="field-help">不传图会用名称文字生成头像</view>
+        </view>
+        <view class="editor-field">
+          <view class="field-label">副标题</view>
+          <input
+            class="editor-input"
+            value="{{categoryDraft.subtitle}}"
+            maxlength="20"
+            placeholder="一句话介绍"
+            data-field="subtitle"
+            bindinput="updateCategoryDraft"
+          />
+        </view>
+        <view class="editor-field">
+          <view class="field-label">图标（可选 emoji）</view>
+          <input
+            class="editor-input"
+            value="{{categoryDraft.icon}}"
+            maxlength="2"
+            placeholder="✨"
+            data-field="icon"
+            bindinput="updateCategoryDraft"
+          />
+        </view>
+        <view class="editor-field">
+          <view class="field-label">分类图片（可选）</view>
+          <view class="image-row">
+            <image
+              class="image-preview"
+              wx:if="{{categoryDraft.image}}"
+              src="{{categoryDraft.image}}"
+              mode="aspectFill"
+            />
+            <view class="image-preview image-preview-empty" wx:else>无图</view>
+            <view class="image-actions">
+              <view class="upload-button" bind:tap="chooseCategoryImage">上传图片</view>
+              <view class="clear-image" wx:if="{{categoryDraft.image}}" bind:tap="clearCategoryImage">清除图片</view>
+              <view class="field-help">不传图会用名称文字生成头像</view>
+            </view>
           </view>
         </view>
-      </view>
+      </scroll-view>
       <view class="editor-save" bind:tap="confirmCategory">完成并加入草稿</view>
     </view>
   </view>

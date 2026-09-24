@@ -44,7 +44,10 @@ const createPage = ({ service = {}, auth = {}, initialState = {} } = {}) => {
   const modules = {
     '../../utils/auth': { requireSession: async () => session, ...auth },
     '../../utils/location-sharing': locationSharing,
-    '../../utils/theme': { getStoredThemeClass: () => '', syncTheme: () => '' },
+    '../../utils/theme': {
+      getStoredThemeClass: () => '', syncTheme: () => '',
+      getThemeColors: () => ({ primary: '#485f52', secondary: '#68726b' }),
+    },
   };
   vm.runInNewContext(source, {
     require: (id) => modules[id],

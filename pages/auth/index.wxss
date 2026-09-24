@@ -1,91 +1,88 @@
-page {
-  background: #f4f5f5;
-  color: #292421;
+.auth-page {
+  background: var(--love-bg);
+  box-sizing: border-box;
+  color: var(--love-text);
+  min-height: 100vh;
+  padding: 48rpx var(--love-page-gutter) calc(48rpx + env(safe-area-inset-bottom));
 }
 
-button::after {
+.auth-page button::after {
   border: 0;
 }
 
-.auth-page {
-  background: var(--love-bg, #f4f5f5);
-  box-sizing: border-box;
-  min-height: 100vh;
-  padding: 70rpx 36rpx;
-}
-
 .auth-brand {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 50rpx;
+  padding: 16rpx 0 48rpx;
 }
 
 .brand-heart {
   align-items: center;
-  background: #292421;
-  border-radius: 50%;
-  color: #fff;
+  border: 1rpx solid var(--love-primary);
+  border-radius: var(--love-radius-control);
+  color: var(--love-primary);
   display: flex;
-  font-size: 62rpx;
-  height: 116rpx;
+  font-size: 50rpx;
+  height: 88rpx;
   justify-content: center;
-  width: 116rpx;
+  line-height: 1;
+  width: 88rpx;
 }
 
 .brand-title {
-  font-family: 'STSong', 'Songti SC', serif;
-  font-size: 48rpx;
+  font-family: var(--love-heading-font);
+  font-size: 56rpx;
   font-weight: 600;
-  margin-top: 24rpx;
+  letter-spacing: 2rpx;
+  line-height: 1.3;
+  margin-top: 28rpx;
 }
 
 .brand-note,
 .card-note,
 .error-note {
-  color: #9f958f;
-  font-size: 21rpx;
-  line-height: 1.6;
-  margin-top: 10rpx;
-  text-align: center;
+  color: var(--love-text-secondary);
+  font-size: 26rpx;
+  line-height: 1.7;
+  margin-top: 16rpx;
+  word-break: break-all;
 }
 
 .auth-card,
 .error-card,
 .loading-card {
-  background: #fff;
-  border-radius: 32rpx;
-  box-shadow: 0 16rpx 45rpx rgba(75, 59, 53, 0.08);
-  padding: 36rpx;
+  background: var(--love-surface);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-card);
+  padding: 36rpx 32rpx;
 }
 
 .loading-card {
-  color: #9f958f;
-  font-size: 23rpx;
-  text-align: center;
+  color: var(--love-text-secondary);
+  font-size: 26rpx;
+  line-height: 1.6;
 }
 
 .card-step {
-  color: var(--love-primary, #bd6875);
-  font-size: 17rpx;
+  color: var(--love-primary);
+  font-size: 22rpx;
   font-weight: 600;
-  letter-spacing: 5rpx;
-  text-align: center;
+  letter-spacing: 3rpx;
+  margin-bottom: 16rpx;
 }
 
 .card-title,
 .error-title {
-  font-family: 'STSong', 'Songti SC', serif;
-  font-size: 36rpx;
+  font-family: var(--love-heading-font);
+  font-size: 38rpx;
   font-weight: 600;
-  margin-top: 10rpx;
-  text-align: center;
+  line-height: 1.4;
 }
 
 .avatar-button {
   background: transparent;
+  border-radius: 50%;
+  display: block;
   height: 132rpx;
-  margin: 32rpx auto 24rpx;
+  margin: 36rpx auto 28rpx;
   padding: 0;
   width: 132rpx;
 }
@@ -99,8 +96,10 @@ button::after {
 
 .avatar-placeholder {
   align-items: center;
-  background: var(--love-soft, #f3e5e7);
-  color: var(--love-primary, #bd6875);
+  background: var(--love-soft);
+  border: 1rpx solid var(--love-border);
+  box-sizing: border-box;
+  color: var(--love-primary);
   display: flex;
   font-size: 48rpx;
   justify-content: center;
@@ -108,130 +107,166 @@ button::after {
 
 .nickname-input,
 .invite-input {
-  background: #f8f5f2;
-  border-radius: 20rpx;
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
   box-sizing: border-box;
-  font-size: 25rpx;
-  height: 82rpx;
-  line-height: 82rpx;
+  color: var(--love-text);
+  font-size: 28rpx;
+  height: 96rpx;
+  line-height: 96rpx;
   padding: 0 24rpx;
   text-align: center;
   width: 100%;
 }
 
-.anniversary-label {
-  color: #817873;
-  font-size: 21rpx;
-  margin: 24rpx 0 12rpx;
+.anniversary-label,
+.gender-label {
+  color: var(--love-text-secondary);
+  font-size: 24rpx;
+  line-height: 1.5;
+  margin: 28rpx 0 14rpx;
 }
 
 .anniversary-picker {
   align-items: center;
-  background: #f8f5f2;
-  border-radius: 20rpx;
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
   display: flex;
-  font-size: 23rpx;
+  font-size: 26rpx;
+  gap: 16rpx;
   justify-content: space-between;
-  padding: 20rpx 24rpx;
+  line-height: 1.5;
+  padding: 24rpx;
 }
 
 .anniversary-picker text {
-  color: var(--love-primary, #bd6875);
-  font-size: 20rpx;
+  color: var(--love-primary);
+  flex-shrink: 0;
+  font-size: 22rpx;
 }
 
 .invite-input {
-  font-size: 32rpx;
   font-weight: 600;
-  letter-spacing: 8rpx;
+  letter-spacing: 2rpx;
 }
 
 .invite-input-prefilled {
-  color: var(--love-primary-dark, #8d545d);
+  background: var(--love-soft);
+  color: var(--love-primary-dark);
+  font-size: 34rpx;
+  letter-spacing: 6rpx;
   margin-top: 28rpx;
 }
 
 .primary-button,
 .secondary-button,
 .retry-button {
-  border-radius: 42rpx;
-  font-size: 25rpx;
-  margin-top: 24rpx;
-  padding: 22rpx;
+  border-radius: var(--love-radius-control);
+  box-sizing: border-box;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 28rpx;
+  min-height: 96rpx;
+  padding: 27rpx 20rpx;
+  text-align: center;
+  width: 100%;
 }
 
 .primary-button {
-  background: #292421;
-  color: #fff;
+  background: var(--love-primary);
+  color: var(--love-on-primary);
 }
 
-.gender-label {
-  color: #817873;
-  font-size: 21rpx;
-  margin: 25rpx 0 12rpx;
-  text-align: center;
-}
-
-.gender-picker {
-  background: #f3efec;
-  border-radius: 22rpx;
-  display: flex;
-  gap: 8rpx;
-  padding: 7rpx;
-}
-
-.gender-option {
-  border-radius: 17rpx;
-  color: #8f8580;
-  flex: 1;
-  font-size: 24rpx;
-  padding: 17rpx;
-  text-align: center;
-}
-
-.gender-option-active {
-  background: var(--love-primary, #bd6875);
-  color: #fff;
-  font-weight: 600;
-}
-
-.gender-help {
-  color: #aaa09a;
-  font-size: 18rpx;
-  line-height: 1.5;
-  margin-top: 10rpx;
-  text-align: center;
+.primary-button[disabled],
+.secondary-button[disabled] {
+  background: var(--love-surface-muted);
+  color: var(--love-text-muted);
 }
 
 .secondary-button,
 .retry-button {
-  background: var(--love-soft, #f1e8e6);
-  color: var(--love-primary-dark, #8d545d);
+  background: var(--love-soft);
+  color: var(--love-primary-dark);
+}
+
+.gender-picker {
+  background: var(--love-surface-muted);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
+  display: flex;
+  gap: 8rpx;
+  padding: 8rpx;
+}
+
+.gender-option {
+  border-radius: var(--love-radius-control);
+  color: var(--love-text-secondary);
+  flex: 1;
+  font-size: 28rpx;
+  line-height: 1.5;
+  padding: 20rpx;
+  text-align: center;
+}
+
+.gender-option-active {
+  background: var(--love-primary);
+  color: var(--love-on-primary);
+  font-weight: 600;
+}
+
+.gender-help {
+  color: var(--love-text-muted);
+  font-size: 22rpx;
+  line-height: 1.6;
+  margin-top: 14rpx;
 }
 
 .divider {
-  color: #b3aaa5;
-  font-size: 19rpx;
-  margin: 28rpx 0;
-  text-align: center;
+  align-items: center;
+  color: var(--love-text-muted);
+  display: flex;
+  font-size: 22rpx;
+  gap: 20rpx;
+  margin: 36rpx 0;
+}
+
+.divider::before,
+.divider::after {
+  background: var(--love-border);
+  content: '';
+  flex: 1;
+  height: 1rpx;
 }
 
 .invite-code {
-  background: var(--love-soft, #f8f1f2);
-  border: 2rpx dashed var(--love-primary, #d7a1aa);
-  border-radius: 24rpx;
-  color: var(--love-primary-dark, #a95360);
-  font-size: 48rpx;
+  background: var(--love-soft);
+  border: 1rpx solid var(--love-border);
+  border-radius: var(--love-radius-control);
+  color: var(--love-primary-dark);
+  font-size: 46rpx;
   font-weight: 600;
-  letter-spacing: 12rpx;
-  margin-top: 30rpx;
-  padding: 30rpx 12rpx;
+  letter-spacing: 7rpx;
+  line-height: 1.4;
+  margin-top: 32rpx;
+  padding: 32rpx 12rpx;
   text-align: center;
+  word-break: break-all;
+}
+
+.invite-code-empty {
+  font-size: 26rpx;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 .retry-link {
-  color: #9a777c;
-  font-size: 21rpx;
-  margin-top: 28rpx;
+  color: var(--love-primary);
+  font-size: 24rpx;
+  line-height: 1.6;
+  margin-top: 16rpx;
+  padding: 16rpx 0;
   text-align: center;
 }

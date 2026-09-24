@@ -51,8 +51,8 @@
   "usingComponents": {},
   "window": {
     "backgroundTextStyle": "light",
-    "backgroundColor": "#f4f5f5",
-    "navigationBarBackgroundColor": "#f4f5f5",
+    "backgroundColor": "#f4f4f1",
+    "navigationBarBackgroundColor": "#f4f4f1",
     "navigationBarTitleText": "两人菜单",
     "navigationBarTextStyle": "black"
   },

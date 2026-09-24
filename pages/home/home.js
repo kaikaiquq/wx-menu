@@ -2,7 +2,7 @@ const { addToCart, getCart, getOrders, updateOrder } = require('../../utils/coup
 const { getFeaturedItems, getMenuConfig, saveSharedMessage } = require('../../utils/couple-config');
 const { requireSession } = require('../../utils/auth');
 const { withLetterAvatars } = require('../../utils/letter-avatar');
-const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
+const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../utils/theme');
 
 Page({
   data: {
@@ -154,7 +154,7 @@ Page({
       editable: true,
       placeholderText: '例如：好呀，今晚一起完成！',
       confirmText: '答应',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: async ({ confirm, content }) => {
         if (!confirm) return;
         const response = content?.trim() || '好呀 ♡';
@@ -178,7 +178,7 @@ Page({
       editable: true,
       placeholderText: '可以说说原因，也可以直接拒绝',
       confirmText: '拒绝',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: async ({ confirm, content }) => {
         if (!confirm) return;
         const response = content?.trim() || '这次先不了～';
@@ -201,7 +201,7 @@ Page({
       title: '完成这个心愿？',
       content: '完成后，这份点单会收进你们的共同记录。',
       confirmText: '完成心愿',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: async ({ confirm }) => {
         if (!confirm) return;
         wx.showLoading({ title: '正在完成' });
@@ -225,7 +225,7 @@ Page({
       editable: true,
       placeholderText: '写下一句想让彼此记住的话',
       confirmText: '保存留言',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: async ({ confirm, content }) => {
         const message = content?.trim();
         if (!confirm || !message) return;

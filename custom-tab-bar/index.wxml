@@ -1,13 +1,15 @@
-<view class="tab-bar {{themeClass}}">
+<view class="tab-bar {{themeClass || 'theme-neutral'}}">
   <view
     class="tab-item {{active === index ? 'tab-item-active' : ''}}"
     wx:for="{{list}}"
     wx:key="text"
     data-index="{{index}}"
     bind:tap="onChange"
+    aria-role="button"
+    aria-label="{{item.text}}{{active === index ? '，当前页面' : ''}}"
   >
     <view class="tab-icon-wrap">
-      <view class="tab-icon">{{item.icon}}</view>
+      <view class="tab-glyph tab-glyph-{{item.icon}}" aria-hidden="true"><view class="glyph-detail" /></view>
       <view class="tab-badge" wx:if="{{item.url === '/pages/chat/index' && chatUnread > 0}}">
         {{chatUnread > 99 ? '99+' : chatUnread}}
       </view>

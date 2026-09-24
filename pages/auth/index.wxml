@@ -113,7 +113,7 @@
         <view class="card-step">WAITING</view>
         <view class="card-title">绑定情侣空间</view>
         <view class="card-note">邀请码 24 小时内有效，可分享自己的邀请，也可以输入 TA 的邀请码</view>
-        <view class="invite-code" bind:tap="copyInvite">{{inviteCode || '点击下方生成'}}</view>
+        <view class="invite-code {{inviteCode ? '' : 'invite-code-empty'}}" bind:tap="copyInvite">{{inviteCode || '点击下方生成'}}</view>
         <button class="primary-button" wx:if="{{inviteCode}}" open-type="share">分享给 TA</button>
         <button class="secondary-button" loading="{{saving}}" disabled="{{saving}}" bind:tap="createSpace">
           {{inviteCode ? '重新生成邀请码' : '生成我的邀请码'}}

@@ -1,30 +1,28 @@
-.theme-female {
-  --love-bg: #f8f5f2;
-  --love-primary: #bd6875;
-  --love-primary-dark: #a95360;
-  --love-soft: #f7e7e9;
-  --love-soft-strong: #f2dcdf;
-  --love-hero-from: #df8f99;
-  --love-hero-to: #c96f7e;
-  background: var(--love-bg);
+@import './styles/tokens.wxss';
+
+page {
+  background: #f4f4f1;
+  color: #252b29;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-size: 28rpx;
+  line-height: 1.55;
 }
 
-.theme-male {
-  --love-bg: #f1f4f6;
-  --love-primary: #647e94;
-  --love-primary-dark: #4d687e;
-  --love-soft: #e2eaf0;
-  --love-soft-strong: #d6e1e9;
-  --love-hero-from: #7f98ac;
-  --love-hero-to: #5d768c;
-  background: var(--love-bg);
+view, scroll-view, button, input, textarea {
+  box-sizing: border-box;
 }
+
+button, input, textarea {
+  font-family: inherit;
+}
+
+button::after { border: 0; }
 
 .letter-avatar {
   align-items: center;
-  color: #fff;
+  color: #ffffff;
   display: flex;
-  font-family: 'STSong', 'Songti SC', serif;
+  font-family: var(--love-heading-font);
   font-weight: 600;
   justify-content: center;
   overflow: hidden;

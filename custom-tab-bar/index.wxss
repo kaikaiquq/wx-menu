@@ -1,81 +1,81 @@
-.theme-female {
-  --love-primary: #bd6875;
-}
-
-.theme-male {
-  --love-primary: #647e94;
-}
+@import '../styles/tokens.wxss';
 
 .tab-bar {
-  background: rgba(255, 255, 255, 0.97);
+  background: var(--love-surface);
+  border-top: 1rpx solid var(--love-border);
   bottom: 0;
-  box-shadow: 0 -12rpx 35rpx rgba(67, 52, 46, 0.07);
   box-sizing: border-box;
   display: flex;
+  height: calc(var(--love-tab-height) + env(safe-area-inset-bottom));
   left: 0;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding: 0 16rpx env(safe-area-inset-bottom);
   position: fixed;
   right: 0;
-  z-index: 999;
+  z-index: 900;
 }
 
 .tab-item {
   align-items: center;
   box-sizing: border-box;
-  color: #a79d97;
+  color: var(--love-text-muted);
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 4rpx;
-  height: 92rpx;
+  height: var(--love-tab-height);
   justify-content: center;
-  margin: 8rpx 6rpx;
-  border-radius: 20rpx;
-  padding: 0 4rpx;
-}
-
-.tab-item-active {
-  background: rgba(189, 104, 117, 0.14);
-  color: var(--love-primary, #bd6875);
-}
-
-.theme-male .tab-item-active {
-  background: rgba(100, 126, 148, 0.16);
-}
-
-.tab-item-active .tab-text {
-  font-weight: 600;
-}
-
-.tab-icon-wrap {
-  height: 42rpx;
+  min-width: 0;
+  padding: 8rpx 0 12rpx;
   position: relative;
-  width: 48rpx;
 }
 
-.tab-icon {
-  font-size: 34rpx;
-  height: 42rpx;
-  line-height: 42rpx;
-  text-align: center;
+.tab-item-active { color: var(--love-primary); }
+.tab-item-active::after {
+  background: var(--love-primary);
+  border-radius: 3rpx;
+  bottom: 6rpx;
+  content: '';
+  height: 3rpx;
+  position: absolute;
+  width: 22rpx;
 }
-
+.tab-icon-wrap { height: 44rpx; position: relative; width: 48rpx; }
+.tab-glyph { height: 40rpx; left: 4rpx; position: relative; top: 2rpx; width: 40rpx; }
+.tab-glyph::before, .tab-glyph::after, .glyph-detail { box-sizing: border-box; position: absolute; }
+.tab-glyph-home::before {
+  border-left: 3rpx solid; border-top: 3rpx solid; border-radius: 3rpx 0 0 0;
+  content: ''; height: 24rpx; left: 8rpx; top: 3rpx; transform: rotate(45deg); width: 24rpx;
+}
+.tab-glyph-home::after {
+  border: 3rpx solid; border-top: 0; border-radius: 0 0 4rpx 4rpx;
+  content: ''; height: 21rpx; left: 7rpx; top: 16rpx; width: 26rpx;
+}
+.tab-glyph-home .glyph-detail { border-left: 3rpx solid; height: 10rpx; left: 19rpx; top: 27rpx; }
+.tab-glyph-menu::before { border: 3rpx solid; border-radius: 4rpx; content: ''; height: 34rpx; left: 5rpx; top: 3rpx; width: 30rpx; }
+.tab-glyph-menu::after { border-top: 3rpx solid; content: ''; left: 12rpx; top: 13rpx; width: 16rpx; }
+.tab-glyph-menu .glyph-detail { border-top: 3rpx solid; left: 12rpx; top: 23rpx; width: 12rpx; }
+.tab-glyph-location::before { border: 3rpx solid; border-radius: 50% 50% 50% 0; content: ''; height: 29rpx; left: 6rpx; top: 2rpx; transform: rotate(-45deg); width: 29rpx; }
+.tab-glyph-location::after { border: 3rpx solid; border-radius: 50%; content: ''; height: 9rpx; left: 16rpx; top: 12rpx; width: 9rpx; }
+.tab-glyph-chat::before { border: 3rpx solid; border-radius: 7rpx; content: ''; height: 27rpx; left: 3rpx; top: 4rpx; width: 34rpx; }
+.tab-glyph-chat::after { background: var(--love-surface); border-bottom: 3rpx solid; border-left: 3rpx solid; content: ''; height: 9rpx; left: 10rpx; top: 26rpx; transform: skewY(-35deg); width: 9rpx; }
+.tab-glyph-chat .glyph-detail { border-top: 3rpx solid; left: 11rpx; top: 16rpx; width: 18rpx; }
+.tab-glyph-us::before { border: 3rpx solid; border-radius: 50%; content: ''; height: 16rpx; left: 6rpx; top: 2rpx; width: 16rpx; }
+.tab-glyph-us::after { border: 3rpx solid; border-radius: 50%; content: ''; height: 12rpx; left: 25rpx; top: 7rpx; width: 12rpx; }
+.tab-glyph-us .glyph-detail { border: 3rpx solid; border-bottom: 0; border-radius: 18rpx 18rpx 0 0; height: 15rpx; left: 1rpx; top: 23rpx; width: 27rpx; }
+.tab-glyph-us .glyph-detail::after { border-top: 3rpx solid; border-right: 3rpx solid; border-radius: 0 12rpx 0 0; content: ''; height: 11rpx; left: 27rpx; position: absolute; top: 0; width: 8rpx; }
+.tab-text { font-size: 22rpx; line-height: 32rpx; margin-top: 4rpx; }
+.tab-item-active .tab-text { font-weight: 600; }
 .tab-badge {
-  background: #e54d42;
-  border-radius: 18rpx;
-  color: #fff;
-  font-size: 18rpx;
+  background: var(--love-danger);
+  border: 3rpx solid var(--love-surface);
+  border-radius: 20rpx;
+  color: #ffffff;
+  font-size: 22rpx;
   font-weight: 600;
   line-height: 28rpx;
-  min-width: 28rpx;
-  padding: 0 8rpx;
+  min-width: 32rpx;
+  padding: 0 6rpx;
   position: absolute;
-  right: -18rpx;
+  right: -22rpx;
   text-align: center;
-  top: -8rpx;
-}
-
-.tab-text {
-  font-size: 19rpx;
-  letter-spacing: 1rpx;
+  top: -9rpx;
 }

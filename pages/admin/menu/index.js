@@ -8,7 +8,7 @@ const { getPersonalConfig, savePersonalConfig } = require('../../../utils/person
 const { uploadCloudImage, isLocalFilePath } = require('../../../utils/cloud');
 const { getContentTemplates } = require('../utils/templates');
 const { withLetterAvatars } = require('../../../utils/letter-avatar');
-const { getStoredThemeClass, syncTheme } = require('../../../utils/theme');
+const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../../utils/theme');
 
 const toPlainMenuItem = (item) => ({
   badge: item.badge || '',
@@ -334,7 +334,7 @@ Page({
     wx.showModal({
       title: '删除这个点单项？',
       content: '它会先从草稿中移除，返回配置首页并保存后才会生效。',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: ({ confirm }) => {
         if (!confirm) return;
         const menuItems = this.data.menuItems.filter((_, itemIndex) => itemIndex !== index);

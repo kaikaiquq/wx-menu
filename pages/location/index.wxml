@@ -1,9 +1,9 @@
 <view class="location-page {{themeClass}}">
   <view class="location-heading">
-    <view>
-      <view class="location-eyebrow">OUR MAP</view>
-      <view class="location-title">在你身边</view>
-      <view class="location-subtitle">打开这里，先看看 TA 在哪里</view>
+    <view class="location-heading-copy">
+      <view class="location-eyebrow">彼此相伴</view>
+      <view class="location-title">我们的位置</view>
+      <view class="location-subtitle">打开地图，先看见你</view>
     </view>
     <view class="sharing-badge {{sharing ? 'sharing-badge-active' : ''}}">
       <view class="sharing-dot" />{{sharing ? '共享已开启' : '共享已关闭'}}
@@ -41,10 +41,8 @@
       bindregionchange="onRegionChange"
     />
     <view class="map-empty" wx:else>
-      <view class="map-empty-orbit orbit-one" />
-      <view class="map-empty-orbit orbit-two" />
-      <view class="map-empty-symbol">⌖</view>
-      <view class="map-empty-title">{{loading ? '正在连接我们的位置' : hasPartner ? '等一个位置，拉近一点距离' : '先和 TA 建立连接'}}</view>
+      <view class="map-empty-symbol" aria-hidden="true" />
+      <view class="map-empty-title">{{loading ? '正在连接我们的位置' : hasPartner ? '等待彼此的位置' : '先和 TA 建立连接'}}</view>
       <view class="map-empty-text">{{loading ? '稍等一下，很快就好' : hasPartner ? '允许位置授权后，自动向 TA 共享\nTA 的位置更新也会自动出现在这里' : '绑定伴侣后，才能相互分享位置'}}</view>
       <button wx:if="{{!loading && !hasPartner}}" class="button-primary bind-button" bind:tap="goBindPartner">去绑定伴侣</button>
     </view>
@@ -55,9 +53,9 @@
   </view>
 
   <view class="map-controls" wx:if="{{hasPartner}}">
-    <button class="map-control {{followMode === 'partner' ? 'map-control-active' : ''}}" bind:tap="showPartner">♡ 看 TA</button>
-    <button class="map-control {{followMode === 'self' ? 'map-control-active' : ''}}" bind:tap="showSelf">⌖ 看自己</button>
-    <button class="map-control {{followMode === 'both' ? 'map-control-active' : ''}}" disabled="{{!hasSelf || !hasPartnerPoint}}" bind:tap="showBoth">◎ 显示双方</button>
+    <button class="map-control {{followMode === 'partner' ? 'map-control-active' : ''}}" bind:tap="showPartner">看 TA</button>
+    <button class="map-control {{followMode === 'self' ? 'map-control-active' : ''}}" bind:tap="showSelf">看自己</button>
+    <button class="map-control {{followMode === 'both' ? 'map-control-active' : ''}}" disabled="{{!hasSelf || !hasPartnerPoint}}" bind:tap="showBoth">显示双方</button>
   </view>
 
   <view class="people-card" wx:if="{{hasPartner}}">
@@ -81,7 +79,7 @@
   </view>
 
   <view class="sharing-card" wx:if="{{hasPartner}}">
-    <view class="sharing-title">把位置，分享给你</view>
+    <view class="sharing-title">位置共享</view>
     <view class="sharing-description">进入位置页并允许授权后，在小程序前台向伴侣共享位置；切换其他页面仍会更新，后台暂停，关闭后清除共享位置。</view>
     <view class="sharing-footnote">双方需各自授权。仅保存最新位置，不记录移动轨迹。主动关闭后，再进入本页也不会自动开启。</view>
     <view class="error-message" wx:if="{{errorText}}">{{errorText}}</view>

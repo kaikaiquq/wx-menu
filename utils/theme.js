@@ -1,31 +1,32 @@
 const THEME_COLORS = {
   female: {
-    background: '#f8f5f2',
-    primary: '#bd6875',
+    background: '#f6f3ef',
+    primary: '#855461',
+    secondary: '#635550',
   },
   male: {
-    background: '#f1f4f6',
-    primary: '#647e94',
+    background: '#f0f3f5',
+    primary: '#344b5e',
+    secondary: '#536874',
   },
 };
+const NEUTRAL_COLORS = { background: '#f4f4f1', primary: '#485f52', secondary: '#5d675f' };
 
-const getThemeKey = (gender) => (gender === 'male' ? 'male' : 'female');
-
-const getThemeClass = (gender) => (gender === 'male' ? 'theme-male' : 'theme-female');
+const getThemeClass = (gender) =>
+  gender === 'male' ? 'theme-male' : gender === 'female' ? 'theme-female' : 'theme-neutral';
 
 const getStoredGender = () => wx.getStorageSync('couple.menu.gender') || '';
+const getThemeColors = (gender = getStoredGender()) => THEME_COLORS[gender] || NEUTRAL_COLORS;
 
-/** 本地已有性别时同步主题；未知时返回空，避免先粉后蓝闪一下 */
+/** 尚未选择时使用完整的中性主题，避免先粉后蓝闪一下。 */
 const getStoredThemeClass = () => {
   const gender = getStoredGender();
-  return gender ? getThemeClass(gender) : '';
+  return getThemeClass(gender);
 };
 
 const applyWindowTheme = (gender = getStoredGender()) => {
   // 尚无性别时用中性底色，避免导航栏/窗口先刷成粉色
-  const colors = gender
-    ? THEME_COLORS[getThemeKey(gender)]
-    : { background: '#f4f5f5', primary: '#666666' };
+  const colors = getThemeColors(gender);
   try {
     wx.setBackgroundColor({
       backgroundColor: colors.background,
@@ -52,7 +53,17 @@ const syncTheme = (gender) => {
     wx.setStorageSync('couple.menu.gender', gender);
   }
   applyWindowTheme(gender);
-  return gender ? getThemeClass(gender) : '';
+  const themeClass = getThemeClass(gender);
+  try {
+    const app = getApp();
+    if (app?.globalData) app.globalData.themeClass = themeClass;
+    const pages = getCurrentPages();
+    const tabBar = pages[pages.length - 1]?.getTabBar?.();
+    if (tabBar) tabBar.setData({ themeClass });
+  } catch (error) {
+    // 尚未创建页面时由 Tab attached/show 使用存储主题。
+  }
+  return themeClass;
 };
 
 module.exports = {
@@ -60,6 +71,7 @@ module.exports = {
   getStoredGender,
   getStoredThemeClass,
   getThemeClass,
+  getThemeColors,
   syncTheme,
   THEME_COLORS,
 };

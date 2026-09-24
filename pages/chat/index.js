@@ -15,7 +15,7 @@ const {
   sendVoiceMessage,
 } = require('../../utils/chat');
 const { resolveCloudFileUrl, resolveCloudFileUrls, uploadFileToCloud } = require('../../utils/cloud');
-const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
+const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../utils/theme');
 const chatUnread = require('../../utils/chat-unread');
 const { EMOJI_LIST } = require('./emoji-data');
 
@@ -1093,7 +1093,7 @@ Page({
     wx.showModal({
       title: '删除好友？',
       content: `确定删除「${name || '好友'}」吗？`,
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: async ({ confirm }) => {
         if (!confirm) return;
         try {

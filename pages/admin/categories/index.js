@@ -6,7 +6,7 @@ const {
 const { requireSession } = require('../../../utils/auth');
 const { getContentTemplates } = require('../utils/templates');
 const { withLetterAvatars } = require('../../../utils/letter-avatar');
-const { getStoredThemeClass, syncTheme } = require('../../../utils/theme');
+const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../../utils/theme');
 
 Page({
   data: {
@@ -184,7 +184,7 @@ Page({
       title: `删除“${category.name}”？`,
       content: `会同时从草稿中删除该分类下的 ${itemCount} 个点单项。返回配置首页并保存后才会生效。`,
       confirmText: '确认删除',
-      confirmColor: '#bd6875',
+      confirmColor: getThemeColors().primary,
       success: ({ confirm }) => {
         if (!confirm) return;
         const categories = this.data.categories.filter((_, categoryIndex) => categoryIndex !== index);

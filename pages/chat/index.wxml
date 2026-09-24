@@ -11,6 +11,8 @@
             wx:key="id"
             data-id="{{item.id}}"
             bind:tap="selectConversation"
+            aria-role="button"
+            aria-label="{{item.title}}，{{item.unreadCount || 0}} 条未读消息"
           >
             <view class="conversation-avatar-wrap">
               <image
@@ -27,9 +29,10 @@
               </view>
               <view class="couple-badge" wx:if="{{item.isCouple}}">对象</view>
             </view>
+            <view class="conversation-name">{{item.title}}</view>
           </view>
         </scroll-view>
-        <view class="sidebar-friends-btn" bind:tap="openFriendsPanel">
+        <view class="sidebar-friends-btn" bind:tap="openFriendsPanel" aria-role="button" aria-label="打开好友列表">
           <view class="friends-icon" aria-label="好友">
             <view class="friends-people">
               <view class="people-person people-back">
@@ -42,6 +45,7 @@
               </view>
             </view>
           </view>
+          <view class="sidebar-friends-label">好友</view>
         </view>
       </block>
 
@@ -67,14 +71,14 @@
               class="friends-add-input"
               value="{{addId}}"
               maxlength="32"
-              placeholder="输入对方用户 ID 添加好友"
+              placeholder="输入用户 ID 添加好友"
               bindinput="updateAddId"
             />
             <view class="friends-add-btn" bind:tap="submitAddFriend">添加</view>
           </view>
 
           <view class="my-id-line" bind:tap="copyMyId">
-            轻点复制id· {{myPublicUserId || '—'}}
+            我的 ID · {{myPublicUserId || '—'}} · 轻点复制
           </view>
 
           <view class="friends-group-btn" bind:tap="openCreateGroup">发起群聊</view>
@@ -138,7 +142,8 @@
           scroll-with-animation="{{false}}"
           bind:tap="dismissComposerExtras"
         >
-          <view wx:if="{{activeId && !messages.length}}" class="message-empty">还没有消息</view>
+          <view wx:if="{{activeId && !messages.length}}" class="message-empty">从一句问候开始</view>
+          <view wx:elif="{{!activeId}}" class="message-empty">选择一段会话，聊聊今天</view>
           <view
             class="message-row {{item.isMine ? 'mine' : ''}} {{item.fromOpenid === 'system' ? 'system' : ''}}"
             wx:for="{{messages}}"
@@ -214,59 +219,64 @@
             <view class="system-text" wx:else>{{item.text}}</view>
           </view>
         </scroll-view>
-        <view class="friends-dismiss-mask" wx:if="{{showFriends}}" bind:tap="closeFriendsPanel"></view>
       </view>
 
       <view class="composer-wrap" wx:if="{{activeId}}">
         <view class="composer">
-          <view class="composer-tool" catch:tap="toggleVoiceMode" aria-label="{{voiceMode ? '键盘' : '语音'}}">
-            <view class="tool-glyph {{voiceMode ? 'glyph-keyboard' : 'glyph-mic'}}"></view>
-          </view>
+          <view class="composer-entry">
+            <input
+              wx:if="{{!voiceMode}}"
+              class="composer-input"
+              value="{{draft}}"
+              maxlength="500"
+              confirm-type="send"
+              placeholder="说点什么…"
+              focus="{{inputFocus}}"
+              adjust-position="{{true}}"
+              hold-keyboard="{{false}}"
+              bindinput="updateDraft"
+              bindconfirm="submitMessage"
+              bindfocus="onInputFocus"
+              bindblur="onInputBlur"
+            />
+            <view
+              wx:else
+              class="voice-hold {{recording ? 'recording' : ''}} {{voiceCancelReady ? 'cancel-ready' : ''}}"
+              bindtouchstart="onVoiceTouchStart"
+              bindtouchmove="onVoiceTouchMove"
+              bindtouchend="onVoiceTouchEnd"
+              bindtouchcancel="onVoiceTouchCancel"
+            >
+              {{recording ? (voiceCancelReady ? '松开取消' : '松开发送') : '按住 说话'}}
+            </view>
 
-          <input
-            wx:if="{{!voiceMode}}"
-            class="composer-input"
-            value="{{draft}}"
-            maxlength="500"
-            confirm-type="send"
-            placeholder="说点什么…"
-            focus="{{inputFocus}}"
-            adjust-position="{{true}}"
-            hold-keyboard="{{false}}"
-            bindinput="updateDraft"
-            bindconfirm="submitMessage"
-            bindfocus="onInputFocus"
-            bindblur="onInputBlur"
-          />
-          <view
-            wx:else
-            class="voice-hold {{recording ? 'recording' : ''}} {{voiceCancelReady ? 'cancel-ready' : ''}}"
-            bindtouchstart="onVoiceTouchStart"
-            bindtouchmove="onVoiceTouchMove"
-            bindtouchend="onVoiceTouchEnd"
-            bindtouchcancel="onVoiceTouchCancel"
-          >
-            {{recording ? (voiceCancelReady ? '松开取消' : '松开发送') : '按住 说话'}}
+            <view
+              class="composer-send {{draft || sending ? '' : 'disabled'}}"
+              catch:tap="submitMessage"
+              aria-label="发送"
+              aria-role="button"
+            >
+              <view class="tool-glyph glyph-send"></view>
           </view>
-
-          <view
-            class="composer-tool {{showEmoji ? 'active' : ''}}"
-            catch:tap="toggleEmojiPanel"
-            aria-label="表情"
-          >
-            <view class="tool-glyph glyph-emoji"></view>
           </view>
-
-          <view class="composer-tool" catch:tap="openImagePicker" aria-label="图片">
-            <view class="tool-glyph glyph-image"></view>
-          </view>
-
-          <view
-            class="composer-send {{draft || sending ? '' : 'disabled'}}"
-            catch:tap="submitMessage"
-            aria-label="发送"
-          >
-            <view class="tool-glyph glyph-send"></view>
+          <view class="composer-actions">
+            <view class="composer-tool" catch:tap="toggleVoiceMode" aria-role="button" aria-label="{{voiceMode ? '切换键盘输入' : '切换语音输入'}}">
+              <view class="tool-glyph {{voiceMode ? 'glyph-keyboard' : 'glyph-mic'}}"></view>
+              <text class="composer-tool-label">{{voiceMode ? '键盘' : '语音'}}</text>
+            </view>
+            <view
+              class="composer-tool {{showEmoji ? 'active' : ''}}"
+              catch:tap="toggleEmojiPanel"
+              aria-role="button"
+              aria-label="表情"
+            >
+              <view class="tool-glyph glyph-emoji"></view>
+              <text class="composer-tool-label">表情</text>
+            </view>
+            <view class="composer-tool" catch:tap="openImagePicker" aria-role="button" aria-label="图片">
+              <view class="tool-glyph glyph-image"></view>
+              <text class="composer-tool-label">图片</text>
+            </view>
           </view>
         </view>
 
@@ -285,6 +295,7 @@
         </view>
       </view>
     </view>
+    <view class="friends-dismiss-mask" wx:if="{{showFriends}}" bind:tap="closeFriendsPanel"></view>
   </view>
 
   <!-- 按住说话提示层（类微信） -->

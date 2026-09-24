@@ -4,27 +4,22 @@
     <view class="header-copy">
       <view class="eyebrow">{{dateText}}</view>
       <view class="greeting-row">
-        <view class="greeting">今天想和你做什么？</view>
-        <view class="wish-alert" wx:if="{{showWishAlert}}" catch:tap="openResponseAlert">!</view>
+        <view class="greeting">把今天，留给彼此</view>
+        <view class="wish-alert" aria-role="button" aria-label="查看心愿回应" wx:if="{{showWishAlert}}" catch:tap="openResponseAlert">!</view>
       </view>
     </view>
-    <view class="wish-pill" bind:tap="openWish">
+    <view class="wish-pill" aria-role="button" aria-label="打开心愿单" bind:tap="openWish">
       <text class="wish-icon">♡</text>
       <text wx:if="{{wishCount}}">{{wishCount}}</text>
     </view>
   </view>
 
-  <view class="hero-card" bind:tap="editSharedMessage">
-    <view class="hero-orbit orbit-one"></view>
-    <view class="hero-orbit orbit-two"></view>
-    <view class="hero-kicker">要记住ta说的话！</view>
+  <view class="hero-card" aria-role="button" aria-label="共同留言，点击编辑" bind:tap="editSharedMessage">
+    <view class="hero-kicker">共同留言</view>
     <view class="hero-title">{{sharedMessage}}</view>
     <view class="hero-footer">
-      <view class="avatar-stack">
-        <view class="avatar avatar-pink">她</view>
-        <view class="avatar avatar-dark">他</view>
-      </view>
-      <view class="hero-note">点击修改共同留言</view>
+      <view class="hero-caption">两个人的日常</view>
+      <view class="hero-note">编辑留言 ↗</view>
     </view>
   </view>
 
@@ -140,7 +135,7 @@
         <view class="menu-description">{{item.description}}</view>
         <view class="menu-bottom">
           <view class="menu-price">{{item.cost}}</view>
-          <view class="add-button" bind:tap="addItem" data-id="{{item.id}}">＋</view>
+          <view class="add-button" aria-role="button" aria-label="将{{item.name}}加入心愿单" bind:tap="addItem" data-id="{{item.id}}">＋</view>
         </view>
       </view>
     </view>
