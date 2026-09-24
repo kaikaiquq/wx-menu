@@ -3,6 +3,7 @@ const { applyWindowTheme, getStoredThemeClass } = require('./utils/theme');
 const { isLoggedOut, prefetchSession } = require('./utils/auth');
 const { initCloud } = require('./utils/cloud');
 const chatUnread = require('./utils/chat-unread');
+const locationSharing = require('./utils/location-sharing');
 
 App({
   globalData: {
@@ -39,9 +40,11 @@ App({
     applyWindowTheme();
     updateManager();
     chatUnread.onAppShow();
+    locationSharing.onAppShow();
   },
 
   onHide() {
     chatUnread.onAppHide();
+    locationSharing.onAppHide();
   },
 });

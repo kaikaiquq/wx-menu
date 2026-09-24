@@ -45,6 +45,7 @@ const bootstrap = async (force = false, interactive = false) => {
       }
       session = data;
       sessionFetchedAt = Date.now();
+      require('./location-sharing').syncSession(data);
       if (data.user?.openid) {
         wx.setStorageSync(OPENID_KEY, data.user.openid);
         try {
@@ -164,6 +165,7 @@ const clearSession = () => {
   bootstrapPromise = null;
   redirecting = false;
   wx.removeStorageSync(OPENID_KEY);
+  require('./location-sharing').stop();
   try {
     require('./chat-unread').stop();
   } catch (error) {

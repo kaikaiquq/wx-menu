@@ -13,6 +13,14 @@ const randomId = (prefix) => `${prefix}_${crypto.randomBytes(12).toString('hex')
 const hashCode = (code) => crypto.createHash('sha256').update(code).digest('hex');
 const isNotFound = (error) =>
   error?.errCode === -1 || String(error?.message || '').toLowerCase().includes('not exist');
+// Only a missing optional location collection/document may be skipped during legacy unbind.
+// SDK -1 also describes permission/network failures and must not be ignored here.
+const isLocationStorageMissing = (error) => {
+  const message = String(error?.message || error?.errMsg || error || '');
+  return error?.errCode === -502005 ||
+    /collection (?:not exists|does not exist)|Db or Table not exist|DATABASE_COLLECTION_NOT_EXIST/i.test(message) ||
+    /\bdocument(?:\s+with\s+_id\s+\S+)?\s+(?:does\s+)?not\s+(?:exists?|found)\b/i.test(message);
+};
 
 const createCode = () =>
   Array.from({ length: 8 }, () => INVITE_ALPHABET[crypto.randomInt(0, INVITE_ALPHABET.length)]).join('');
@@ -383,11 +391,14 @@ const unbindPartner = async (openid) => {
   const partnerOpenid = couple.members.find((memberOpenid) => memberOpenid !== openid);
   const result = await db.runTransaction(async (transaction) => {
     const freshCouple = (await transaction.collection('couples').doc(user.coupleId).get()).data;
+    const freshUser = (await transaction.collection('users').doc(openid).get()).data;
+    const freshPartner = (await transaction.collection('users').doc(partnerOpenid).get()).data;
     if (
       freshCouple.status !== 'active' ||
       freshCouple.members.length !== 2 ||
       !freshCouple.members.includes(openid) ||
-      !freshCouple.members.includes(partnerOpenid)
+      !freshCouple.members.includes(partnerOpenid) ||
+      freshUser.coupleId !== user.coupleId || freshPartner.coupleId !== user.coupleId
     ) {
       return fail('COUPLE_CHANGED', '情侣空间状态已经变化，请刷新后重试');
     }
@@ -396,7 +407,26 @@ const unbindPartner = async (openid) => {
       : null;
     await transaction.collection('coupleConfigs').doc(user.coupleId).get();
     await transaction.collection('coupleCarts').doc(user.coupleId).get();
+    let locationState = null;
+    try {
+      locationState = (await transaction.collection('coupleLocations').doc(user.coupleId).get()).data;
+    } catch (error) {
+      if (!isLocationStorageMissing(error)) throw error;
+    }
 
+    if (locationState) {
+      // Revoke both read access and stored coordinates atomically with the relationship.
+      await transaction.collection('coupleLocations').doc(user.coupleId).set({
+        data: {
+          active: false,
+          memberA: '',
+          memberB: '',
+          positions: {},
+          updatedAt: Date.now(),
+          version: Number(locationState.version || 0) + 1,
+        },
+      });
+    }
     await transaction.collection('coupleConfigs').doc(user.coupleId).update({
       data: {
         ...createEmptySharedConfig(),
@@ -446,13 +476,14 @@ const unbindPartner = async (openid) => {
   return result;
 };
 
-exports.main = async (event) => {
+exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext();
+  if (!OPENID) return fail('UNAUTHORIZED', '请先登录');
   try {
-    if (event.action === 'createInvite') return createInvite(OPENID);
-    if (event.action === 'getActiveInvite') return getActiveInvite(OPENID);
-    if (event.action === 'joinCouple') return joinCouple(OPENID, event.code, event.anniversary);
-    if (event.action === 'unbindPartner') return unbindPartner(OPENID);
+    if (event.action === 'createInvite') return await createInvite(OPENID);
+    if (event.action === 'getActiveInvite') return await getActiveInvite(OPENID);
+    if (event.action === 'joinCouple') return await joinCouple(OPENID, event.code, event.anniversary);
+    if (event.action === 'unbindPartner') return await unbindPartner(OPENID);
     return fail('UNKNOWN_ACTION', '不支持的操作');
   } catch (error) {
     console.error('coupleApi error', error.code || error.message);

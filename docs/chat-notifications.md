@@ -95,7 +95,7 @@ sequenceDiagram
 
 ## 部署要求
 
-1. 首次运行按[云开发部署说明](./cloud-setup.md)创建全部集合并部署 4 个云函数。
+1. 首次运行按[云开发部署说明](./cloud-setup.md)创建全部集合并部署所有云函数。
 2. 本次更新必须重新部署 `chatApi`，并上传当前小程序前端。`authApi` 不承担信标初始化；本次仅修改前端 `utils/auth.js` 无需因此重部署 `authApi`。若同时改了 `authApi` 源代码，则另行部署对应版本。
 3. 创建 `chatSignals`，权限设置为自定义安全规则：
 

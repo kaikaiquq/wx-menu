@@ -10,6 +10,11 @@ module.exports = [
     url: '/pages/category/index',
   },
   {
+    icon: '⌖',
+    text: '位置',
+    url: '/pages/location/index',
+  },
+  {
     icon: '💬',
     text: '消息',
     url: '/pages/chat/index',

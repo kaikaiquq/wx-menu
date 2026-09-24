@@ -8,7 +8,7 @@
   >
     <view class="tab-icon-wrap">
       <view class="tab-icon">{{item.icon}}</view>
-      <view class="tab-badge" wx:if="{{index === 2 && chatUnread > 0}}">
+      <view class="tab-badge" wx:if="{{item.url === '/pages/chat/index' && chatUnread > 0}}">
         {{chatUnread > 99 ? '99+' : chatUnread}}
       </view>
     </view>

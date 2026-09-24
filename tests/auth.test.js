@@ -26,6 +26,7 @@ const setup = () => {
       start() { calls.start += 1; },
       stop() { calls.stop += 1; },
     },
+    './location-sharing': { syncSession() {}, stop() {} },
     './couple-config': { clearConfigCache() {} },
     './couple-wish': { clearCartCache() {} },
     './personal-config': { clearPersonalConfigCache() {} },

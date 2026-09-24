@@ -1,0 +1,95 @@
+<view class="location-page {{themeClass}}">
+  <view class="location-heading">
+    <view>
+      <view class="location-eyebrow">OUR MAP</view>
+      <view class="location-title">在你身边</view>
+      <view class="location-subtitle">打开这里，先看看 TA 在哪里</view>
+    </view>
+    <view class="sharing-badge {{sharing ? 'sharing-badge-active' : ''}}">
+      <view class="sharing-dot" />{{sharing ? '共享已开启' : '共享已关闭'}}
+    </view>
+  </view>
+
+  <view class="connection-banner" wx:if="{{connectionText}}" bind:tap="retryConnection">{{connectionText}}</view>
+  <view class="privacy-card privacy-card-top" wx:if="{{privacyRequired && hasPartner}}">
+    <view class="privacy-title">共享前，请确认隐私说明</view>
+    <view class="privacy-description">我们将在获得定位授权后，获取你的位置并展示给已绑定的伴侣。你可以随时关闭共享。</view>
+    <button class="privacy-link" bind:tap="openPrivacyContract">查看{{privacyContractName}}</button>
+    <button id="locationPrivacyAgree" class="button-primary" open-type="agreePrivacyAuthorization" bindagreeprivacyauthorization="onPrivacyAgreed">同意并继续</button>
+  </view>
+  <view class="permission-card" wx:if="{{permissionDenied && hasPartner}}">
+    <view class="privacy-description">位置权限未开启，仍可查看 TA 已分享的位置。</view>
+    <button class="settings-button" bind:tap="openLocationSettings">前往设置位置权限</button>
+  </view>
+
+  <view class="map-card">
+    <map
+      wx:if="{{hasMap}}"
+      id="couple-map"
+      class="couple-map"
+      latitude="{{latitude}}"
+      longitude="{{longitude}}"
+      scale="{{scale}}"
+      min-scale="3"
+      max-scale="20"
+      markers="{{markers}}"
+      include-points="{{includePoints}}"
+      enable-scroll="{{true}}"
+      enable-zoom="{{true}}"
+      enable-rotate="{{false}}"
+      show-location="{{false}}"
+      bindregionchange="onRegionChange"
+    />
+    <view class="map-empty" wx:else>
+      <view class="map-empty-orbit orbit-one" />
+      <view class="map-empty-orbit orbit-two" />
+      <view class="map-empty-symbol">⌖</view>
+      <view class="map-empty-title">{{loading ? '正在连接我们的位置' : hasPartner ? '等一个位置，拉近一点距离' : '先和 TA 建立连接'}}</view>
+      <view class="map-empty-text">{{loading ? '稍等一下，很快就好' : hasPartner ? '允许位置授权后，自动向 TA 共享\nTA 的位置更新也会自动出现在这里' : '绑定伴侣后，才能相互分享位置'}}</view>
+      <button wx:if="{{!loading && !hasPartner}}" class="button-primary bind-button" bind:tap="goBindPartner">去绑定伴侣</button>
+    </view>
+    <view class="map-caption">
+      <view class="map-caption-dot" />
+      <text>{{viewText}}</text>
+    </view>
+  </view>
+
+  <view class="map-controls" wx:if="{{hasPartner}}">
+    <button class="map-control {{followMode === 'partner' ? 'map-control-active' : ''}}" bind:tap="showPartner">♡ 看 TA</button>
+    <button class="map-control {{followMode === 'self' ? 'map-control-active' : ''}}" bind:tap="showSelf">⌖ 看自己</button>
+    <button class="map-control {{followMode === 'both' ? 'map-control-active' : ''}}" disabled="{{!hasSelf || !hasPartnerPoint}}" bind:tap="showBoth">◎ 显示双方</button>
+  </view>
+
+  <view class="people-card" wx:if="{{hasPartner}}">
+    <view class="person-row">
+      <view class="person-icon person-icon-partner">TA</view>
+      <view class="person-copy">
+        <view class="person-name">{{partnerName}}</view>
+        <view class="person-update {{partnerStale ? 'person-update-stale' : ''}}">{{partnerUpdateText}}</view>
+      </view>
+      <view class="person-state {{hasPartnerPoint && !partnerStale ? 'person-state-fresh' : ''}}">{{hasPartnerPoint ? partnerStale ? '上次位置' : '已更新' : '等待 TA'}}</view>
+    </view>
+    <view class="person-divider" />
+    <view class="person-row">
+      <view class="person-icon person-icon-self">我</view>
+      <view class="person-copy">
+        <view class="person-name">我的位置</view>
+        <view class="person-update {{selfStale ? 'person-update-stale' : ''}}">{{sharing || hasSelf ? selfUpdateText : '共享关闭，开启后 TA 才能看到你'}}</view>
+      </view>
+      <view class="person-state {{sharing ? 'person-state-fresh' : ''}}">{{sharing ? '共享中' : hasSelf ? '上次位置' : '未共享'}}</view>
+    </view>
+  </view>
+
+  <view class="sharing-card" wx:if="{{hasPartner}}">
+    <view class="sharing-title">把位置，分享给你</view>
+    <view class="sharing-description">进入位置页并允许授权后，在小程序前台向伴侣共享位置；切换其他页面仍会更新，后台暂停，关闭后清除共享位置。</view>
+    <view class="sharing-footnote">双方需各自授权。仅保存最新位置，不记录移动轨迹。主动关闭后，再进入本页也不会自动开启。</view>
+    <view class="error-message" wx:if="{{errorText}}">{{errorText}}</view>
+    <button wx:if="{{errorText && !permissionDenied && !privacyRequired}}" class="settings-button" bind:tap="retryConnection">重试同步</button>
+    <button wx:if="{{sharing}}" class="button-secondary sharing-action" disabled="{{actionPending}}" loading="{{actionPending}}" bind:tap="disableSharing">关闭位置共享</button>
+    <button wx:elif="{{!privacyRequired}}" class="button-primary sharing-action" disabled="{{actionPending || starting}}" loading="{{actionPending || starting}}" bind:tap="enableSharing">{{starting ? '正在获取位置…' : '开启我的位置共享'}}</button>
+    <button wx:if="{{!sharing && hasSelf}}" class="button-secondary sharing-action" disabled="{{actionPending}}" bind:tap="disableSharing">清除我的共享位置</button>
+    <view class="sharing-footnote">位置未获授权时，也可以查看 TA 已分享的位置。</view>
+  </view>
+  <view class="error-message standalone-error" wx:elif="{{errorText}}" bind:tap="retryConnection">{{errorText}} · 点击重试</view>
+</view>

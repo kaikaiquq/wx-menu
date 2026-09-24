@@ -2,6 +2,7 @@
   "pages": [
     "pages/home/home",
     "pages/category/index",
+    "pages/location/index",
     "pages/chat/index",
     "pages/chat/friends",
     "pages/chat/group",
@@ -32,6 +33,10 @@
         "text": "点单"
       },
       {
+        "pagePath": "pages/location/index",
+        "text": "位置"
+      },
+      {
         "pagePath": "pages/chat/index",
         "text": "消息"
       },
@@ -52,9 +57,13 @@
     "navigationBarTextStyle": "black"
   },
   "permission": {
+    "scope.userLocation": {
+      "desc": "用于向已绑定伴侣共享你的位置，在小程序前台更新"
+    },
     "scope.record": {
       "desc": "用于发送语音消息"
     }
   },
+  "requiredPrivateInfos": ["getLocation", "startLocationUpdate", "onLocationChange"],
   "sitemapLocation": "sitemap.json"
 }
