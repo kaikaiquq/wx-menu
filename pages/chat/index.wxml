@@ -22,7 +22,7 @@
               <view class="conversation-avatar conversation-avatar-fallback" wx:else>
                 {{item.isCouple ? '♡' : (item.type === 'group' ? '群' : (item.title[0] || '友'))}}
               </view>
-              <view class="unread-badge" wx:if="{{item.unreadCount > 0 && activeId !== item.id}}">
+              <view class="unread-badge" wx:if="{{item.unreadCount > 0}}">
                 {{item.unreadCount > 99 ? '99+' : item.unreadCount}}
               </view>
               <view class="couple-badge" wx:if="{{item.isCouple}}">对象</view>
@@ -125,6 +125,9 @@
     <view class="chat-main">
       <view class="chat-header" bind:tap="dismissComposerExtras">
         <view class="chat-header-title">{{activeTitle}}</view>
+      </view>
+      <view class="connection-notice" wx:if="{{connectionText}}" bind:tap="retryConnection" aria-role="button" aria-label="重试消息连接">
+        {{connectionText}}
       </view>
 
       <view class="message-wrap">

@@ -428,6 +428,16 @@ page {
   font-weight: 600;
 }
 
+.connection-notice {
+  background: #fff4da;
+  color: #836323;
+  flex-shrink: 0;
+  font-size: 22rpx;
+  line-height: 1.5;
+  padding: 14rpx 20rpx;
+  text-align: center;
+}
+
 .message-scroll {
   box-sizing: border-box;
   height: 100%;

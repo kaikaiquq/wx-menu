@@ -5,6 +5,7 @@ const {
   listFriendRequests,
   listFriends,
   listMessages,
+  markConversationRead,
   openDirectChat,
   rejectFriendRequest,
   removeFriend,
@@ -17,6 +18,13 @@ const { resolveCloudFileUrl, resolveCloudFileUrls, uploadFileToCloud } = require
 const { getStoredThemeClass, syncTheme } = require('../../utils/theme');
 const chatUnread = require('../../utils/chat-unread');
 const { EMOJI_LIST } = require('./emoji-data');
+
+const CONNECTION_TEXT = {
+  connecting: '正在连接消息服务…',
+  reconnecting: '消息连接中断，正在重连…',
+  offline: '网络已断开，联网后自动恢复',
+  error: '消息连接失败，请点击重试',
+};
 
 const conversationFingerprint = (list = []) =>
   list
@@ -122,6 +130,7 @@ Page({
     addId: '',
     avatarMap: {},
     conversations: [],
+    connectionText: '',
     draft: '',
     emojiList: EMOJI_LIST,
     filteredFriends: [],
@@ -147,15 +156,10 @@ Page({
     voiceMode: false,
   },
 
-  pollTimer: null,
-  signalWatcher: null,
-  polling: false,
   conversationFp: '',
   messageFp: '',
   conversationAvatarsReady: false,
   friendAvatarsReady: false,
-  signalWatchReady: false,
-  usingWatch: false,
   unreadUnsubscribe: null,
   recorder: null,
   recorderStartedAt: 0,
@@ -163,10 +167,17 @@ Page({
   audioCtx: null,
 
   async onShow() {
+    this._visible = true;
+    const generation = this._viewGeneration = (this._viewGeneration || 0) + 1;
+    this._readCursors = {};
+    this._signalBusy = false;
+    this._signalPending = false;
+    this._signalNeedsMessages = false;
+    this._initialLoading = true;
     this.getTabBar()?.init?.();
     chatUnread.start();
     const session = await requireSession({ requireCouple: false });
-    if (!session) return;
+    if (!session || !this.isViewCurrent(generation)) return;
     const openid = session.user?.openid || getSelfOpenid();
     const patch = {
       myOpenid: openid || '',
@@ -183,6 +194,7 @@ Page({
         patch.avatarMap = { ...this.data.avatarMap, [openid]: myAvatar };
       }
     }
+    if (!this.isViewCurrent(generation)) return;
     this.setData(patch);
     const preferredId = wx.getStorageSync('couple.chat.activeId') || '';
     if (preferredId) {
@@ -191,11 +203,14 @@ Page({
     }
 
     // 先快速出会话列表（不换头像），再后台补头像；监听不阻塞首屏
-    this.startRealtime(openid);
+    this.startRealtime();
     await this.refreshConversations(true, {
       includeAvatars: false,
       skipMessages: false,
     });
+    if (!this.isViewCurrent(generation)) return;
+    this._initialLoading = false;
+    if (this._signalPending) this.onChatSignal({ kind: 'state' });
     if (!this.conversationAvatarsReady) {
       this.loadAvatarsInBackground();
     }
@@ -204,9 +219,11 @@ Page({
   /** 首屏后再补头像，避免 getTempFileURL 卡住进页 */
   async loadAvatarsInBackground() {
     if (this._avatarLoading) return;
+    const generation = this._viewGeneration;
     this._avatarLoading = true;
     try {
       const { conversations } = await listConversations({ includeAvatars: true });
+      if (!this.isViewCurrent(generation)) return;
       const avatarMap = collectAvatarMap(
         this.data.avatarMap,
         collectPeopleFromConversations(conversations),
@@ -232,100 +249,105 @@ Page({
     this.cancelRecording(true);
   },
 
-  startRealtime(openid) {
-    this.stopRealtime();
-    // 信标推送（若可用）仍订阅；全局轮询已关，本页自行轮询
+  isViewCurrent(generation) {
+    return this._visible && this._viewGeneration === generation;
+  },
+
+  syncActiveConversation() {
+    chatUnread.setActiveConversation(this._visible && !this.data.showFriends ? this.data.activeId : '');
+  },
+
+  updateConnectionStatus(status) {
+    const connectionText = CONNECTION_TEXT[status] ||
+      (this._conversationSyncError || this._messageSyncError ? '消息同步失败，点击重试' : '');
+    if (connectionText !== this.data.connectionText) this.setData({ connectionText });
+  },
+
+  syncUnreadSummary(byId = {}) {
+    const conversations = this.data.conversations.map((item) => ({
+      ...item,
+      unreadCount: Math.max(0, Number(byId[item.id] || 0)),
+    }));
+    const nextFp = conversationFingerprint(conversations);
+    if (nextFp === this.conversationFp) return;
+    this.conversationFp = nextFp;
+    this.setData({ conversations });
+  },
+
+  startRealtime() {
+    if (this.unreadUnsubscribe) this.unreadUnsubscribe();
+    // 全局 watch 负责连接；页面仅消费推送，不创建轮询或第二条连接。
     this.unreadUnsubscribe = chatUnread.subscribe((event) => {
-      if (!event) return;
-      if (event.type === 'signal') {
-        this.onChatSignal(event.conversationId || '');
-      }
+      if (!event || !this._visible) return;
+      if (event.type === 'signal' && (event.initial || event.kind === 'message')) this.onChatSignal(event);
+      if (event.type === 'summary') this.syncUnreadSummary(event.byId);
+      if (event.type === 'status') this.updateConnectionStatus(event.status);
     });
-    this.usingWatch = true;
+    this.updateConnectionStatus(chatUnread.getState().status);
+    this.syncActiveConversation();
     chatUnread.start();
-    if (openid) {
-      this.pollTimer = setInterval(() => {
-        this.onChatSignal(this.data.activeId || '');
-      }, 3000);
-    }
   },
 
   stopRealtime() {
+    this._visible = false;
+    this._viewGeneration = (this._viewGeneration || 0) + 1;
+    this._signalPending = false;
+    this._signalNeedsMessages = false;
+    chatUnread.setActiveConversation('');
     if (this.unreadUnsubscribe) {
       this.unreadUnsubscribe();
       this.unreadUnsubscribe = null;
     }
-    this.stopSignalWatch();
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-    this.polling = false;
   },
 
-  startSignalWatch() {
-    // 已迁移到 utils/chat-unread 全局监听
-    return false;
+  retryConnection() {
+    chatUnread.retry();
+    this.onChatSignal({ kind: 'message' });
   },
 
-  stopSignalWatch() {
-    if (this.signalWatcher && this.signalWatcher.close) {
-      try {
-        this.signalWatcher.close();
-      } catch (error) {
-        // ignore
-      }
-    }
-    this.signalWatcher = null;
-    this.signalWatchReady = false;
-  },
-
-  async onChatSignal(conversationId) {
-    if (this.data.showFriends) return;
-    if (this._signalBusy) {
-      this._signalPending = conversationId || this._signalPending || '';
-      return;
-    }
+  async onChatSignal(event = {}) {
+    if (!this._visible) return;
+    this._signalPending = true;
+    this._signalNeedsMessages = this._signalNeedsMessages || event.initial || event.kind !== 'state';
+    if (this._signalBusy || this._initialLoading) return;
     this._signalBusy = true;
+    const generation = this._viewGeneration;
     try {
-      const tasks = [
-        this.refreshConversations(false, { includeAvatars: false, skipMessages: true }),
-      ];
-      const targetId = conversationId || this.data.activeId;
-      if (targetId && targetId === this.data.activeId) {
-        tasks.unshift(this.loadMessages(this.data.activeId, true));
+      while (this._signalPending && this.isViewCurrent(generation)) {
+        const loadMessages = this._signalNeedsMessages;
+        this._signalPending = false;
+        this._signalNeedsMessages = false;
+        const tasks = [this.refreshConversations(false, { includeAvatars: false, skipMessages: true })];
+        // 信标可能合并多个会话的变化，始终检查当前会话，不能只信最后的 conversationId。
+        if (loadMessages && this.data.activeId && !this.data.showFriends) {
+          tasks.push(this.loadMessages(this.data.activeId, true));
+        }
+        await Promise.all(tasks);
       }
-      await Promise.all(tasks);
     } finally {
-      this._signalBusy = false;
-      if (this._signalPending !== undefined && this._signalPending !== null) {
-        const pending = this._signalPending;
-        this._signalPending = null;
-        this.onChatSignal(pending);
-      }
-    }
-  },
-
-  async pollMessages() {
-    if (this.polling || this.data.showFriends || !this.data.activeId) return;
-    this.polling = true;
-    try {
-      await this.loadMessages(this.data.activeId, true);
-    } finally {
-      this.polling = false;
+      if (this.isViewCurrent(generation)) this._signalBusy = false;
     }
   },
 
   async refreshConversations(selectDefault, options = {}) {
+    const generation = this._viewGeneration;
+    const request = this._conversationRequest = (this._conversationRequest || 0) + 1;
     const includeAvatars = options.includeAvatars === true;
     try {
-      const { conversations } = await listConversations({ includeAvatars });
+      const result = await listConversations({ includeAvatars });
+      if (!this.isViewCurrent(generation) || request !== this._conversationRequest) return;
+      this._conversationSyncError = false;
+      this.updateConnectionStatus(chatUnread.getState().status);
+      const byId = chatUnread.getState().byId || {};
+      const conversations = result.conversations.map((item) => ({
+        ...item,
+        unreadCount: Math.max(0, Number(byId[item.id] || 0)),
+      }));
       let activeId = this.data.activeId;
-      if (selectDefault) {
-        if (!activeId || !conversations.some((item) => item.id === activeId)) {
-          activeId = conversations.find((item) => item.isCouple)?.id || conversations[0]?.id || '';
-        }
+      if (!activeId || (selectDefault && !conversations.some((item) => item.id === activeId))) {
+        activeId = conversations.find((item) => item.isCouple)?.id || conversations[0]?.id || '';
       }
+      const activeChanged = activeId !== this.data.activeId;
       const active = conversations.find((item) => item.id === activeId);
       const nextFp = conversationFingerprint(conversations);
       const patch = {};
@@ -363,66 +385,77 @@ Page({
       }
       if (Object.keys(patch).length) this.setData(patch);
 
-      const listForBadge = patch.conversations || this.data.conversations;
-      chatUnread.syncFromConversations(listForBadge);
+      this.syncActiveConversation();
 
       // 消息单独拉，不堵在同一条关键路径的头像逻辑里
-      if (!options.skipMessages && activeId) {
-        this.loadMessages(activeId, !selectDefault);
+      if ((!options.skipMessages || activeChanged) && activeId && !this.data.showFriends) {
+        await this.loadMessages(activeId, !selectDefault);
       }
     } catch (error) {
+      if (!this.isViewCurrent(generation) || request !== this._conversationRequest) return;
+      this._conversationSyncError = true;
+      this.updateConnectionStatus(chatUnread.getState().status);
       if (this.data.loading) this.setData({ loading: false });
       if (selectDefault) wx.showToast({ title: error.message || '会话加载失败', icon: 'none' });
     }
   },
 
-  clearLocalUnread(conversationId) {
-    if (!conversationId) return;
-    const conversations = this.data.conversations;
-    const index = conversations.findIndex((item) => item.id === conversationId);
-    if (index < 0 || !conversations[index].unreadCount) return;
-    const nextList = conversations.map((item, i) => (i === index ? { ...item, unreadCount: 0 } : item));
-    this.setData({
-      [`conversations[${index}].unreadCount`]: 0,
-    });
-    this.conversationFp = conversationFingerprint(nextList);
-    chatUnread.syncFromConversations(nextList);
-  },
-
   async loadMessages(conversationId, silent) {
+    if (!this._visible || this.data.showFriends) return;
+    const generation = this._viewGeneration;
+    const request = this._messageRequest = (this._messageRequest || 0) + 1;
+    const isCurrent = () => this.isViewCurrent(generation) && !this.data.showFriends &&
+      this.data.activeId === conversationId && request === this._messageRequest;
     try {
-      const { messages } = await listMessages(conversationId, 40);
-      if (this.data.activeId !== conversationId) return;
+      const { messages, readCursor } = await listMessages(conversationId, 40);
+      if (!isCurrent()) return;
+      this._messageSyncError = false;
+      this.updateConnectionStatus(chatUnread.getState().status);
       const decorated = decorateMessages(messages);
       const nextFp = messageFingerprint(decorated);
-      this.clearLocalUnread(conversationId);
-      if (nextFp === this.messageFp) {
-        this.resolveMessageImages(decorated);
-        return;
-      }
+      const acknowledge = async () => {
+        if (!readCursor || !isCurrent()) return;
+        const cursorKey = JSON.stringify(readCursor);
+        this._readCursors = this._readCursors || {};
+        if (this._readCursors[conversationId] === cursorKey) return;
+        try {
+          const result = await markConversationRead(conversationId, readCursor);
+          if (!isCurrent() || !result.applied) return;
+          this._readCursors[conversationId] = cursorKey;
+          // 角标由全局摘要同步；旧已读响应不能覆盖稍后到达的新消息计数。
+        } catch (error) {
+          console.warn('mark conversation read failed', error?.message || error);
+        }
+      };
+      // 仅在视图渲染完成且用户仍停留于本会话时提交已读游标。
+      const patch = nextFp === this.messageFp ? {} : { messages: decorated };
       this.messageFp = nextFp;
-      this.setData({ messages: decorated });
+      this.setData(patch, acknowledge);
       this.resolveMessageImages(decorated);
       if (!silent) {
         const target = `msg-${Math.max(decorated.length - 1, 0)}`;
         this.setData({ scrollIntoView: '' });
         wx.nextTick(() => {
-          this.setData({ scrollIntoView: target });
+          if (isCurrent()) this.setData({ scrollIntoView: target });
         });
       }
     } catch (error) {
+      if (!isCurrent()) return;
+      this._messageSyncError = true;
+      this.updateConnectionStatus(chatUnread.getState().status);
       if (!silent) wx.showToast({ title: error.message || '消息加载失败', icon: 'none' });
     }
   },
 
   async resolveMessageImages(messages = []) {
+    const generation = this._viewGeneration;
     const ids = messages
       .filter((item) => (item.msgType === 'image' || item.type === 'image') && item.imageFileId)
       .map((item) => item.imageFileId)
       .filter((id) => id.startsWith('cloud://') && !this.data.imageUrlMap[id]);
     if (!ids.length) return;
     const map = await resolveCloudFileUrls(ids);
-    if (!Object.keys(map).length) return;
+    if (!this.isViewCurrent(generation) || !Object.keys(map).length) return;
     this.setData({
       imageUrlMap: { ...this.data.imageUrlMap, ...map },
     });
@@ -442,6 +475,7 @@ Page({
       showEmoji: false,
       showFriends: false,
     });
+    this.syncActiveConversation();
     this.loadMessages(id, false);
   },
 
@@ -537,6 +571,8 @@ Page({
 
   async uploadAndSendImage(tempFilePath) {
     if (!this.data.activeId || this.data.sending) return;
+    const conversationId = this.data.activeId;
+    const generation = this._viewGeneration;
     this.setData({ sending: true });
     wx.showLoading({ title: '发送图片中' });
     try {
@@ -544,7 +580,7 @@ Page({
       const safeExt = /^[a-z0-9]{1,5}$/.test(extension) ? extension : 'jpg';
       const cloudPath = `chat/image/${Date.now()}-${Math.random().toString(36).slice(2)}.${safeExt}`;
       const fileID = await uploadFileToCloud(tempFilePath, cloudPath);
-      const { message } = await sendImageMessage(this.data.activeId, { imageFileId: fileID });
+      const { message } = await sendImageMessage(conversationId, { imageFileId: fileID });
       const decorated = decorateMessages([
         {
           ...message,
@@ -554,24 +590,13 @@ Page({
           imageUrl: tempFilePath,
         },
       ])[0];
-      const messages = [...this.data.messages, decorated];
-      this.messageFp = messageFingerprint(messages);
-      this.setData({
-        messages,
-        sending: false,
-        showEmoji: false,
+      this.showSentMessage(conversationId, decorated, generation, {
         imageUrlMap: {
           ...this.data.imageUrlMap,
           [fileID]: tempFilePath,
         },
       });
-      this.conversationFp = '';
-      this.refreshConversations(false, { includeAvatars: false, skipMessages: true });
       wx.hideLoading();
-      wx.nextTick(() => {
-        this.setData({ scrollIntoView: `msg-${messages.length - 1}` });
-      });
-      this.resolveMessageImages([decorated]);
     } catch (error) {
       wx.hideLoading();
       this.setData({ sending: false });
@@ -829,12 +854,14 @@ Page({
 
   async uploadAndSendVoice(tempFilePath, voiceDuration) {
     if (!this.data.activeId || this.data.sending) return;
+    const conversationId = this.data.activeId;
+    const generation = this._viewGeneration;
     this.setData({ sending: true });
     wx.showLoading({ title: '发送语音中' });
     try {
       const cloudPath = `chat/voice/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
       const fileID = await uploadFileToCloud(tempFilePath, cloudPath);
-      const { message } = await sendVoiceMessage(this.data.activeId, {
+      const { message } = await sendVoiceMessage(conversationId, {
         voiceDuration,
         voiceFileId: fileID,
       });
@@ -847,19 +874,8 @@ Page({
           voiceFileId: message.voiceFileId || fileID,
         },
       ])[0];
-      const messages = [...this.data.messages, decorated];
-      this.messageFp = messageFingerprint(messages);
-      this.setData({
-        messages,
-        sending: false,
-        showEmoji: false,
-      });
-      this.conversationFp = '';
-      this.refreshConversations(false, { includeAvatars: false, skipMessages: true });
+      this.showSentMessage(conversationId, decorated, generation);
       wx.hideLoading();
-      wx.nextTick(() => {
-        this.setData({ scrollIntoView: `msg-${messages.length - 1}` });
-      });
     } catch (error) {
       wx.hideLoading();
       this.setData({ sending: false });
@@ -915,27 +931,36 @@ Page({
   async submitMessage() {
     const text = (this.data.draft || '').trim();
     if (!text || !this.data.activeId || this.data.sending || this.data.voiceMode) return;
+    const conversationId = this.data.activeId;
+    const generation = this._viewGeneration;
     this.setData({ sending: true });
     try {
-      const { message } = await sendMessage(this.data.activeId, text);
+      const { message } = await sendMessage(conversationId, text);
       const decorated = decorateMessages([message])[0];
-      const messages = [...this.data.messages, decorated];
-      this.messageFp = messageFingerprint(messages);
-      this.setData({
-        draft: '',
-        messages,
-        sending: false,
-        showEmoji: false,
-      });
-      this.conversationFp = '';
-      this.refreshConversations(false, { includeAvatars: false });
-      wx.nextTick(() => {
-        this.setData({ scrollIntoView: `msg-${messages.length - 1}` });
-      });
+      this.showSentMessage(conversationId, decorated, generation, { draft: '' });
     } catch (error) {
       this.setData({ sending: false });
       wx.showToast({ title: error.message || '发送失败', icon: 'none' });
     }
+  },
+
+  showSentMessage(conversationId, message, generation, extraPatch = {}) {
+    this.setData({ sending: false });
+    if (!this.isViewCurrent(generation)) return;
+    if (this.data.activeId === conversationId) {
+      // 推送回拉可能先于发送响应到达，按 ID 去重，且不把 A 会话的消息插入 B。
+      const messages = this.data.messages.some((item) => item.id === message.id)
+        ? this.data.messages : [...this.data.messages, message];
+      this._messageRequest = (this._messageRequest || 0) + 1;
+      this.messageFp = messageFingerprint(messages);
+      this.setData({ ...extraPatch, messages, showEmoji: false });
+      wx.nextTick(() => {
+        if (this.isViewCurrent(generation) && this.data.activeId === conversationId) {
+          this.setData({ scrollIntoView: `msg-${messages.length - 1}` });
+        }
+      });
+    }
+    this.onChatSignal({ kind: 'message' });
   },
 
   async openFriendsPanel() {
@@ -944,12 +969,15 @@ Page({
       showEmoji: false,
       inputFocus: false,
     });
+    this.syncActiveConversation();
     await this.refreshFriendsPanel();
   },
 
   closeFriendsPanel() {
     if (!this.data.showFriends) return;
     this.setData({ showFriends: false });
+    this.syncActiveConversation();
+    this.onChatSignal({ kind: 'message' });
   },
 
   async refreshFriendsPanel() {
@@ -1046,9 +1074,12 @@ Page({
 
   async chatFriend(event) {
     const friendOpenid = event.currentTarget.dataset.openid;
+    const generation = this._viewGeneration;
     try {
       const { conversationId } = await openDirectChat(friendOpenid);
+      if (!this.isViewCurrent(generation)) return;
       this.setData({ activeId: conversationId, showFriends: false });
+      this.syncActiveConversation();
       this.conversationFp = '';
       this.messageFp = '';
       await this.refreshConversations(true, { includeAvatars: !this.conversationAvatarsReady });

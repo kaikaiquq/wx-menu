@@ -4,11 +4,21 @@ let session = null;
 let sessionFetchedAt = 0;
 let bootstrapPromise = null;
 let redirecting = false;
+let sessionGeneration = 0;
+let bootstrapRequestId = 0;
 const LOGGED_OUT_KEY = 'couple.menu.loggedOut';
+const OPENID_KEY = 'couple.menu.openid';
 /** 切 Tab 复用会话，避免每次都打 authApi */
 const SESSION_TTL_MS = 90 * 1000;
 
 const isSessionFresh = () => session && Date.now() - sessionFetchedAt < SESSION_TTL_MS;
+
+const sessionChangedError = () => {
+  const loggedOut = Boolean(wx.getStorageSync(LOGGED_OUT_KEY));
+  const error = new Error(loggedOut ? '请点击微信登录' : '登录状态已更新');
+  error.code = loggedOut ? 'LOGGED_OUT' : 'SESSION_CHANGED';
+  return error;
+};
 
 const bootstrap = async (force = false, interactive = false) => {
   if (wx.getStorageSync(LOGGED_OUT_KEY) && !interactive) {
@@ -19,12 +29,24 @@ const bootstrap = async (force = false, interactive = false) => {
   if (!force && isSessionFresh()) return session;
   if (bootstrapPromise && !force) return bootstrapPromise;
 
-  bootstrapPromise = callCloud('authApi', 'bootstrap', {}, { interactiveLogin: interactive })
+  const generation = sessionGeneration;
+  const requestId = ++bootstrapRequestId;
+  const request = callCloud('authApi', 'bootstrap', {}, { interactiveLogin: interactive })
     .then((data) => {
+      // 退出 / 重新登录后，旧请求不得恢复 session 或重新启动旧身份的监听。
+      if (generation !== sessionGeneration || wx.getStorageSync(LOGGED_OUT_KEY)) {
+        throw sessionChangedError();
+      }
+      if (requestId !== bootstrapRequestId) {
+        // 同一身份同时强制刷新时，较早的调用也等待最新结果，避免资料回滚。
+        if (bootstrapPromise && bootstrapPromise !== request) return bootstrapPromise;
+        if (session) return session;
+        throw sessionChangedError();
+      }
       session = data;
       sessionFetchedAt = Date.now();
       if (data.user?.openid) {
-        wx.setStorageSync('couple.menu.openid', data.user.openid);
+        wx.setStorageSync(OPENID_KEY, data.user.openid);
         try {
           require('./chat-unread').start();
         } catch (error) {
@@ -38,26 +60,23 @@ const bootstrap = async (force = false, interactive = false) => {
       return session;
     })
     .finally(() => {
-      bootstrapPromise = null;
+      if (bootstrapPromise === request) bootstrapPromise = null;
     });
+  bootstrapPromise = request;
   return bootstrapPromise;
 };
 
 const getSession = () => session;
 
-const getSelfOpenid = () => session?.user?.openid || wx.getStorageSync('couple.menu.openid') || '';
+const getSelfOpenid = () =>
+  isLoggedOut() ? '' : session?.user?.openid || wx.getStorageSync(OPENID_KEY) || '';
 
 const refreshSession = () => bootstrap(true);
 
 const login = async () => {
+  clearSession();
   wx.removeStorageSync(LOGGED_OUT_KEY);
-  const session = await bootstrap(true, true);
-  try {
-    require('./chat-unread').start();
-  } catch (error) {
-    // ignore
-  }
-  return session;
+  return bootstrap(true, true);
 };
 
 const updateProfile = async ({ nickname, avatarFileId, gender }) => {
@@ -93,11 +112,6 @@ const unbindPartner = async () => {
 const logout = () => {
   wx.setStorageSync(LOGGED_OUT_KEY, true);
   clearSession();
-  try {
-    require('./chat-unread').stop();
-  } catch (error) {
-    // ignore
-  }
   const { clearConfigCache } = require('./couple-config');
   const { clearCartCache } = require('./couple-wish');
   const { clearPersonalConfigCache } = require('./personal-config');
@@ -132,6 +146,7 @@ const requireSession = async ({ force = false, requireCouple = true } = {}) => {
     await migrateLegacyData(current);
     return current;
   } catch (error) {
+    if (error.code === 'SESSION_CHANGED') return null;
     if (error.code === 'LOGGED_OUT') {
       wx.reLaunch({ url: '/pages/auth/index' });
       return null;
@@ -142,16 +157,25 @@ const requireSession = async ({ force = false, requireCouple = true } = {}) => {
 };
 
 const clearSession = () => {
+  sessionGeneration += 1;
+  bootstrapRequestId += 1;
   session = null;
   sessionFetchedAt = 0;
   bootstrapPromise = null;
+  redirecting = false;
+  wx.removeStorageSync(OPENID_KEY);
+  try {
+    require('./chat-unread').stop();
+  } catch (error) {
+    // ignore
+  }
 };
 
 /** 启动时预热会话，首个 Tab 少等一轮云函数冷启动 */
 const prefetchSession = () => {
   if (isLoggedOut()) return Promise.resolve(null);
   return bootstrap(false).catch((error) => {
-    if (error.code !== 'LOGGED_OUT') {
+    if (!['LOGGED_OUT', 'SESSION_CHANGED'].includes(error.code)) {
       console.warn('prefetchSession failed', error.message || error);
     }
     return null;

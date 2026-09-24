@@ -11,6 +11,10 @@
         "type": "folder"
       },
       {
+        "value": "tests",
+        "type": "folder"
+      },
+      {
         "value": "node_modules",
         "type": "folder"
       },

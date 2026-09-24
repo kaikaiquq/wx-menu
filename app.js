@@ -42,6 +42,6 @@ App({
   },
 
   onHide() {
-    // 保持 watch，后台仍尽量收信标；不在这里 stop
+    chatUnread.onAppHide();
   },
 });

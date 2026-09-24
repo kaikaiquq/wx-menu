@@ -35,7 +35,7 @@
 - `messages`（聊天消息）
 - `friendships`（好友关系）
 - `friendRequests`（好友申请）
-- `chatSignals`（聊天信标：对方发消息时推送，本端再按需拉取）
+- `chatSignals`（每个用户一个聊天信标：对方发消息时实时通知，本端按事件读取摘要）
 
 其余集合权限统一选择“仅云函数可读写”。不要开放客户端直接写入。
 
@@ -48,7 +48,7 @@
 }
 ```
 
-云函数仍可写入任意用户的信标；客户端只能监听自己的文档。未配置时会自动退回「仅在消息页内、每 30 秒」的低频消息轮询。
+云函数负责写入信标；客户端只能监听自己的文档，不能写入。**没有轮询降级**：集合或权限未配置时，实时提醒不可用，消息页会显示异常状态；修复后可点击重试。不要把 `chatSignals` 改成所有人可读写。
 
 建议创建以下索引：
 
@@ -60,13 +60,15 @@
 - `orders`：`coupleId + createdAt`；`coupleId + status + createdAt`
 - `userOrders`：`ownerOpenid + createdAt`
 - `mutationRequests`：`expiresAt`
-- `conversations`：`memberOpenids`；`coupleId + type`；`directKey + type`（会话文档可用 `unreadBy.{openid}` 存未读数，打开会话后清零）
-- `messages`：`conversationId + createdAt`
+- `conversations`：`memberOpenids + _id`（`_id` 升序，用于分页完整汇总）；`coupleId + type`；`directKey + type`（`unreadBy.{openid}` 保存未读数，读取并确认游标后再清零）
+- `messages`：`conversationId + createdAt + _id`（会话等值过滤，`createdAt` 与 `_id` 降序，读取最新消息后转为正序展示）
 - `friendships`：`memberOpenids`；`pairKey`
 - `friendRequests`：`toOpenid`；`fromOpenid`
 - `chatSignals`：文档 `_id` 为用户 openid（一般无需额外索引）
 
-修改聊天推送逻辑后，需要重新部署 `chatApi` 与 `authApi`。
+修改本次聊天推送逻辑后，需要重新部署 `chatApi` 并更新小程序前端。信标由 `chatApi` 初始化；仅修改前端 `utils/auth.js` 不需要重新部署 `authApi`。首次部署或修改对应云函数源码时，按下一节部署全部或相关函数。索引须等到构建完成后再验收。
+
+完整架构、成本对比、故障恢复和双账号验收见[聊天消息通知评估与实现方案](./chat-notifications.md)。此方案针对小程序前台聊天提醒；退出小程序后的微信服务通知需要另行配置订阅消息模板和用户授权。
 
 ## 4. 部署云函数
 
@@ -91,7 +93,9 @@
 4. 第二台手机登录后输入邀请码。
 5. 任一方修改菜单并保存，另一方重新进入页面应能看到更新。
 
-如果提示“云开发未配置”，优先检查 AppID、环境 ID及三个云函数是否部署成功。
+如果提示“云开发未配置”，优先检查 AppID、环境 ID及四个云函数是否部署成功。
+
+聊天额外验证：两个账号互发消息，接收方分别停留首页、心愿单、管理页，应有轻提示和消息 Tab 角标；进入当前会话后内容更新并确认已读。前台无消息静置时不应出现固定周期的消息云函数请求；断网恢复和回前台应自动重新监听。真实推送依赖云端部署与真机环境，本地测试通过不代表已经完成这些检查。
 
 ## 6. 分享邀请与空间绑定
 

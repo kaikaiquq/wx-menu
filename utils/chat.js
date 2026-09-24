@@ -5,6 +5,8 @@ const getUnreadSummary = () => callCloud('chatApi', 'getUnreadSummary');
 const ensureChatSignal = () => callCloud('chatApi', 'ensureChatSignal');
 const listMessages = (conversationId, limit = 30) =>
   callCloud('chatApi', 'listMessages', { conversationId, limit });
+const markConversationRead = (conversationId, readCursor) =>
+  callCloud('chatApi', 'markConversationRead', { conversationId, readCursor });
 const sendMessage = (conversationId, text, extra = {}) =>
   callCloud('chatApi', 'sendMessage', { conversationId, text, ...extra });
 const sendVoiceMessage = (conversationId, { voiceFileId, voiceDuration }) =>
@@ -41,6 +43,7 @@ module.exports = {
   listFriendRequests,
   listFriends,
   listMessages,
+  markConversationRead,
   openDirectChat,
   rejectFriendRequest,
   removeFriend,

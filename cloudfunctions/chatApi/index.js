@@ -9,7 +9,9 @@ const ok = (data) => ({ data, ok: true });
 const fail = (code, message, details) => ({ code, details, message, ok: false });
 const now = () => db.serverDate();
 const isNotFound = (error) =>
-  error?.errCode === -1 || String(error?.message || '').toLowerCase().includes('not exist');
+  /\bdocument(?:\s+with\s+_id\s+\S+)?\s+(?:does\s+)?not\s+(?:exists?|found)\b/i.test(
+    String(error?.message || error?.errMsg || error || ''),
+  );
 
 const isCollectionMissing = (error) => {
   const message = String(error?.message || error || '');
@@ -83,13 +85,58 @@ const findUserByPublicId = async (publicUserId) => {
   return result.data[0] || null;
 };
 
-const assertConversationMember = async (conversationId, openid) => {
-  const conversation = (await db.collection('conversations').doc(conversationId).get()).data;
-  if (!conversation.memberOpenids?.includes(openid)) {
+const assertConversationMember = async (conversationId, openid, database = db) => {
+  const conversation = (await database.collection('conversations').doc(conversationId).get()).data;
+  if (!conversation?.memberOpenids?.includes(openid)) {
     throw Object.assign(new Error('没有访问该会话的权限'), { code: 'FORBIDDEN' });
   }
   return conversation;
 };
+
+const getOptionalDocument = async (reference) => {
+  try {
+    return (await reference.get()).data || null;
+  } catch (error) {
+    // A missing collection or a failed request must never be mistaken for a new user.
+    if (isCollectionMissing(error) || !isNotFound(error)) throw error;
+    return null;
+  }
+};
+
+const loadConversations = async (openid) => {
+  const conversations = [];
+  let afterId = '';
+  while (true) {
+    const result = await db.collection('conversations')
+      .where({ memberOpenids: openid, ...(afterId ? { _id: _.gt(afterId) } : {}) })
+      .orderBy('_id', 'asc').limit(100).get();
+    const page = result.data || [];
+    conversations.push(...page);
+    if (page.length < 100) return conversations;
+    afterId = page[page.length - 1]._id;
+  }
+};
+
+const timestamp = (value) => {
+  const result = new Date(value || 0).getTime();
+  return Number.isFinite(result) ? result : 0;
+};
+
+const conversationReadCursor = (conversation) => ({
+  messageId: conversation.lastMessageId || '',
+  lastMessageAt: timestamp(conversation.lastMessageAt),
+  updatedAt: timestamp(conversation.updatedAt),
+});
+
+const matchesReadCursor = (conversation, cursor) => {
+  if (!cursor || typeof cursor !== 'object' || typeof cursor.messageId !== 'string') return false;
+  const current = conversationReadCursor(conversation);
+  if (current.messageId || cursor.messageId) return current.messageId === cursor.messageId;
+  // Legacy conversations acquire a message ID on their next send.
+  return current.lastMessageAt === cursor.lastMessageAt && current.updatedAt === cursor.updatedAt;
+};
+
+const signalMessageVersion = (signal) => Math.max(0, Number(signal?.messageVersion ?? signal?.bump) || 0);
 
 const ensureCoupleConversation = async (openid, user) => {
   if (!user.coupleId) return null;
@@ -198,18 +245,18 @@ const listConversations = async (openid, event = {}) => {
   const withAvatars = event.includeAvatars === true;
   const user = await getUser(openid);
 
-  let result = await db.collection('conversations').where({ memberOpenids: openid }).limit(50).get();
-  const hasCoupleChat = (result.data || []).some((item) => item.type === 'couple');
+  let records = await loadConversations(openid);
+  const hasCoupleChat = records.some((item) => item.type === 'couple' && item.coupleId === user.coupleId);
   if (!hasCoupleChat && user.coupleId) {
     await ensureCoupleConversation(openid, user);
-    result = await db.collection('conversations').where({ memberOpenids: openid }).limit(50).get();
+    records = await loadConversations(openid);
   }
 
-  const openids = [...new Set(result.data.flatMap((item) => item.memberOpenids || []))];
+  const openids = [...new Set(records.flatMap((item) => item.memberOpenids || []))];
   const profiles = await loadUsersByOpenids(openids, { withAvatars });
   const userMap = Object.fromEntries(profiles.map((item) => [item.openid, item]));
 
-  const conversations = await Promise.all(result.data.map((item) => formatConversation(item, openid, userMap)));
+  const conversations = await Promise.all(records.map((item) => formatConversation(item, openid, userMap)));
   conversations.sort((a, b) => {
     if (a.isCouple && !b.isCouple) return -1;
     if (!a.isCouple && b.isCouple) return 1;
@@ -223,12 +270,12 @@ const listConversations = async (openid, event = {}) => {
 const listMessages = async (openid, event) => {
   const conversationId = String(event.conversationId || '');
   if (!conversationId) return fail('INVALID_PARAMS', '缺少会话');
-  await assertConversationMember(conversationId, openid);
-  const limit = Math.max(1, Math.min(50, Number(event.limit) || 30));
-  const result = await db.collection('messages').where({ conversationId }).limit(100).get();
+  const conversation = await assertConversationMember(conversationId, openid);
+  const limit = Math.max(1, Math.min(50, Math.floor(Number(event.limit) || 30)));
+  const result = await db.collection('messages').where({ conversationId })
+    .orderBy('createdAt', 'desc').orderBy('_id', 'desc').limit(limit).get();
   const messages = result.data
-    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))
-    .slice(-limit)
+    .reverse()
     .map((item) => {
       const hasVoice = Boolean(item.voiceFileId) || item.type === 'voice';
       const hasImage = Boolean(item.imageFileId) || item.type === 'image';
@@ -248,20 +295,45 @@ const listMessages = async (openid, event) => {
       };
     });
 
-  // 打开会话即视为已读，清零未读角标
-  try {
-    await db.collection('conversations').doc(conversationId).update({
+  // Only a snapshot containing the observed head can be acknowledged after rendering.
+  const includesHead = conversation.lastMessageId
+    ? messages.some((item) => item.id === conversation.lastMessageId)
+    : messages.length > 0 || !(Number(conversation.unreadBy?.[openid]) > 0);
+  const readCursor = includesHead
+    ? conversationReadCursor(conversation)
+    : null;
+  return ok({ messages, readCursor });
+};
+
+const markConversationRead = async (openid, event) => {
+  const conversationId = String(event.conversationId || '');
+  if (!conversationId || !event.readCursor) return fail('INVALID_PARAMS', '缺少已显示消息的已读凭据');
+  return db.runTransaction(async (transaction) => {
+    const conversation = await assertConversationMember(conversationId, openid, transaction);
+    const unreadCount = Math.max(0, Number(conversation.unreadBy?.[openid]) || 0);
+    if (!matchesReadCursor(conversation, event.readCursor)) {
+      return ok({ applied: false, unreadCount });
+    }
+    if (!unreadCount) return ok({ applied: true, unreadCount: 0 });
+    const reference = transaction.collection('chatSignals').doc(openid);
+    const signal = await getOptionalDocument(reference);
+    await transaction.collection('conversations').doc(conversationId).update({
       data: {
         [`readAtBy.${openid}`]: now(),
         [`unreadBy.${openid}`]: 0,
-        updatedAt: now(),
       },
     });
-  } catch (error) {
-    console.warn('mark conversation read failed', error.message || error);
-  }
-
-  return ok({ messages });
+    const signalData = {
+      bump: Math.max(0, Number(signal?.bump) || 0) + 1,
+      conversationId,
+      kind: 'state',
+      messageVersion: signalMessageVersion(signal),
+      updatedAt: now(),
+    };
+    if (signal) await reference.update({ data: signalData });
+    else await reference.set({ data: signalData });
+    return ok({ applied: true, unreadCount: 0 });
+  });
 };
 
 const sendMessage = async (openid, event) => {
@@ -292,9 +364,9 @@ const sendMessage = async (openid, event) => {
     return fail('INVALID_PARAMS', '消息不能为空');
   }
 
-  const conversation = await assertConversationMember(conversationId, openid);
   const user = await getUser(openid);
   const nickname = user.nickname || '用户';
+  const messageId = `msg_${crypto.randomBytes(16).toString('hex')}`;
   const message = {
     conversationId,
     createdAt: now(),
@@ -306,35 +378,56 @@ const sendMessage = async (openid, event) => {
     voiceDuration: msgType === 'voice' ? voiceDuration : 0,
     voiceFileId: msgType === 'voice' ? voiceFileId : '',
   };
-  const addResult = await db.collection('messages').add({ data: message });
-  const unreadUpdates = {};
-  (conversation.memberOpenids || []).forEach((memberOpenid) => {
-    if (memberOpenid && memberOpenid !== openid) {
-      unreadUpdates[`unreadBy.${memberOpenid}`] = _.inc(1);
-    }
-  });
   const preview =
     msgType === 'voice'
       ? `[语音] ${voiceDuration}"`
       : msgType === 'image'
         ? '[图片]'
         : text.slice(0, 80);
-  await db.collection('conversations').doc(conversationId).update({
-    data: {
-      lastMessageAt: now(),
-      lastMessageFrom: openid,
-      lastMessageText: preview,
-      updatedAt: now(),
-      ...unreadUpdates,
-    },
+  const conversationType = await db.runTransaction(async (transaction) => {
+    const conversation = await assertConversationMember(conversationId, openid, transaction);
+    const targets = [...new Set((conversation.memberOpenids || []).filter((id) => id && id !== openid))];
+    const signals = [];
+    // Read before writing. The transaction retries if another sender or initializer wins.
+    for (const target of targets) {
+      signals.push(await getOptionalDocument(transaction.collection('chatSignals').doc(target)));
+    }
+    const unreadUpdates = {};
+    targets.forEach((target) => { unreadUpdates[`unreadBy.${target}`] = _.inc(1); });
+    await transaction.collection('messages').doc(messageId).set({ data: message });
+    await transaction.collection('conversations').doc(conversationId).update({
+      data: {
+        lastMessageAt: now(),
+        lastMessageFrom: openid,
+        lastMessageId: messageId,
+        lastMessageText: preview,
+        updatedAt: now(),
+        ...unreadUpdates,
+      },
+    });
+    for (let index = 0; index < targets.length; index += 1) {
+      const reference = transaction.collection('chatSignals').doc(targets[index]);
+      const signal = signals[index];
+      const data = {
+        bump: Math.max(0, Number(signal?.bump) || 0) + 1,
+        conversationId,
+        kind: 'message',
+        messageId,
+        messageVersion: signalMessageVersion(signal) + 1,
+        senderOpenid: openid,
+        updatedAt: now(),
+      };
+      if (signal) await reference.update({ data });
+      else await reference.set({ data });
+    }
+    return conversation.type;
   });
-  await notifyChatSignals(conversation.memberOpenids || [], conversationId, openid);
   return ok({
     message: {
       createdAt: new Date().toISOString(),
       fromNickname: nickname,
       fromOpenid: openid,
-      id: addResult._id,
+      id: messageId,
       imageFileId: msgType === 'image' ? imageFileId : '',
       isMine: true,
       msgType,
@@ -344,86 +437,28 @@ const sendMessage = async (openid, event) => {
       voiceFileId: msgType === 'voice' ? voiceFileId : '',
     },
     conversationId,
-    type: conversation.type,
+    type: conversationType,
   });
 };
 
-const notifyChatSignals = async (memberOpenids, conversationId, exceptOpenid) => {
-  const targets = [...new Set((memberOpenids || []).filter((id) => id && id !== exceptOpenid))];
-  await Promise.all(
-    targets.map(async (memberOpenid) => {
-      try {
-        await db.collection('chatSignals').doc(memberOpenid).update({
-          data: {
-            bump: _.inc(1),
-            conversationId,
-            updatedAt: now(),
-          },
-        });
-      } catch (error) {
-        try {
-          await db.collection('chatSignals').doc(memberOpenid).set({
-            data: {
-              bump: 1,
-              conversationId,
-              updatedAt: now(),
-            },
-          });
-        } catch (setError) {
-          console.warn('notifyChatSignals failed', memberOpenid, setError.message || setError);
-        }
-      }
-    }),
-  );
-};
-
-/** 确保当前用户有可 watch 的信标文档（不存在则创建；集合未建时软失败） */
+/** 信标是通知必需的数据；初始化与发送共享事务，不能覆盖先到的新消息。 */
 const ensureChatSignal = async (openid) => {
-  if (!openid) return ok({ created: false, skipped: true });
-  try {
-    await db.collection('chatSignals').doc(openid).get();
-    return ok({ created: false });
-  } catch (error) {
-    if (isCollectionMissing(error)) {
-      console.warn('chatSignals 集合不存在，跳过信标初始化');
-      return ok({ created: false, missingCollection: true });
-    }
-    if (!isNotFound(error)) {
-      console.warn('ensureChatSignal get failed', error.message || error);
-      return ok({ created: false, skipped: true });
-    }
-    try {
-      await db.collection('chatSignals').doc(openid).set({
-        data: {
-          bump: 0,
-          conversationId: '',
-          updatedAt: now(),
-        },
-      });
-      return ok({ created: true });
-    } catch (setError) {
-      if (isCollectionMissing(setError)) {
-        console.warn('chatSignals 集合不存在，跳过信标初始化');
-        return ok({ created: false, missingCollection: true });
-      }
-      console.warn('ensureChatSignal set failed', setError.message || setError);
-      return ok({ created: false, skipped: true });
-    }
-  }
+  return db.runTransaction(async (transaction) => {
+    const reference = transaction.collection('chatSignals').doc(openid);
+    if (await getOptionalDocument(reference)) return ok({ created: false });
+    await reference.set({
+      data: { bump: 0, conversationId: '', kind: 'state', messageVersion: 0, updatedAt: now() },
+    });
+    return ok({ created: true });
+  });
 };
 
-/** 轻量未读汇总：给 Tab 角标 / 前台轮询用（不依赖 chatSignals） */
+/** 只在启动、恢复连接和信标变化后读取；无定时轮询或隐式写入。 */
 const getUnreadSummary = async (openid) => {
-  // 信标可选；失败不影响未读角标
-  try {
-    await ensureChatSignal(openid);
-  } catch (error) {
-    console.warn('ensureChatSignal ignored', error.message || error);
-  }
-  const result = await db.collection('conversations').where({ memberOpenids: openid }).limit(50).get();
+  const conversations = await loadConversations(openid);
   let total = 0;
   const byId = {};
-  (result.data || []).forEach((item) => {
+  conversations.forEach((item) => {
     const count = Math.max(0, Number(item.unreadBy?.[openid] || 0));
     byId[item._id] = count;
     total += count;
@@ -636,22 +671,24 @@ const createGroup = async (openid, event) => {
   return ok({ conversationId: addResult._id });
 };
 
-exports.main = async (event) => {
+exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext();
+  if (!OPENID) return fail('UNAUTHORIZED', '请先登录');
   try {
-    if (event.action === 'listConversations') return listConversations(OPENID, event);
-    if (event.action === 'listMessages') return listMessages(OPENID, event);
-    if (event.action === 'sendMessage') return sendMessage(OPENID, event);
-    if (event.action === 'getUnreadSummary') return getUnreadSummary(OPENID);
-    if (event.action === 'ensureChatSignal') return ensureChatSignal(OPENID);
-    if (event.action === 'listFriends') return listFriends(OPENID, event);
-    if (event.action === 'listFriendRequests') return listFriendRequests(OPENID);
-    if (event.action === 'sendFriendRequest') return sendFriendRequest(OPENID, event);
-    if (event.action === 'acceptFriendRequest') return acceptFriendRequest(OPENID, event);
-    if (event.action === 'rejectFriendRequest') return rejectFriendRequest(OPENID, event);
-    if (event.action === 'removeFriend') return removeFriend(OPENID, event);
-    if (event.action === 'openDirectChat') return openDirectChat(OPENID, event);
-    if (event.action === 'createGroup') return createGroup(OPENID, event);
+    if (event.action === 'listConversations') return await listConversations(OPENID, event);
+    if (event.action === 'listMessages') return await listMessages(OPENID, event);
+    if (event.action === 'markConversationRead') return await markConversationRead(OPENID, event);
+    if (event.action === 'sendMessage') return await sendMessage(OPENID, event);
+    if (event.action === 'getUnreadSummary') return await getUnreadSummary(OPENID);
+    if (event.action === 'ensureChatSignal') return await ensureChatSignal(OPENID);
+    if (event.action === 'listFriends') return await listFriends(OPENID, event);
+    if (event.action === 'listFriendRequests') return await listFriendRequests(OPENID);
+    if (event.action === 'sendFriendRequest') return await sendFriendRequest(OPENID, event);
+    if (event.action === 'acceptFriendRequest') return await acceptFriendRequest(OPENID, event);
+    if (event.action === 'rejectFriendRequest') return await rejectFriendRequest(OPENID, event);
+    if (event.action === 'removeFriend') return await removeFriend(OPENID, event);
+    if (event.action === 'openDirectChat') return await openDirectChat(OPENID, event);
+    if (event.action === 'createGroup') return await createGroup(OPENID, event);
     return fail('UNKNOWN_ACTION', '不支持的操作');
   } catch (error) {
     console.error('chatApi error', error.code || error.message);
