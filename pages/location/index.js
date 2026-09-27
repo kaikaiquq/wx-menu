@@ -57,10 +57,10 @@ Page({
     errorText: '',
     connectionText: '',
     hasMap: false,
+    mapInstance: 0,
     hasSelf: false,
     hasPartnerPoint: false,
     markers: [],
-    includePoints: [],
     latitude: 0,
     longitude: 0,
     scale: 16,
@@ -78,10 +78,13 @@ Page({
     this._viewGeneration = generation;
     this._lastState = null;
     this._sessionCoupleId = '';
+    this._mapReady = false;
+    this._mapMounted = false;
+    this._lastFitKey = '';
     this.setData({
       loading: true, sessionUnavailable: false, actionPending: false, followMode: 'partner', errorText: '',
       hasMap: false, hasSelf: false, hasPartnerPoint: false, hasPartner: false,
-      markers: [], includePoints: [], connectionText: '', privacyRequired: false,
+      markers: [], connectionText: '', privacyRequired: false,
     });
     const tabBar = typeof this.getTabBar === 'function' ? this.getTabBar() : null;
     if (tabBar && typeof tabBar.init === 'function') tabBar.init();
@@ -93,7 +96,7 @@ Page({
     if (!session || incompleteCouple) {
       this.setData({
         loading: false, sessionUnavailable: true, errorText: '暂时无法确认绑定状态，请重试',
-        hasMap: false, markers: [], includePoints: [],
+        hasMap: false, markers: [],
       });
       return;
     }
@@ -153,6 +156,9 @@ Page({
     if (this._pageOpened) locationSharing.closePage();
     this._pageOpened = false;
     this._lastState = null;
+    this._mapReady = false;
+    this._mapMounted = false;
+    this._lastFitKey = '';
   },
 
   renderState(state) {
@@ -191,8 +197,6 @@ Page({
       partnerUpdateText: partnerDescription.text,
       selfStale: selfDescription.stale,
       partnerStale: partnerDescription.stale,
-      includePoints: this.data.followMode === 'both'
-        ? markers.map(({ latitude, longitude }) => ({ latitude, longitude })) : [],
     };
     if (this.data.followMode === 'free') patch.viewText = '自由查看 · 点「看 TA」继续跟随';
     else if (this.data.followMode === 'both') patch.viewText = '同时查看我们的位置';
@@ -206,18 +210,77 @@ Page({
       patch.latitude = (partner || self).latitude;
       patch.longitude = (partner || self).longitude;
     }
+    // 单点或双方重合时只更新中心，不向地图传空范围或退化的范围。
+    if (target && this.data.followMode === 'both' && (
+      markers.length < 2 || (self.latitude === partner.latitude && self.longitude === partner.longitude)
+    )) {
+      patch.latitude = target.latitude;
+      patch.longitude = target.longitude;
+      patch.scale = 16;
+      this._lastFitKey = '';
+    }
+    if (!this.data.hasMap || !patch.hasMap) {
+      this._mapReady = false;
+      this._mapMounted = false;
+      this._lastFitKey = '';
+      this._fitRequestId = (this._fitRequestId || 0) + 1;
+      if (patch.hasMap) patch.mapInstance = this.data.mapInstance + 1;
+    }
     if (!partner && !self) patch.viewText = '等待 TA 的位置';
-    this.setData(patch);
+    const generation = this._viewGeneration;
+    const renderId = (this._mapRenderId || 0) + 1;
+    this._mapRenderId = renderId;
+    this.setData(patch, () => {
+      if (!this.isCurrentView(generation) || renderId !== this._mapRenderId || !this.data.hasMap) return;
+      this._mapMounted = true;
+      if (this._mapUpdatedInstance === this.data.mapInstance) this._mapReady = true;
+      this.fitBothPoints();
+    });
+  },
+
+  onMapUpdated(event) {
+    if (!this._visible || !this.data.hasMap || event?.currentTarget?.id !== `couple-map-${this.data.mapInstance}`) return;
+    this._mapUpdatedInstance = this.data.mapInstance;
+    if (!this._mapMounted) return;
+    this._mapReady = true;
+    this.fitBothPoints();
+  },
+
+  fitBothPoints() {
+    if (!this._visible || !this._mapReady || !this.data.hasMap || this.data.followMode !== 'both') return;
+    const points = this.data.markers.filter(validPoint).map(({ latitude, longitude }) => ({ latitude, longitude }));
+    if (points.length !== 2 || (points[0].latitude === points[1].latitude && points[0].longitude === points[1].longitude)) return;
+    const key = JSON.stringify(points);
+    if (key === this._lastFitKey) return;
+    this._lastFitKey = key;
+    const generation = this._viewGeneration;
+    const mapInstance = this.data.mapInstance;
+    const requestId = (this._fitRequestId || 0) + 1;
+    this._fitRequestId = requestId;
+    const failed = () => {
+      if (this.isCurrentView(generation) && this.data.hasMap && this.data.mapInstance === mapInstance
+        && this._fitRequestId === requestId && this.data.followMode === 'both' && this._lastFitKey === key) {
+        wx.showToast({ title: '地图范围调整失败，请重试', icon: 'none' });
+      }
+    };
+    try {
+      // 不绑定 include-points=[]：部分开发者工具会将空数组直接交给 fitBounds。
+      wx.createMapContext(`couple-map-${mapInstance}`, this).includePoints({ points, fail: failed });
+    } catch (error) {
+      failed();
+    }
   },
 
   onRegionChange(event) {
     const causedBy = event.detail?.causedBy || event.causedBy;
     if (causedBy === 'gesture' || causedBy === 'drag') {
-      this.setData({ followMode: 'free', includePoints: [], viewText: '自由查看 · 点「看 TA」继续跟随' });
+      this._lastFitKey = '';
+      this.setData({ followMode: 'free', viewText: '自由查看 · 点「看 TA」继续跟随' });
     }
   },
 
   showPartner() {
+    this._lastFitKey = '';
     this.setData({ followMode: 'partner', scale: 16 });
     this.renderState(this._lastState);
     if (!this.data.hasPartnerPoint) wx.showToast({ title: '等待 TA 主动开启位置共享', icon: 'none' });
@@ -228,12 +291,14 @@ Page({
       wx.showToast({ title: '开启共享后可查看自己的位置', icon: 'none' });
       return;
     }
+    this._lastFitKey = '';
     this.setData({ followMode: 'self', scale: 16 });
     this.renderState(this._lastState);
   },
 
   showBoth() {
     if (!this.data.hasSelf || !this.data.hasPartnerPoint) return;
+    this._lastFitKey = '';
     this.setData({ followMode: 'both' });
     this.renderState(this._lastState);
   },

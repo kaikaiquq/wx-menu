@@ -84,12 +84,18 @@ const createLocationPage = (session, { ensureError, beginError } = {}) => {
       assert.equal(action, 'end');
       return { ended: true };
     },
-    getCloud: () => ({ database: () => ({ collection: () => ({ doc: () => ({
-      watch(options) {
-        options.onChange({ docs: [clone(state)] });
-        return { close() {} };
-      },
-    }) }) }) }),
+    getCloud: () => ({ database: () => ({ collection: (name) => ({ where: (query) => {
+      assert.equal(name, 'coupleLocations');
+      assert.deepEqual(clone(query), {
+        _id: 'pair', active: true, [selfOpenid === 'alice' ? 'memberA' : 'memberB']: selfOpenid,
+      });
+      return {
+        watch(options) {
+          options.onChange({ docs: [clone(state)] });
+          return { close() {} };
+        },
+      };
+    } }) }) }),
   };
   const wx = {
     getStorageSync: (key) => storage.get(key),

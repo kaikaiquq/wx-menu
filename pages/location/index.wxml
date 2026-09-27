@@ -25,7 +25,7 @@
   <view class="map-card">
     <map
       wx:if="{{hasMap}}"
-      id="couple-map"
+      id="couple-map-{{mapInstance}}"
       class="couple-map"
       latitude="{{latitude}}"
       longitude="{{longitude}}"
@@ -33,12 +33,12 @@
       min-scale="3"
       max-scale="20"
       markers="{{markers}}"
-      include-points="{{includePoints}}"
       enable-scroll="{{true}}"
       enable-zoom="{{true}}"
       enable-rotate="{{false}}"
       show-location="{{false}}"
       bindregionchange="onRegionChange"
+      bindupdated="onMapUpdated"
     />
     <view class="map-empty" wx:else>
       <view class="map-empty-symbol" aria-hidden="true" />

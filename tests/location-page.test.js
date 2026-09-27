@@ -19,8 +19,9 @@ const session = {
 };
 const point = (latitude, longitude) => ({ latitude, longitude, updatedAt: Date.now(), accuracy: 12 });
 
-const createPage = ({ service = {}, auth = {}, initialState = {} } = {}) => {
-  const calls = { auth: [], open: [], close: 0, auto: 0, enable: 0, disable: 0, retry: 0, unsubscribe: 0, clearClock: 0, toasts: [], settings: 0, privacyContract: 0, refreshPermission: 0 };
+const createPage = ({ service = {}, auth = {}, initialState = {}, deferRender = false } = {}) => {
+  const calls = { auth: [], open: [], close: 0, auto: 0, enable: 0, disable: 0, retry: 0, unsubscribe: 0, clearClock: 0, toasts: [], settings: 0, privacyContract: 0, refreshPermission: 0, fits: [] };
+  const renderCallbacks = [];
   const state = {
     status: 'connected', sharing: false, starting: false, permission: 'unknown', error: '',
     coupleId: 'couple', selfOpenid: 'self', partnerOpenid: 'partner', self: null, partner: null,
@@ -67,15 +68,28 @@ const createPage = ({ service = {}, auth = {}, initialState = {} } = {}) => {
       openSetting: ({ success }) => { calls.settings += 1; return success(); },
       openPrivacyContract: () => { calls.privacyContract += 1; },
       switchTab: () => {},
+      createMapContext: (id) => {
+        assert.match(id, /^couple-map-\d+$/);
+        return { includePoints: (options) => { calls.fits.push(options); } };
+      },
     },
   });
   const page = {
     ...definition,
     data: JSON.parse(JSON.stringify(definition.data)),
     getTabBar: () => null,
-    setData(patch) { Object.assign(this.data, patch); },
+    setData(patch, callback) {
+      Object.assign(this.data, patch);
+      if (callback) {
+        if (deferRender) renderCallbacks.push(callback);
+        else callback();
+      }
+    },
   };
-  return { page, calls, state, emit: (patch) => { Object.assign(state, patch); listener?.(state); }, tick: () => clock?.() };
+  return {
+    page, calls, state, emit: (patch) => { Object.assign(state, patch); listener?.(state); }, tick: () => clock?.(),
+    flushRender: () => { renderCallbacks.splice(0).forEach((callback) => callback()); },
+  };
 };
 
 test('新增位置 Tab 位于点单和消息之间，消息角标依据路由识别', () => {
@@ -216,8 +230,9 @@ test('没有共享位置时不渲染假地图，TA 尚未共享时可展示自�
 });
 
 test('拖动暂停跟随但继续更新 marker，点击看 TA 恢复跟随', async () => {
-  const { page, emit } = createPage({ initialState: { self: point(31, 121), partner: point(32, 122) } });
+  const { page, emit, calls } = createPage({ initialState: { self: point(31, 121), partner: point(32, 122) } });
   await page.onShow();
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
   page.onRegionChange({ detail: { causedBy: 'update' } });
   assert.equal(page.data.followMode, 'partner');
   page.onRegionChange({ detail: { causedBy: 'gesture' } });
@@ -229,7 +244,138 @@ test('拖动暂停跟随但继续更新 marker，点击看 TA 恢复跟随', asy
   assert.equal(page.data.followMode, 'partner');
   assert.equal(page.data.latitude, 33);
   page.showBoth();
-  assert.equal(page.data.includePoints.length, 2);
+  assert.equal(calls.fits.length, 1);
+  assert.equal(calls.fits[0].points.length, 2);
+});
+
+test('默认跟随和单点更新不向地图传空范围，双方显示等待地图就绪且只随坐标变化调整', async () => {
+  const markup = fs.readFileSync(path.join(__dirname, '../pages/location/index.wxml'), 'utf8');
+  assert.doesNotMatch(markup, /\binclude-points\s*=/);
+  assert.match(markup, /bindupdated="onMapUpdated"/);
+  const { page, calls, emit, tick } = createPage();
+  await page.onShow();
+  emit({ self: point(31, 121) });
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  tick();
+  assert.equal(calls.fits.length, 0);
+  emit({ self: null });
+  emit({ self: point(31, 121), partner: point(32, 122) });
+  page.showBoth();
+  assert.equal(calls.fits.length, 0);
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  assert.equal(calls.fits.length, 1);
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  tick();
+  emit({ status: 'connecting' });
+  assert.equal(calls.fits.length, 1);
+  emit({ partner: point(33, 123) });
+  assert.equal(calls.fits.length, 2);
+  assert.equal(calls.fits[1].points[1].latitude, 33);
+});
+
+test('双方坐标重合、丢失或无效时回退有效中心，不调用退化范围', async () => {
+  const { page, emit, calls } = createPage({ initialState: { self: point(31, 121), partner: point(31, 121) } });
+  await page.onShow();
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  page.showBoth();
+  assert.equal(calls.fits.length, 0);
+  assert.equal(page.data.markers.length, 2);
+  assert.equal(page.data.latitude, 31);
+  emit({ partner: point(32, 122) });
+  assert.equal(calls.fits.length, 1);
+  emit({ partner: null, self: point(30, 120) });
+  assert.equal(page.data.latitude, 30);
+  assert.equal(page.data.longitude, 120);
+  assert.equal(calls.fits.length, 1);
+  emit({ partner: point(NaN, 122) });
+  assert.equal(calls.fits.length, 1);
+  emit({ self: null });
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  assert.equal(page.data.hasMap, false);
+  emit({ self: point(31, 121), partner: point(32, 122) });
+  assert.equal(calls.fits.length, 1);
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  assert.equal(calls.fits.length, 2);
+});
+
+test('渲染回调晚到时不打断手势或操作已隐藏的地图', async () => {
+  const { page, calls, flushRender, emit } = createPage({
+    initialState: { self: point(31, 121), partner: point(32, 122) }, deferRender: true,
+  });
+  await page.onShow();
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  page.showBoth();
+  page.onRegionChange({ detail: { causedBy: 'gesture' } });
+  flushRender();
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  assert.equal(calls.fits.length, 0);
+  page.showBoth();
+  emit({ partner: point(33, 123) });
+  flushRender();
+  assert.equal(calls.fits.length, 1);
+  assert.equal(calls.fits[0].points[1].latitude, 33);
+  emit({ partner: point(34, 124) });
+  page.onHide();
+  flushRender();
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  assert.equal(calls.fits.length, 1);
+});
+
+test('地图范围失败不因 updated 或时钟反复调用，用户可主动重试', async () => {
+  const { page, calls, tick } = createPage({ initialState: { self: point(31, 121), partner: point(32, 122) } });
+  await page.onShow();
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  page.showBoth();
+  calls.fits[0].fail();
+  assert.equal(calls.toasts.length, 1);
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  tick();
+  assert.equal(calls.fits.length, 1);
+  page.showBoth();
+  assert.equal(calls.fits.length, 2);
+  page.onHide();
+  calls.fits[1].fail();
+  assert.equal(calls.toasts.length, 1);
+});
+
+test('相同坐标重试或地图重建后，旧范围请求的失败回调不再报错', async () => {
+  const { page, emit, calls } = createPage({ initialState: { self: point(31, 121), partner: point(32, 122) } });
+  await page.onShow();
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  page.showBoth();
+  page.showBoth();
+  calls.fits[0].fail();
+  assert.equal(calls.toasts.length, 0);
+  const previousId = `couple-map-${page.data.mapInstance}`;
+  emit({ self: null, partner: null });
+  emit({ self: point(31, 121), partner: point(32, 122) });
+  page.onMapUpdated({ currentTarget: { id: previousId } });
+  assert.equal(calls.fits.length, 2);
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  assert.equal(calls.fits.length, 3);
+  calls.fits[1].fail();
+  assert.equal(calls.toasts.length, 0);
+});
+
+test('新地图在本次渲染完成前不接受旧地图 updated，也不提前调整范围', async () => {
+  const { page, emit, calls, flushRender } = createPage({
+    initialState: { self: point(31, 121), partner: point(32, 122) }, deferRender: true,
+  });
+  await page.onShow();
+  flushRender();
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  page.showBoth();
+  flushRender();
+  assert.equal(calls.fits.length, 1);
+  const previousId = `couple-map-${page.data.mapInstance}`;
+  emit({ self: null, partner: null });
+  emit({ self: point(31, 121), partner: point(32, 122) });
+  page.onMapUpdated({ currentTarget: { id: previousId } });
+  assert.equal(calls.fits.length, 1);
+  page.onMapUpdated({ currentTarget: { id: `couple-map-${page.data.mapInstance}` } });
+  assert.equal(calls.fits.length, 1);
+  flushRender();
+  assert.equal(calls.fits.length, 2);
 });
 
 test('看自己后再次进入 Tab 仍默认看 TA，隐藏清理页面监听但不停止共享', async () => {

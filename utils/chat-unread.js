@@ -30,6 +30,7 @@ let notifyPending = false;
 let networkBound = false;
 let activeConversation = '';
 let lastToastAt = 0;
+let watchCallbackDepth = 0;
 
 const count = (value) => (Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0);
 const getTotal = () => totalUnread;
@@ -73,6 +74,23 @@ const applySummary = (summary, reason) => {
 };
 const valid = (epoch) => epoch === generation && started && foreground && online && !isLoggedOut();
 
+const inWatchCallback = (callback) => (...args) => {
+  watchCallbackDepth += 1;
+  try { return callback(...args); } finally { watchCallbackDepth -= 1; }
+};
+const closeWatch = (target, defer = watchCallbackDepth > 0) => {
+  if (!target?.close) return;
+  const close = () => {
+    try {
+      const result = target.close();
+      if (result?.catch) result.catch((error) => console.warn('close chat watch failed', error));
+    } catch (error) { console.warn('close chat watch failed', error); }
+  };
+  // SDK 在通知回调返回后仍会推进内部状态；不能在回调中把它切成 CLOSED。
+  // 代际和本地引用立即失效，底层连接在下一任务关闭，迟到事件会被 valid 拦截。
+  if (defer) setTimeout(close, 0);
+  else close();
+};
 const closeConnection = () => {
   generation += 1;
   const old = watcher;
@@ -84,9 +102,7 @@ const closeConnection = () => {
   retryTimer = snapshotTimer = refreshTimer = null;
   refreshFlight = null;
   refreshPending = notifyPending = false;
-  if (old?.close) {
-    try { old.close(); } catch (error) { console.warn('close chat watch failed', error); }
-  }
+  closeWatch(old);
 };
 
 const notifyNewMessages = (previous) => {
@@ -117,7 +133,7 @@ const refresh = (reason = 'manual') => {
     } catch (error) {
       if (valid(epoch)) {
         console.warn('chat unread summary failed', error?.message || error);
-        handleFailure(error, epoch);
+        handleFailure(error, epoch, 'summary');
       }
       return totalUnread;
     } finally {
@@ -146,9 +162,9 @@ const scheduleRefresh = (reason) => {
 const isConfigurationError = (error) => /permission|permission_denied|unauthorized|access.?denied|not.?exist|not.?found|unauthenticated|无权限|权限|集合不存在/i.test(
   `${error?.code || ''} ${error?.errCode || ''} ${error?.message || ''} ${error?.errMsg || ''}`,
 );
-const handleFailure = (error, epoch) => {
+const handleFailure = (error, epoch, source = 'watch') => {
   if (!valid(epoch)) return;
-  console.warn('chat realtime unavailable', error?.message || error);
+  console.warn('chat realtime unavailable', source, error?.code || error?.errCode || '', error?.message || error?.errMsg || '');
   closeConnection();
   if (isConfigurationError(error) || retryAttempt >= MAX_RETRIES) {
     setStatus('error');
@@ -168,6 +184,7 @@ const connect = () => {
   const epoch = generation;
   setStatus(retryAttempt ? 'reconnecting' : 'connecting');
   const request = (async () => {
+    let failureSource = 'ensure';
     try {
       await initCloud();
       if (!valid(epoch)) return;
@@ -179,13 +196,16 @@ const connect = () => {
       let first = true;
       let lastFingerprint = '';
       let lastMessageVersion = 0;
+      failureSource = 'watch-open';
       const nextWatcher = getCloud().database().collection('chatSignals').doc(userId).watch({
-        onChange(snapshot) {
+        onChange: inWatchCallback((snapshot) => {
           if (!valid(epoch)) return;
           const doc = snapshot.docs?.[0];
           if (!doc) {
             signalEnsured = false;
-            handleFailure(new Error('chatSignals document missing'), epoch);
+            // 空快照不能区分文档缺失和读取规则过滤，重新 ensure 后有界重连。
+            const error = Object.assign(new Error('chatSignals snapshot contains no readable document'), { code: 'CHAT_SIGNAL_UNAVAILABLE' });
+            handleFailure(error, epoch, 'watch-snapshot');
             return;
           }
           if (snapshotTimer) clearTimeout(snapshotTimer);
@@ -201,23 +221,24 @@ const connect = () => {
           lastFingerprint = fingerprint;
           lastMessageVersion = messageVersion;
           setStatus('connected');
+          if (!valid(epoch)) return;
           if (isMessage) notifyPending = true;
           emit({ type: 'signal', initial, kind: isMessage ? 'message' : 'state', conversationId: doc.conversationId || '' });
-          scheduleRefresh(initial ? 'snapshot' : 'signal');
-        },
-        onError(error) { handleFailure(error, epoch); },
+          if (valid(epoch)) scheduleRefresh(initial ? 'snapshot' : 'signal');
+        }),
+        onError: inWatchCallback((error) => handleFailure(error, epoch, 'watch-error')),
       });
       // 某些 SDK/测试实现可能同步回调 onError，不能把已经失效的 watcher 留下。
       if (!valid(epoch)) {
-        try { nextWatcher?.close(); } catch (error) { /* 已关闭 */ }
+        closeWatch(nextWatcher, true);
         return;
       }
       watcher = nextWatcher;
       if (first) {
-        snapshotTimer = setTimeout(() => handleFailure(new Error('chat watch snapshot timeout'), epoch), 15000);
+        snapshotTimer = setTimeout(() => handleFailure(new Error('chat watch snapshot timeout'), epoch, 'watch-timeout'), 15000);
       }
     } catch (error) {
-      handleFailure(error, epoch);
+      handleFailure(error, epoch, failureSource);
     } finally {
       if (connecting === request) connecting = null;
     }

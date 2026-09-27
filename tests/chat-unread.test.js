@@ -11,6 +11,7 @@ function setup() {
   const watches = [];
   const events = [];
   const toasts = [];
+  const warnings = [];
   const storage = new Map();
   const app = { globalData: {} };
   let timerId = 0;
@@ -20,11 +21,12 @@ function setup() {
   let summary = { byId: {} };
   let summaryImpl = async () => summary;
   let ensureImpl = async () => {};
+  let watchOpenImpl = () => {};
   let summaries = 0;
   let ensures = 0;
   const module = { exports: {} };
   const context = {
-    module, console: { warn() {} }, getApp: () => app, getCurrentPages: () => [],
+    module, console: { warn: (...args) => warnings.push(args) }, getApp: () => app, getCurrentPages: () => [],
     setTimeout: (fn, delay) => { const id = ++timerId; timers.set(id, { fn, delay }); return id; },
     clearTimeout: (id) => timers.delete(id),
     wx: {
@@ -41,8 +43,20 @@ function setup() {
       if (name === './cloud') return {
         initCloud: async () => {},
         getCloud: () => ({ database: () => ({ collection: () => ({ doc: (id) => ({ watch: (handlers) => {
-          const record = { id, ...handlers, closed: false, close() { this.closed = true; } };
-          watches.push(record); return record;
+          let insideCallback = false;
+          const record = { id, closed: false, closedInsideCallback: false, close() {
+            this.closedInsideCallback ||= insideCallback;
+            this.closed = true;
+          } };
+          for (const name of ['onChange', 'onError']) {
+            record[name] = (value) => {
+              insideCallback = true;
+              try { return handlers[name](value); } finally { insideCallback = false; }
+            };
+          }
+          watches.push(record);
+          watchOpenImpl(record);
+          return record;
         } }) }) }) }),
       };
       throw new Error(name);
@@ -52,12 +66,13 @@ function setup() {
   const api = module.exports;
   api.subscribe((event) => events.push(event));
   return {
-    api, timers, watches, events, toasts, app, storage,
+    api, timers, watches, events, toasts, app, storage, warnings,
     get summaries() { return summaries; }, get ensures() { return ensures; },
     setSession: (openid) => { session = openid ? { user: { openid } } : null; },
     setLoggedOut: (value) => { loggedOut = value; },
     setSummary: (value) => { summary = { byId: value }; },
     setSummaryImpl: (fn) => { summaryImpl = fn; }, setEnsure: (fn) => { ensureImpl = fn; },
+    setWatchOpen: (fn) => { watchOpenImpl = fn; },
     network: (isConnected) => network({ isConnected }),
     snapshot: (doc, index = watches.length - 1) => watches[index].onChange({ docs: [doc] }),
     runTimer: async (max = Infinity) => {
@@ -149,6 +164,7 @@ test('watch errors have bounded exponential reconnects, never message polling; p
   const h = setup(); await h.api.start();
   for (let i = 0; i < 6; i += 1) {
     h.watches.at(-1).onError(new Error('network broken'));
+    assert.equal(await h.runTimer(0), true);
     if (i < 5) assert.equal(await h.runTimer(), true);
   }
   assert.equal(h.api.getState().status, 'error');
@@ -156,7 +172,91 @@ test('watch errors have bounded exponential reconnects, never message polling; p
   await h.api.start(); assert.equal(h.watches.length, 6);
   await h.api.retry(); assert.equal(h.watches.length, 7);
   h.watches.at(-1).onError(new Error('permission denied'));
+  await h.runTimer(0);
   assert.equal(h.api.getState().status, 'error'); assert.equal(h.timers.size, 0);
+});
+
+test('an empty snapshot invalidates callbacks immediately but closes only after the SDK callback task', async () => {
+  const h = setup(); await h.api.start();
+  const old = h.watches[0];
+  h.snapshot(undefined);
+  assert.equal(h.api.getState().status, 'reconnecting');
+  assert.equal(old.closed, false);
+  assert.equal(old.closedInsideCallback, false);
+  await flush();
+  assert.equal(old.closed, false, 'SDK await continuations must run before close');
+  old.onChange({ docs: [{ bump: 1, messageVersion: 1 }] });
+  old.onError(new Error('late SDK error'));
+  assert.equal(h.events.filter((event) => event.type === 'signal').length, 0);
+  assert.equal(h.warnings.length, 1);
+  assert.equal(h.warnings[0][1], 'watch-snapshot');
+  assert.equal(h.warnings[0][2], 'CHAT_SIGNAL_UNAVAILABLE');
+  assert.match(h.warnings[0][3], /no readable document/);
+  await h.runTimer(0);
+  assert.equal(old.closed, true);
+  assert.equal(old.closedInsideCallback, false);
+  await h.runTimer(2000);
+  assert.equal(h.ensures, 2);
+  assert.equal(h.watches.length, 2);
+  h.snapshot({ bump: 2, messageVersion: 2 });
+  h.setSummary({ recovered: 2 });
+  await h.runTimer(100);
+  assert.equal(h.api.getState().status, 'connected');
+  assert.equal(h.api.getTotal(), 2);
+});
+
+test('synchronous empty snapshot during watch creation also defers closing the returned watcher', async () => {
+  const h = setup();
+  h.setWatchOpen((record) => record.onChange({ docs: [] }));
+  await h.api.start();
+  assert.equal(h.api.getState().status, 'reconnecting');
+  assert.equal(h.watches[0].closed, false);
+  await h.runTimer(0);
+  assert.equal(h.watches[0].closed, true);
+  assert.equal(h.watches[0].closedInsideCallback, false);
+  h.setWatchOpen(() => {});
+  await h.runTimer(2000);
+  assert.equal(h.ensures, 2);
+  assert.equal(h.watches.length, 2);
+  assert.equal(h.watches[1].closed, false);
+});
+
+test('persistent unreadable signal snapshots re-ensure within the retry budget without summary polling', async () => {
+  const h = setup(); await h.api.start();
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    h.snapshot(undefined);
+    await h.runTimer(0);
+    if (attempt < 5) await h.runTimer();
+  }
+  assert.equal(h.api.getState().status, 'error');
+  assert.equal(h.ensures, 6);
+  assert.equal(h.watches.length, 6);
+  assert.equal(h.summaries, 0);
+  assert.equal(h.timers.size, 0);
+});
+
+test('stopping from a signal listener invalidates the session without closing inside onChange', async () => {
+  const h = setup(); await h.api.start();
+  h.api.subscribe((event) => { if (event.type === 'signal') h.api.stop(); });
+  h.snapshot({ bump: 1 });
+  assert.equal(h.api.getState().status, 'stopped');
+  assert.equal(h.watches[0].closed, false);
+  assert.equal(h.watches[0].closedInsideCallback, false);
+  await h.runTimer(0);
+  assert.equal(h.watches[0].closed, true);
+  assert.equal(h.timers.size, 0);
+  assert.equal(h.summaries, 0);
+});
+
+test('a deferred close from the previous identity never closes its replacement watcher', async () => {
+  const h = setup(); await h.api.start();
+  h.snapshot(undefined);
+  h.setSession('b'); await h.api.start();
+  assert.equal(h.watches.length, 2);
+  assert.equal(h.watches[1].id, 'b');
+  await h.runTimer(0);
+  assert.equal(h.watches[0].closed, true);
+  assert.equal(h.watches[1].closed, false);
 });
 
 test('cached identity alone never starts a watch; account switch ignores previous requests', async () => {

@@ -8,8 +8,8 @@ const deferred = () => { let resolve; let reject; const promise = new Promise((a
 const session = (self = 'a', couple = 'pair') => ({ user: { openid: self }, couple: { coupleId: couple, status: 'active', members: [{ openid: self }, { openid: 'b' }] } });
 function harness() {
   let time = 1700000000000;
-  const timers = new Map(); const storage = new Map(); const watches = []; const actions = []; const native = [];
-  const handlers = new Set(); let network; let counter = 0; let timerId = 0;
+  const timers = new Map(); const storage = new Map(); const watches = []; const actions = []; const native = []; const warnings = [];
+  const handlers = new Set(); const errorHandlers = new Set(); let network; let counter = 0; let timerId = 0;
   let granted; let privacyNeeded = false; let initialPoint = null;
   const state = { active: true, memberA: 'a', memberB: 'b', positions: {}, version: 1 };
   const overrides = {};
@@ -33,7 +33,7 @@ function harness() {
     throw new Error(action);
   };
   const context = {
-    module: { exports: {} }, console,
+    module: { exports: {} }, console: { ...console, warn: (...args) => warnings.push(args) },
     Date: class extends Date { static now() { return time; } },
     setTimeout(fn, delay) { const id = ++timerId; timers.set(id, { fn, at: time + delay, delay }); return id; },
     clearTimeout(id) { timers.delete(id); },
@@ -42,8 +42,14 @@ function harness() {
       return {
         callCloud: (fn, action, data) => { assert.equal(fn, 'locationApi'); return call(action, data); },
         initCloud: async () => {},
-        getCloud: () => ({ database: () => ({ collection: () => ({ doc: () => ({ watch(options) {
-          const watch = { ...options, closed: false, close() { this.closed = true; } }; watches.push(watch); return watch;
+        getCloud: () => ({ database: () => ({ collection: (collection) => ({ where: (query) => ({ watch(options) {
+          const watch = { ...options, collection, query: clone(query), closed: false, close() {
+            if (overrides.close) return overrides.close(this);
+            this.closed = true;
+          } };
+          watches.push(watch);
+          if (overrides.watchStart) overrides.watchStart(watch);
+          return watch;
         } }) }) }) }),
       };
     },
@@ -62,16 +68,17 @@ function harness() {
         if (initialPoint) success(initialPoint); else fail({});
       },
       onLocationChange: (fn) => handlers.add(fn), offLocationChange: (fn) => handlers.delete(fn),
-      onLocationChangeError() {}, offLocationChangeError() {},
+      onLocationChangeError: (fn) => errorHandlers.add(fn), offLocationChangeError: (fn) => errorHandlers.delete(fn),
       onNetworkStatusChange: (fn) => { network = fn; },
     },
   };
   vm.runInNewContext(source, context);
   const api = context.module.exports;
   return {
-    api, actions, native, watches, timers, state, overrides, storage, handlers,
+    api, actions, native, watches, timers, state, overrides, storage, handlers, warnings,
     setGranted: (value) => { granted = value; }, setPrivacy: (value) => { privacyNeeded = value; }, setInitial: (point) => { initialPoint = point; },
     point: (point) => handlers.forEach((fn) => fn(point)), network: (connected) => network({ isConnected: connected }),
+    gpsError: (error) => errorHandlers.forEach((fn) => fn(error)),
     snapshot: (value = state, index = watches.length - 1) => watches[index].onChange({ docs: [clone(value)] }),
     advance: async (ms) => {
       time += ms;
@@ -83,6 +90,118 @@ function harness() {
   };
 }
 const point = (latitude = 31) => ({ latitude, longitude: 121, accuracy: 10 });
+
+test('watch queries constrain the current couple, active state and the verified membership slot', async () => {
+  for (const memberField of ['memberA', 'memberB']) {
+    const h = harness();
+    h.state.memberA = memberField === 'memberA' ? 'a' : 'b';
+    h.state.memberB = memberField === 'memberB' ? 'a' : 'b';
+    await h.api.openPage(session());
+    assert.equal(h.watches.length, 1);
+    assert.equal(h.watches[0].collection, 'coupleLocations');
+    assert.deepEqual(h.watches[0].query, { _id: 'pair', active: true, [memberField]: 'a' });
+    assert.equal(h.api.getState().partnerOpenid, 'b');
+  }
+});
+
+test('an ensure response without current membership cannot open a watch for another couple member', async () => {
+  const h = harness();
+  h.state.memberA = 'other-a'; h.state.memberB = 'other-b';
+  await h.api.openPage(session());
+  assert.equal(h.watches.length, 0);
+  assert.equal(h.api.getState().status, 'unbound');
+  assert.equal(h.api.getState().coupleId, '');
+});
+
+test('a missing ensure state cannot default to the memberB query', async () => {
+  const h = harness();
+  h.overrides.ensure = async () => ({ coupleId: 'pair', selfOpenid: 'a' });
+  await h.api.openPage(session());
+  assert.equal(h.watches.length, 0);
+  assert.equal(h.api.getState().status, 'unbound');
+  assert.equal(h.timers.size, 0);
+});
+
+test('a filtered watch losing its only document clears both positions and stops sharing immediately', async () => {
+  const h = harness();
+  h.state.positions.b = { ...point(32), updatedAt: 1700000000000 };
+  await h.api.openPage(session()); h.snapshot(); await h.api.enableSharing();
+  h.point(point()); await flush();
+  assert.equal(h.api.getState().partner.latitude, 32);
+  assert.equal(h.api.getState().self.latitude, 31);
+  h.watches[0].onChange({ docs: [] });
+  const state = h.api.getState();
+  assert.equal(state.status, 'unbound');
+  assert.equal(state.coupleId, '');
+  assert.equal(state.self, null);
+  assert.equal(state.partner, null);
+  assert.equal(state.sharing, false);
+  assert.equal(h.handlers.size, 0);
+  assert.equal(h.watches[0].closed, false);
+  await h.advance(0);
+  assert.equal(h.watches[0].closed, true);
+  assert.equal(h.timers.size, 0);
+  h.snapshot();
+  assert.equal(h.api.getState().partner, null);
+});
+
+test('closing from a watch callback waits for SDK async state transitions while invalidating local data immediately', async () => {
+  const h = harness(); await h.api.openPage(session());
+  let sdkDispatching = true;
+  let closedDuringDispatch = false;
+  h.overrides.close = (watch) => {
+    closedDuringDispatch = sdkDispatching;
+    watch.closed = true;
+  };
+  const dispatch = (async () => {
+    h.watches[0].onChange({ docs: [] });
+    await Promise.resolve();
+    await Promise.resolve();
+    sdkDispatching = false;
+  })();
+  assert.equal(h.api.getState().coupleId, '');
+  assert.equal(h.watches[0].closed, false);
+  await dispatch;
+  assert.equal(h.watches[0].closed, false);
+  await h.advance(0);
+  assert.equal(h.watches[0].closed, true);
+  assert.equal(closedDuringDispatch, false);
+});
+
+test('a synchronous initial empty snapshot defers disposal of the returned invalid watcher and handles close rejection', async () => {
+  const h = harness();
+  h.overrides.watchStart = (watch) => watch.onChange({ docs: [] });
+  h.overrides.close = (watch) => {
+    watch.closed = true;
+    return Promise.reject(new Error('SDK close rejected'));
+  };
+  await h.api.openPage(session());
+  assert.equal(h.api.getState().status, 'unbound');
+  assert.equal(h.api.getState().coupleId, '');
+  assert.equal(h.watches.length, 1);
+  assert.equal(h.watches[0].closed, false);
+  await flush();
+  assert.equal(h.watches[0].closed, false);
+  await h.advance(0);
+  assert.equal(h.watches[0].closed, true);
+  assert.equal(h.timers.size, 0);
+  h.snapshot();
+  assert.equal(h.api.getState().coupleId, '');
+});
+
+test('a deferred old-watch close cannot close a newer connection or accept old snapshots', async () => {
+  const h = harness(); await h.api.openPage(session());
+  h.watches[0].onError(new Error('websocket disconnected'));
+  await h.api.retry();
+  assert.equal(h.watches.length, 2);
+  h.snapshot(h.state, 0);
+  assert.equal(h.api.getState().status, 'connecting');
+  await h.advance(0);
+  assert.equal(h.watches[0].closed, true);
+  assert.equal(h.watches[1].closed, false);
+  h.snapshot();
+  assert.equal(h.api.getState().status, 'connected');
+});
 
 test('an active session from authApi remains bound when location storage is not ready', async () => {
   const h = harness();
@@ -99,6 +218,7 @@ test('an active session from authApi remains bound when location storage is not 
   assert.match(state.error, /位置服务尚未就绪/);
   assert.equal(h.timers.size, 0);
   assert.equal(h.native.length, 0);
+  assert.equal(h.warnings[0][1], 'ensure');
 });
 
 test('database permission errors clear partner coordinates without claiming the couple is unbound or GPS denied', async () => {
@@ -115,10 +235,12 @@ test('database permission errors clear partner coordinates without claiming the 
   assert.equal(state.permission, 'unknown');
   assert.match(state.error, /位置同步暂时不可用/);
   await flush();
+  await h.advance(0);
   assert.equal(h.api.getState().coupleId, 'pair');
   assert.equal(h.api.getState().partner, null);
   assert.equal(h.count('ensure'), 2);
   assert.equal(h.timers.size, 0);
+  assert.equal(h.warnings[0][1], 'watch-error');
 });
 
 test('watch permission revoked by unbind verifies membership once and stops GPS and clears positions', async () => {
@@ -133,6 +255,7 @@ test('watch permission revoked by unbind verifies membership once and stops GPS 
   };
   h.watches[0].onError(Object.assign(new Error('database permission denied'), { code: 'FORBIDDEN' }));
   await flush();
+  await h.advance(0);
   const state = h.api.getState();
   assert.equal(state.coupleId, '');
   assert.equal(state.status, 'unbound');
@@ -326,4 +449,126 @@ test('a late initial one-shot location cannot overwrite a newer live position', 
   initial(point(31)); await flush();
   assert.equal(h.api.getState().self.latitude, 32);
   assert.equal(h.count('publish'), 1);
+});
+
+test('upload and stop-sharing success cannot hide a failed watch; only its new snapshot clears the sync error', async () => {
+  const h = harness();
+  await h.api.openPage(session()); h.snapshot(); await h.api.enableSharing();
+  h.watches[0].onError(new Error('websocket disconnected'));
+  const syncError = h.api.getState().error;
+  assert.match(syncError, /位置同步暂时不可用/);
+  h.point(point()); await flush();
+  assert.equal(h.count('publish'), 1);
+  assert.equal(h.api.getState().status, 'reconnecting');
+  assert.equal(h.api.getState().error, syncError);
+  await h.api.disableSharing();
+  assert.equal(h.api.getState().error, syncError);
+  await h.advance(2000);
+  assert.equal(h.watches.length, 2);
+  assert.equal(h.api.getState().error, syncError);
+  h.snapshot();
+  assert.equal(h.api.getState().status, 'connected');
+  assert.equal(h.api.getState().error, '');
+});
+
+test('watch recovery preserves the higher-priority denied-location error', async () => {
+  const h = harness(); h.setGranted(false);
+  await h.api.openPage(session()); await h.api.autoEnable();
+  const permissionError = h.api.getState().error;
+  assert.match(permissionError, /未获得位置权限/);
+  h.watches[0].onError(new Error('websocket disconnected'));
+  assert.equal(h.api.getState().error, permissionError);
+  await h.advance(2000); h.snapshot();
+  assert.equal(h.api.getState().status, 'connected');
+  assert.equal(h.api.getState().error, permissionError);
+  assert.equal(h.api.getState().permission, 'denied');
+});
+
+test('a late successful upload does not erase a newer GPS error; the next valid point resolves it', async () => {
+  const h = harness();
+  await h.api.openPage(session()); h.snapshot(); await h.api.enableSharing();
+  const publishing = deferred(); h.overrides.publish = () => publishing.promise;
+  h.point(point()); await flush();
+  h.gpsError({ errMsg: 'scope.userLocation auth denied' });
+  const gpsError = h.api.getState().error;
+  assert.match(gpsError, /未获得位置权限/);
+  publishing.resolve({ accepted: true }); await flush();
+  assert.equal(h.api.getState().error, gpsError);
+  h.point({ latitude: NaN, longitude: 121 });
+  assert.equal(h.api.getState().error, gpsError);
+  h.point(point()); await flush();
+  assert.equal(h.api.getState().error, '');
+});
+
+test('healthy watch snapshots do not hide upload failure, and a later successful upload clears it', async () => {
+  const h = harness();
+  await h.api.openPage(session()); h.snapshot(); await h.api.enableSharing();
+  h.overrides.publish = async () => { throw new Error('upload failed'); };
+  h.point(point()); await flush();
+  const uploadError = h.api.getState().error;
+  assert.match(uploadError, /位置同步失败/);
+  h.snapshot();
+  assert.equal(h.api.getState().status, 'connected');
+  assert.equal(h.api.getState().error, uploadError);
+  delete h.overrides.publish;
+  await h.advance(5000); h.point(point(32)); await flush();
+  assert.equal(h.api.getState().error, '');
+});
+
+test('initial watch timeout reconnects at most five times even when begin succeeds during retry', async () => {
+  const h = harness(); await h.api.openPage(session());
+  for (let attempt = 0; attempt <= 5; attempt += 1) {
+    assert.equal(h.watches.length, attempt + 1);
+    await h.advance(15000);
+    assert.equal(h.watches[attempt].closed, true);
+    assert.match(h.api.getState().error, /位置同步暂时不可用/);
+    if (attempt === 0) {
+      await h.api.enableSharing();
+      assert.equal(h.api.getState().sharing, true);
+      assert.match(h.api.getState().error, /位置同步暂时不可用/);
+      h.snapshot(h.state, 0);
+      assert.equal(h.api.getState().status, 'reconnecting');
+    }
+    if (attempt < 5) {
+      assert.equal(h.api.getState().status, 'reconnecting');
+      await h.advance(32000);
+    }
+  }
+  assert.equal(h.api.getState().status, 'error');
+  assert.equal(h.count('ensure'), 6);
+  assert.equal(h.timers.size, 0);
+  assert.ok(h.warnings.every((warning) => warning[1] === 'watch-timeout'));
+  await h.advance(300000);
+  assert.equal(h.count('ensure'), 6);
+  await h.api.retry(); h.snapshot();
+  assert.equal(h.watches.length, 7);
+  assert.equal(h.api.getState().status, 'connected');
+  assert.equal(h.api.getState().error, '');
+});
+
+test('a first live snapshot cancels the watch deadline and idle sharing never polls', async () => {
+  const h = harness(); await h.api.openPage(session());
+  assert.equal(h.timers.size, 1);
+  h.snapshot();
+  assert.equal(h.timers.size, 0);
+  await h.advance(300000);
+  assert.equal(h.api.getState().status, 'connected');
+  assert.equal(h.api.getState().error, '');
+  assert.equal(h.watches.length, 1);
+  assert.equal(h.count('ensure'), 1);
+  assert.equal(h.warnings.length, 0);
+});
+
+test('an older first snapshot still notifies watch recovery without replacing newer sharing data', async () => {
+  const h = harness(); await h.api.openPage(session());
+  const old = JSON.parse(JSON.stringify(h.state));
+  await h.api.enableSharing();
+  const observed = []; h.api.subscribe((state) => observed.push(state));
+  h.watches[0].onError(new Error('websocket disconnected'));
+  await h.advance(2000);
+  h.snapshot(old);
+  assert.equal(observed.at(-1).status, 'connected');
+  assert.equal(observed.at(-1).error, '');
+  assert.equal(observed.at(-1).sharing, true);
+  assert.equal(h.handlers.size, 1);
 });

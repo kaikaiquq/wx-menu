@@ -17,6 +17,9 @@ let privacyContractName = '用户隐私保护指引';
 let autoAttempted = false;
 let status = 'idle';
 let errorText = '';
+let syncErrorText = '';
+let uploadErrorText = '';
+let gpsErrorText = '';
 let self = null;
 let partner = null;
 let token = '';
@@ -29,6 +32,7 @@ let epoch = 0;
 let shareEpoch = 0;
 let watchEpoch = 0;
 let watcher = null;
+let watchCallbackDepth = 0;
 let opening = null;
 let retryTimer = null;
 let watchTimeout = null;
@@ -55,7 +59,8 @@ const wxCall = (name, options = {}) => new Promise((resolve, reject) => {
   wx[name]({ ...options, success: resolve, fail: reject });
 });
 const getState = () => ({
-  status, sharing, starting, permission, privacyContractName, error: errorText,
+  status, sharing, starting, permission, privacyContractName,
+  error: errorText || gpsErrorText || syncErrorText || uploadErrorText,
   self: self ? { ...self } : null, partner: partner ? { ...partner } : null,
   coupleId: identity?.coupleId || '', selfOpenid: identity?.selfOpenid || '', partnerOpenid: identity?.partnerOpenid || '',
 });
@@ -108,6 +113,19 @@ const clearUpload = () => {
   pendingPoint = null;
   uploading = null;
 };
+const wrapWatchCallback = (callback) => (...args) => {
+  watchCallbackDepth += 1;
+  try { return callback(...args); } finally { watchCallbackDepth -= 1; }
+};
+const disposeWatcher = (old, deferClose = Boolean(watchCallbackDepth)) => {
+  if (!old) return;
+  const close = () => {
+    try { Promise.resolve(old.close()).catch(() => {}); } catch (error) { /* 已关闭 */ }
+  };
+  // SDK 回调返回后仍可能有 await 续段推进状态机；下一轮任务再关闭底层实例。
+  if (deferClose) setTimeout(close, 0);
+  else close();
+};
 const closeWatch = () => {
   watchEpoch += 1;
   if (retryTimer) clearTimeout(retryTimer);
@@ -116,7 +134,8 @@ const closeWatch = () => {
   const old = watcher;
   watcher = null;
   opening = null;
-  try { old?.close(); } catch (error) { /* 已关闭 */ }
+  // watchEpoch 已同步失效，期间晚到的快照不能再恢复坐标。
+  disposeWatcher(old);
 };
 const stopGPS = () => {
   gpsEpoch += 1;
@@ -159,7 +178,7 @@ const stop = () => {
   self = partner = null;
   permission = 'unknown';
   autoAttempted = false;
-  status = 'idle'; errorText = '';
+  status = 'idle'; errorText = syncErrorText = uploadErrorText = gpsErrorText = '';
   version = -1; retries = 0;
   lastSentPoint = null; lastSentAt = lastAttemptAt = 0;
   closeWatch(); stopGPS(); emit();
@@ -182,7 +201,8 @@ const applyServerState = (doc) => {
   if (!doc.active || ![doc.memberA, doc.memberB].includes(identity.selfOpenid)) {
     revoke('情侣绑定已变化，位置共享已停止'); return;
   }
-  if (Number(doc.version) < version) return;
+  // 旧快照不覆盖位置，但仍需通知连接已恢复等状态变化。
+  if (Number(doc.version) < version) { emit(); return; }
   version = Number(doc.version) || 0;
   identity.partnerOpenid = doc.memberA === identity.selfOpenid ? doc.memberB : doc.memberA;
   const own = doc.positions?.[identity.selfOpenid];
@@ -214,16 +234,16 @@ const verifyRelationship = async (generation, watchGeneration) => {
     else console.warn('location relationship check failed', error?.code || error?.errCode || '');
   }
 };
-const watchFailed = (error, generation, watchGeneration, fromWatch = false) => {
+const watchFailed = (error, generation, watchGeneration, source = 'ensure') => {
   if (!active(generation) || watchGeneration !== watchEpoch) return;
   closeWatch();
   // 权限撤销时立即移除他人敏感坐标，不能把失效快照继续当作授权数据展示。
   partner = null;
-  console.warn('location sync failed', error?.code || error?.errCode || '', error?.message || error?.errMsg || '');
+  console.warn('location sync failed', source, error?.code || error?.errCode || '', error?.errMsg || error?.message || '');
   if (/COUPLE_/.test(error?.code || '')) { revoke(friendlyError(error)); return; }
   // 数据库规则/云函数部署失败不表示情侣解绑，也不是用户拒绝手机定位权限。
-  status = 'error'; errorText = friendlyError(error, 'sync'); emit();
-  if (fromWatch && /FORBIDDEN|permission|权限/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.errMsg || ''}`)) {
+  status = 'error'; syncErrorText = friendlyError(error, 'sync'); emit();
+  if (source === 'watch-error' && /FORBIDDEN|permission|权限/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.errMsg || ''}`)) {
     // 解绑也可能直接触发读取权限撤销，向服务端核验一次以区分真实解绑与规则配置错误。
     verifyRelationship(generation, watchEpoch);
   }
@@ -239,6 +259,7 @@ const connect = () => {
   const watchGeneration = watchEpoch;
   status = 'connecting'; emit();
   const request = (async () => {
+    let failureSource = 'ensure';
     try {
       await initCloud();
       const data = await api('ensure');
@@ -248,24 +269,31 @@ const connect = () => {
       }
       applyServerState(data.state);
       if (!active(generation)) return;
+      const memberField = data.state?.memberA === identity.selfOpenid ? 'memberA'
+        : data.state?.memberB === identity.selfOpenid ? 'memberB' : '';
+      if (!memberField) { revoke('情侣绑定已变化，位置共享已停止'); return; }
       let received = false;
-      const nextWatcher = getCloud().database().collection('coupleLocations').doc(identity.coupleId).watch({
-        onChange(snapshot) {
+      failureSource = 'watch-open';
+      // 自定义规则校验查询条件；仅 doc(id) 无法证明 active 和当前成员身份。
+      const query = { _id: identity.coupleId, active: true, [memberField]: identity.selfOpenid };
+      const nextWatcher = getCloud().database().collection('coupleLocations').where(query).watch({
+        onChange: wrapWatchCallback((snapshot) => {
           if (!active(generation) || watchGeneration !== watchEpoch || !wanted()) return;
           received = true;
           if (watchTimeout) clearTimeout(watchTimeout);
           watchTimeout = null;
           if (!snapshot.docs?.[0]) { revoke('位置共享已停止，请重新进入位置页'); return; }
-          status = 'connected'; retries = 0;
+          // 上传成功不代表实时读取恢复；只有本次 watch 的快照能清除此错误。
+          status = 'connected'; retries = 0; syncErrorText = '';
           applyServerState(snapshot.docs[0]);
-        },
-        onError(error) { watchFailed(error, generation, watchGeneration, true); },
+        }),
+        onError: wrapWatchCallback((error) => watchFailed(error, generation, watchGeneration, 'watch-error')),
       });
-      if (!active(generation) || watchGeneration !== watchEpoch || !wanted()) { nextWatcher?.close(); return; }
+      if (!active(generation) || watchGeneration !== watchEpoch || !wanted()) { disposeWatcher(nextWatcher, true); return; }
       watcher = nextWatcher;
-      if (!received) watchTimeout = setTimeout(() => watchFailed(new Error('watch timeout'), generation, watchGeneration), 15000);
+      if (!received) watchTimeout = setTimeout(() => watchFailed(new Error('watch timeout'), generation, watchGeneration, 'watch-timeout'), 15000);
     } catch (error) {
-      watchFailed(error, generation, watchGeneration);
+      watchFailed(error, generation, watchGeneration, failureSource);
     } finally {
       if (opening === request) opening = null;
     }
@@ -293,7 +321,7 @@ const flushUpload = () => {
       const result = await api('publish', { sessionId: currentToken, latitude: point.latitude, longitude: point.longitude, accuracy: point.accuracy });
       if (!active(generation) || shareGeneration !== shareEpoch || locationGeneration !== gpsEpoch || !sharing || !foreground) return;
       if (result.accepted) {
-        lastSentAt = Date.now(); lastSentPoint = point; errorText = ''; emit();
+        lastSentAt = Date.now(); lastSentPoint = point; uploadErrorText = ''; emit();
       } else {
         pendingPoint = pendingPoint || point;
         scheduleUpload(Math.max(MIN_UPLOAD_MS, Number(result.retryAfterMs) || MIN_UPLOAD_MS));
@@ -303,8 +331,11 @@ const flushUpload = () => {
       if (/COUPLE_/.test(error?.code || '')) { revoke(friendlyError(error)); return; }
       if (error?.code === 'SESSION_REPLACED') {
         sharing = false; token = ''; shareEpoch += 1; stopGPS();
+        errorText = friendlyError(error);
+      } else {
+        uploadErrorText = friendlyError(error);
       }
-      errorText = friendlyError(error); emit();
+      emit();
       // 等待下一次系统位置事件/网络恢复/手动重试，不用网络请求循环兜底。
     } finally {
       if (uploading === request) {
@@ -319,7 +350,7 @@ const receiveLocation = (raw) => {
   if (!sharing || !foreground || !identity) return;
   const point = safePoint({ ...raw, updatedAt: Date.now() });
   if (!point) return;
-  self = point; emit();
+  self = point; gpsErrorText = ''; emit();
   if (!lastSentPoint || metersBetween(lastSentPoint, point) >= MOVE_METERS || Date.now() - lastSentAt >= STILL_UPLOAD_MS) {
     pendingPoint = point;
     flushUpload();
@@ -350,7 +381,7 @@ const startGPS = () => {
     if (typeof wx.onLocationChange !== 'function' || typeof wx.offLocationChange !== 'function') throw Object.assign(new Error('定位接口不支持'), { code: 'UNSUPPORTED' });
     let hasLivePoint = false;
     gpsHandler = (point) => { if (valid()) { hasLivePoint = true; receiveLocation(point); } };
-    gpsErrorHandler = (error) => { if (valid()) { errorText = friendlyError(error); emit(); } };
+    gpsErrorHandler = (error) => { if (valid()) { gpsErrorText = friendlyError(error); emit(); } };
     wx.onLocationChange(gpsHandler);
     if (typeof wx.onLocationChangeError === 'function') wx.onLocationChangeError(gpsErrorHandler);
     await wxCall('startLocationUpdate', { type: 'gcj02' });
@@ -363,7 +394,7 @@ const startGPS = () => {
     if (!valid()) return;
     const oldToken = token;
     shareEpoch += 1; sharing = false; starting = false; token = '';
-    errorText = friendlyError(error); stopGPS(); emit();
+    gpsErrorText = friendlyError(error); stopGPS(); emit();
     endToken(oldToken).catch(() => {});
   }).finally(() => { if (gpsStarting === request) gpsStarting = null; });
   // 队列始终可继续，错误已转为可见状态。
@@ -391,7 +422,7 @@ const enableSharing = async ({ automatic = false } = {}) => {
   const generation = epoch;
   const shareGeneration = ++shareEpoch;
   const valid = () => active(generation) && shareGeneration === shareEpoch && foreground;
-  starting = true; errorText = ''; emit();
+  starting = true; errorText = gpsErrorText = uploadErrorText = ''; emit();
   try {
     const settings = await wxCall('getSetting');
     if (!valid()) return;
@@ -431,7 +462,6 @@ const enableSharing = async ({ automatic = false } = {}) => {
     savePreference(false);
     lastSentPoint = null; lastSentAt = lastAttemptAt = 0;
     applyServerState(data.state);
-    retries = 0;
     if (!watcher) await connect();
     if (valid()) await startGPS();
   } catch (error) {
@@ -456,6 +486,7 @@ const disableSharing = async () => {
   const stopGeneration = shareEpoch;
   remoteOwnToken = ''; hideOwnSnapshot = true;
   self = null; lastSentPoint = null;
+  gpsErrorText = uploadErrorText = '';
   stopGPS();
   emit();
   try {
