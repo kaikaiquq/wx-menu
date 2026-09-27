@@ -1,7 +1,6 @@
 const { getSelfOpenid, requireSession } = require('../../utils/auth');
 const {
   acceptFriendRequest,
-  getVoicePlaybackUrl,
   listConversations,
   listFriendRequests,
   listFriends,
@@ -1099,8 +1098,8 @@ Page({
     if (!isCurrent()) return;
     this._pendingVoiceId = id;
     try {
-      // 由云函数核验会话成员并换取短期链接；客户端没有读取对方私有文件的权限。
-      const { url } = await getVoicePlaybackUrl(conversationId, id);
+      // 由云存储规则决定读取权限，播放不依赖额外的聊天云函数接口。
+      const url = await resolveCloudFileUrl(message.voiceFileId);
       if (!isCurrent()) return;
       if (typeof url !== 'string' || !/^https:\/\//i.test(url)) throw new Error('Missing playback URL');
       const audio = wx.createInnerAudioContext();

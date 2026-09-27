@@ -24,28 +24,6 @@ const isCollectionMissing = (error) => {
 };
 
 const pairKey = (a, b) => [a, b].sort().join('_');
-const VOICE_URL_MAX_AGE = 300;
-const voiceObjectPath = (fileId) => {
-  if (typeof fileId !== 'string' || fileId.length > 2048) return '';
-  const match = /^cloud:\/\/[a-zA-Z0-9._-]+\/(chat\/voice\/[^?#\s]+)$/.exec(fileId);
-  return match ? match[1] : '';
-};
-const isVoiceFilename = (value) => /^\d{10,16}-[a-z0-9]+\.mp3$/.test(value);
-const isScopedVoiceFile = (fileId, conversationId, openid) => {
-  if (![conversationId, openid].every((part) => typeof part === 'string' && part.length > 0 && part.length <= 128)) return false;
-  const prefix = `chat/voice/${encodeURIComponent(conversationId)}/${encodeURIComponent(openid)}/`;
-  const objectPath = voiceObjectPath(fileId);
-  return objectPath.startsWith(prefix) && isVoiceFilename(objectPath.slice(prefix.length));
-};
-const isStoredVoiceFile = (fileId, conversationId, senderOpenid) => {
-  if (typeof senderOpenid !== 'string' || !senderOpenid) return false;
-  if (isScopedVoiceFile(fileId, conversationId, senderOpenid)) return true;
-  // Existing messages used flat paths. New sends may no longer introduce them,
-  // so knowing an old file ID cannot turn this endpoint into an arbitrary signer.
-  const objectPath = voiceObjectPath(fileId);
-  return objectPath.startsWith('chat/voice/') && isVoiceFilename(objectPath.slice('chat/voice/'.length));
-};
-
 const getUser = async (openid) => {
   try {
     return (await db.collection('users').doc(openid).get()).data;
@@ -326,41 +304,6 @@ const listMessages = async (openid, event) => {
   return ok({ messages, readCursor });
 };
 
-const getVoicePlaybackUrl = async (openid, event) => {
-  const conversationId = typeof event.conversationId === 'string' ? event.conversationId.trim() : '';
-  const messageId = typeof event.messageId === 'string' ? event.messageId.trim() : '';
-  if (!conversationId || !messageId || conversationId.length > 128 || messageId.length > 128) {
-    return fail('INVALID_PARAMS', '缺少有效的会话或语音消息');
-  }
-  const user = await getUser(openid);
-  if (!user) return fail('UNAUTHORIZED', '请先登录');
-  await assertConversationMember(conversationId, openid);
-  const message = await getOptionalDocument(db.collection('messages').doc(messageId));
-  if (!message || message.conversationId !== conversationId) return fail('NOT_FOUND', '语音消息不存在');
-  if (!message.voiceFileId || (message.type && message.type !== 'voice') || (message.msgType && message.msgType !== 'voice')
-    || !isStoredVoiceFile(message.voiceFileId, conversationId, message.fromOpenid)) {
-    return fail('INVALID_PARAMS', '该消息不是有效的语音消息');
-  }
-  try {
-    // The caller supplies message identity only. The file is selected from the
-    // authorized persisted message, never from a client-provided file ID or URL.
-    const result = await cloud.getTempFileURL({
-      fileList: [{ fileID: message.voiceFileId, maxAge: VOICE_URL_MAX_AGE }],
-    });
-    const item = (result?.fileList || []).find((entry) => entry.fileID === message.voiceFileId);
-    if (!item || (item.status !== undefined && item.status !== 0) || typeof item.tempFileURL !== 'string') {
-      return fail('MEDIA_UNAVAILABLE', '语音暂时无法播放，请稍后重试');
-    }
-    const url = new (require('url').URL)(item.tempFileURL);
-    if (url.protocol !== 'https:' || !url.hostname || url.username || url.password) {
-      return fail('MEDIA_UNAVAILABLE', '语音暂时无法播放，请稍后重试');
-    }
-    return ok({ url: item.tempFileURL });
-  } catch (_) {
-    return fail('MEDIA_UNAVAILABLE', '语音暂时无法播放，请稍后重试');
-  }
-};
-
 const markConversationRead = async (openid, event) => {
   const conversationId = String(event.conversationId || '');
   if (!conversationId || !event.readCursor) return fail('INVALID_PARAMS', '缺少已显示消息的已读凭据');
@@ -406,7 +349,7 @@ const sendMessage = async (openid, event) => {
   if (msgType === 'voice') {
     voiceFileId = String(event.voiceFileId || '').trim();
     voiceDuration = Math.max(1, Math.min(60, Math.round(Number(event.voiceDuration) || 1)));
-    if (!isScopedVoiceFile(voiceFileId, conversationId, openid)) {
+    if (!voiceFileId.startsWith('cloud://')) {
       return fail('INVALID_PARAMS', '语音文件无效');
     }
     text = text || '[语音]';
@@ -733,7 +676,6 @@ exports.main = async (event = {}) => {
   try {
     if (event.action === 'listConversations') return await listConversations(OPENID, event);
     if (event.action === 'listMessages') return await listMessages(OPENID, event);
-    if (event.action === 'getVoicePlaybackUrl') return await getVoicePlaybackUrl(OPENID, event);
     if (event.action === 'markConversationRead') return await markConversationRead(OPENID, event);
     if (event.action === 'sendMessage') return await sendMessage(OPENID, event);
     if (event.action === 'getUnreadSummary') return await getUnreadSummary(OPENID);

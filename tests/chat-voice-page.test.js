@@ -17,21 +17,20 @@ const voice = (id, sender = 'alice') => ({ id, msgType: 'voice', voiceFileId: `c
 const createPage = ({ resolveUrl, upload } = {}) => {
   let definition;
   let account = 'bob';
-  const calls = { urls: [], clientUrls: 0, audio: [], toasts: [], uploads: [], sends: [], shown: [] };
+  const calls = { urls: [], audio: [], toasts: [], uploads: [], sends: [], shown: [] };
   const modules = {
     '../../utils/auth': { getSelfOpenid: () => account },
     '../../utils/chat': {
-      getVoicePlaybackUrl: async (...args) => {
-        calls.urls.push(args);
-        return resolveUrl ? resolveUrl(...args) : { url: `https://storage.example/${args[1]}?sign=fresh` };
-      },
       sendVoiceMessage: async (...args) => {
         calls.sends.push(args);
         return { message: { id: 'sent', ...args[1] } };
       },
     },
     '../../utils/cloud': {
-      resolveCloudFileUrl: async () => { calls.clientUrls++; return ''; },
+      resolveCloudFileUrl: async (fileId) => {
+        calls.urls.push(fileId);
+        return resolveUrl ? resolveUrl(fileId) : `https://storage.example/${fileId.split('/').pop()}?sign=fixture`;
+      },
       uploadFileToCloud: async (...args) => {
         calls.uploads.push(args);
         return upload ? upload(...args) : `cloud://env/${args[1]}`;
@@ -72,12 +71,11 @@ const createPage = ({ resolveUrl, upload } = {}) => {
   return { page, calls, switchAccount: value => { account = value; page.data.myOpenid = value; } };
 };
 
-test('接收者经服务端消息授权获得语音链接，不调用受创建者权限限制的客户端换链', async () => {
+test('播放直接使用消息文件ID获取云存储链接，不依赖聊天云函数或事件中的任意文件', async () => {
   const { page, calls } = createPage();
   await page.playVoice(event('one'));
-  assert.deepEqual(calls.urls, [['room', 'one']]);
-  assert.equal(calls.clientUrls, 0);
-  assert.equal(calls.audio[0].src, 'https://storage.example/one?sign=fresh');
+  assert.deepEqual(calls.urls, ['cloud://env/chat/voice/one.mp3']);
+  assert.equal(calls.audio[0].src, 'https://storage.example/one.mp3?sign=fixture');
   assert.equal(calls.audio[0].played, 1);
   assert.equal(page.data.playingVoiceId, 'one');
   calls.audio[0].end();
@@ -85,7 +83,7 @@ test('接收者经服务端消息授权获得语音链接，不调用受创建�
   assert.equal(calls.audio[0].destroyed, 1);
 });
 
-test('重复播放重新申请链接，播放出错后释放资源并可重试', async () => {
+test('重复播放重新解析文件链接，播放出错后释放资源并可重试', async () => {
   const { page, calls } = createPage();
   await page.playVoice(event('one'));
   calls.audio[0].error();
@@ -100,12 +98,12 @@ test('重复播放重新申请链接，播放出错后释放资源并可重试',
 test('连续点不同语音时，只播放最后一次选择，旧回包不会抢占', async () => {
   const one = deferred();
   const two = deferred();
-  const { page, calls } = createPage({ resolveUrl: (_room, id) => id === 'one' ? one.promise : two.promise });
+  const { page, calls } = createPage({ resolveUrl: fileId => fileId.endsWith('/one.mp3') ? one.promise : two.promise });
   const first = page.playVoice(event('one'));
   const second = page.playVoice(event('two'));
-  two.resolve({ url: 'https://storage.example/two' });
+  two.resolve('https://storage.example/two');
   await second;
-  one.resolve({ url: 'https://storage.example/one' });
+  one.resolve('https://storage.example/one');
   await first;
   assert.equal(calls.audio.length, 1);
   assert.equal(calls.audio[0].src, 'https://storage.example/two');
@@ -117,14 +115,14 @@ test('等待期间再次点击相同语音会取消，迟到链接不能自动�
   const { page, calls } = createPage({ resolveUrl: () => pending.promise });
   const first = page.playVoice(event('one'));
   await page.playVoice(event('one'));
-  pending.resolve({ url: 'https://storage.example/one' });
+  pending.resolve('https://storage.example/one');
   await first;
   assert.equal(calls.urls.length, 1);
   assert.equal(calls.audio.length, 0);
   assert.equal(page._pendingVoiceId, '');
 });
 
-test('切会话、切账号或隐藏后，旧语音授权回包不触发播放或错误提示', async () => {
+test('切会话、切账号或隐藏后，旧语音链接回包不触发播放或错误提示', async () => {
   for (const transition of ['conversation', 'account', 'hide']) {
     for (const failed of [false, true]) {
       const pending = deferred();
@@ -134,7 +132,7 @@ test('切会话、切账号或隐藏后，旧语音授权回包不触发播放�
       if (transition === 'account') switchAccount('carol');
       if (transition === 'hide') { page._visible = false; page.stopVoicePlayback(); }
       if (failed) pending.reject(new Error('private storage error'));
-      else pending.resolve({ url: 'https://storage.example/one' });
+      else pending.resolve('https://storage.example/one');
       await playing;
       assert.equal(calls.audio.length, 0);
       assert.equal(calls.toasts.length, 0);
@@ -154,7 +152,7 @@ test('旧播放器的迟到结束和错误事件不能清除新的播放状态',
   assert.equal(calls.toasts.length, 0);
 });
 
-test('消息不存在、非语音或AI会话不会请求任意文件授权', async () => {
+test('消息不存在、非语音或AI会话不会请求任意文件链接', async () => {
   const { page, calls } = createPage();
   await page.playVoice(event('unknown'));
   page.data.messages.push({ id: 'text', msgType: 'text' });
@@ -164,8 +162,8 @@ test('消息不存在、非语音或AI会话不会请求任意文件授权', asy
   assert.equal(calls.urls.length, 0);
 });
 
-test('授权失败与非法URL均显示固定提示，不泄露底层错误或播放不安全地址', async () => {
-  for (const resolveUrl of [async () => { throw new Error('private error with signed URL'); }, async () => ({ url: 'http://storage.example/file' })]) {
+test('存储拒绝读取、空链接与非法URL均显示固定提示，不泄露底层错误', async () => {
+  for (const resolveUrl of [async () => { throw new Error('private error with signed URL'); }, async () => '', async () => 'http://storage.example/file']) {
     const { page, calls } = createPage({ resolveUrl });
     await page.playVoice(event('one'));
     assert.equal(calls.audio.length, 0);
