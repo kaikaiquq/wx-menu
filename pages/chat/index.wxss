@@ -473,6 +473,8 @@ page {
   padding: 28rpx 18rpx 12rpx;
 }
 
+.message-bottom-anchor { height: 1rpx; width: 100%; }
+
 .message-empty {
   color: var(--love-text-muted);
   font-size: 26rpx;

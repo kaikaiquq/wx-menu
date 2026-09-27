@@ -15,8 +15,8 @@ const cursor = { messageId: 'm1', lastMessageAt: '2026-09-24', updatedAt: '2026-
 const payload = { messages: [{ id: 'm1', text: '收到', fromOpenid: 'peer' }], readCursor: cursor };
 const AI_ID = 'ai-companion';
 
-const createPage = ({ chat = {}, auth = {}, cloud = {}, ai = {}, holdRender = false, storedActiveId = '' } = {}) => {
-  const calls = { active: [], read: [], render: [], start: 0, unsubscribe: 0, lists: 0, messageLists: [], humanSent: [], aiSent: [], aiRetries: [], aiSubscriptions: [], aiUnsubscribe: 0, toasts: [] };
+const createPage = ({ chat = {}, auth = {}, cloud = {}, ai = {}, holdRender = false, holdNextTick = false, storedActiveId = '' } = {}) => {
+  const calls = { active: [], read: [], render: [], nextTicks: [], patches: [], start: 0, unsubscribe: 0, lists: 0, messageLists: [], humanSent: [], aiSent: [], aiRetries: [], aiSubscriptions: [], aiUnsubscribe: 0, toasts: [] };
   const state = { status: 'connected', total: 2, byId: { a: 2 } };
   let listener;
   let definition;
@@ -102,7 +102,7 @@ const createPage = ({ chat = {}, auth = {}, cloud = {}, ai = {}, holdRender = fa
     wx: {
       getStorageSync: (key) => key === 'couple.chat.activeId' ? storedActiveId : '',
       removeStorageSync: () => {},
-      nextTick: (fn) => fn(),
+      nextTick: (fn) => holdNextTick ? calls.nextTicks.push(fn) : fn(),
       showToast: (value) => calls.toasts.push(value),
       showLoading: () => {},
       hideLoading: () => {},
@@ -116,6 +116,7 @@ const createPage = ({ chat = {}, auth = {}, cloud = {}, ai = {}, holdRender = fa
     _readCursors: {},
     getTabBar: () => null,
     setData(patch, callback) {
+      calls.patches.push(patch);
       Object.assign(this.data, patch);
       if (callback) {
         if (holdRender) calls.render.push(callback);
@@ -341,6 +342,153 @@ test('发送响应晚于消息推送时，按消息 ID 去重', () => {
   page.data.messages = [payload.messages[0]];
   page.showSentMessage('a', payload.messages[0], page._viewGeneration);
   assert.equal(page.data.messages.length, 1);
+});
+
+test('当前会话新消息推送在消息渲染和布局完成后定位真实底部', async () => {
+  const { page, calls, emit } = createPage({ holdRender: true, holdNextTick: true });
+  page.data.messages = [{ id: 'older', text: '旧消息', fromOpenid: 'peer' }];
+  page.data.scrollIntoView = 'message-bottom';
+  page.startRealtime();
+  emit({ type: 'signal', kind: 'message', conversationId: 'a' });
+  await drain();
+  assert.equal(page.data.messages.at(-1).id, 'm1');
+  assert.equal(page.data.scrollIntoView, '');
+  assert.equal(calls.nextTicks.length, 0);
+  await calls.render.shift()();
+  assert.equal(page.data.scrollIntoView, '');
+  assert.equal(calls.nextTicks.length, 1);
+  calls.nextTicks.shift()();
+  assert.equal(page.data.scrollIntoView, 'message-bottom');
+});
+
+test('进入会话即使历史已缓存也等待渲染后重新定位底部', async () => {
+  const { page, calls } = createPage({ holdRender: true, holdNextTick: true });
+  await page.loadMessages('a', false);
+  await calls.render.shift()();
+  calls.nextTicks.shift()();
+  calls.patches.length = 0;
+  await page.loadMessages('a', false);
+  assert.equal(page.data.scrollIntoView, '');
+  assert.equal(calls.patches.some((patch) => Object.hasOwn(patch, 'messages')), false);
+  await calls.render.shift()();
+  calls.nextTicks.shift()();
+  assert.equal(page.data.scrollIntoView, 'message-bottom');
+});
+
+test('限量历史窗口长度不变但末尾有新消息时仍滚到底部', async () => {
+  const history = Array.from({ length: 40 }, (_, index) => ({ id: `m${index}`, text: `${index}`, createdAt: index + 1 }));
+  const newest = { id: 'm40', text: '新消息', createdAt: 41 };
+  const { page, calls } = createPage({
+    holdNextTick: true,
+    chat: { listMessages: async () => ({ messages: [...history.slice(1), newest] }) },
+  });
+  page.data.messages = history;
+  await page.loadMessages('a', true);
+  assert.equal(page.data.messages.length, 40);
+  assert.equal(calls.nextTicks.length, 1);
+  calls.nextTicks.shift()();
+  assert.equal(page.data.scrollIntoView, 'message-bottom');
+});
+
+test('相同快照、修改历史、补旧消息与过期历史均不抢回滚动位置', async () => {
+  const history = [
+    { id: 'middle', text: '中间', createdAt: '2026-09-27T10:00:00Z' },
+    { id: 'latest', text: '最新', createdAt: '2026-09-27T11:00:00Z' },
+  ];
+  const older = { id: 'older', text: '更早', createdAt: '2026-09-27T09:00:00Z' };
+  for (const messages of [history, [{ ...history[0], text: '编辑后' }, history[1]], [older, ...history], [older]]) {
+    const { page, calls } = createPage({
+      holdNextTick: true,
+      chat: { listMessages: async () => ({ messages }) },
+    });
+    page.data.messages = history;
+    page.data.scrollIntoView = 'message-bottom';
+    await page.loadMessages('a', true);
+    assert.equal(calls.nextTicks.length, 0);
+    assert.equal(calls.patches.some((patch) => Object.hasOwn(patch, 'scrollIntoView')), false);
+  }
+});
+
+test('自己发送成功和重复发送响应都在渲染完成后滚到末尾', async () => {
+  for (const alreadyReceived of [false, true]) {
+    const { page, calls } = createPage({ holdRender: true, holdNextTick: true });
+    page.onChatSignal = async () => {};
+    if (alreadyReceived) page.data.messages = [payload.messages[0]];
+    page.data.scrollIntoView = 'message-bottom';
+    page.showSentMessage('a', payload.messages[0], page._viewGeneration);
+    assert.equal(page.data.messages.length, 1);
+    assert.equal(page.data.scrollIntoView, '');
+    assert.equal(calls.nextTicks.length, 0);
+    await calls.render.shift()();
+    calls.nextTicks.shift()();
+    assert.equal(page.data.scrollIntoView, 'message-bottom');
+  }
+});
+
+test('连续相同刷新保留新消息的待滚动意图，只执行最新渲染的滚动', async () => {
+  const { page, calls } = createPage({ holdRender: true, holdNextTick: true });
+  await page.loadMessages('a', true);
+  await page.loadMessages('a', true);
+  await calls.render.shift()();
+  assert.equal(calls.nextTicks.length, 0);
+  await calls.render.shift()();
+  assert.equal(calls.nextTicks.length, 1);
+  calls.nextTicks.shift()();
+  assert.equal(page.data.scrollIntoView, 'message-bottom');
+});
+
+test('新一轮消息渲染使旧布局回调失效并接续底部定位', async () => {
+  const { page, calls } = createPage({ holdRender: true, holdNextTick: true });
+  await page.loadMessages('a', true);
+  await calls.render.shift()();
+  await page.loadMessages('a', true);
+  calls.nextTicks.shift()();
+  assert.equal(page.data.scrollIntoView, '');
+  await calls.render.shift()();
+  calls.nextTicks.shift()();
+  assert.equal(page.data.scrollIntoView, 'message-bottom');
+});
+
+test('切页、切会话或换账号后，旧渲染及布局回调不能触发滚动', async () => {
+  for (const afterRender of [false, true]) {
+    for (const transition of ['hide', 'switch', 'account']) {
+      let openid = 'me';
+      const { page, calls } = createPage({
+        holdRender: true, holdNextTick: true,
+        auth: { getSelfOpenid: () => openid },
+      });
+      await page.loadMessages('a', false);
+      if (afterRender) await calls.render.shift()();
+      if (transition === 'hide') page.stopRealtime();
+      else if (transition === 'switch') page.data.activeId = 'b';
+      else openid = 'another-user';
+      if (afterRender) calls.nextTicks.shift()();
+      else await calls.render.shift()();
+      assert.equal(page.data.scrollIntoView, '', `${transition}, afterRender=${afterRender}`);
+      assert.equal(calls.nextTicks.length, 0);
+    }
+  }
+});
+
+test('离开后重选同一会话不执行第一次进入时遗留的滚动', async () => {
+  const { page, calls } = createPage({ holdRender: true, holdNextTick: true });
+  await page.loadMessages('a', false);
+  await calls.render.shift()();
+  await page.selectConversation({ currentTarget: { dataset: { id: 'b' } } });
+  await page.selectConversation({ currentTarget: { dataset: { id: 'a' } } });
+  calls.nextTicks.shift()();
+  assert.equal(page.data.scrollIntoView, '');
+  await calls.render.shift()();
+  assert.equal(calls.nextTicks.length, 0);
+  await calls.render.shift()();
+  calls.nextTicks.shift()();
+  assert.equal(page.data.scrollIntoView, 'message-bottom');
+});
+
+test('滚动定位锚点位于全部消息之后，长气泡也能显示末尾', () => {
+  const wxml = fs.readFileSync(path.join(__dirname, '../pages/chat/index.wxml'), 'utf8');
+  assert.ok(wxml.indexOf('id="message-bottom"') > wxml.indexOf('wx:for="{{messages}}"'));
+  assert.match(wxml, /id="message-bottom"[^>]*><\/view>\s*<\/scroll-view>/);
 });
 
 const selectAI = async (page) => {

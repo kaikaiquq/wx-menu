@@ -5,6 +5,8 @@ const getUnreadSummary = () => callCloud('chatApi', 'getUnreadSummary');
 const ensureChatSignal = () => callCloud('chatApi', 'ensureChatSignal');
 const listMessages = (conversationId, limit = 30) =>
   callCloud('chatApi', 'listMessages', { conversationId, limit });
+const getVoicePlaybackUrl = (conversationId, messageId) =>
+  callCloud('chatApi', 'getVoicePlaybackUrl', { conversationId, messageId });
 const markConversationRead = (conversationId, readCursor) =>
   callCloud('chatApi', 'markConversationRead', { conversationId, readCursor });
 const sendMessage = (conversationId, text, extra = {}) =>
@@ -39,6 +41,7 @@ module.exports = {
   createGroup,
   ensureChatSignal,
   getUnreadSummary,
+  getVoicePlaybackUrl,
   listConversations,
   listFriendRequests,
   listFriends,

@@ -1,6 +1,7 @@
 const { getSelfOpenid, requireSession } = require('../../utils/auth');
 const {
   acceptFriendRequest,
+  getVoicePlaybackUrl,
   listConversations,
   listFriendRequests,
   listFriends,
@@ -185,6 +186,7 @@ Page({
     this.stopAIConversation();
     this._visible = true;
     const generation = this._viewGeneration = (this._viewGeneration || 0) + 1;
+    this.resetMessageScroll();
     this._readCursors = {};
     this._signalBusy = false;
     this._signalPending = false;
@@ -228,6 +230,7 @@ Page({
     const preferredId = wx.getStorageSync('couple.chat.activeId') || '';
     if (preferredId) {
       if (preferredId !== this.data.activeId) {
+        this.resetMessageScroll();
         this._drafts = { ...this._drafts, [this.data.activeId]: this.data.draft };
         this.messageFp = '';
         this.setData({ messages: [], draft: this._drafts[preferredId] || '', aiSending: false, aiError: '', voiceMode: false });
@@ -288,6 +291,36 @@ Page({
     return this._visible && this._viewGeneration === generation;
   },
 
+  resetMessageScroll() {
+    this._messageRenderVersion = (this._messageRenderVersion || 0) + 1;
+    this._pendingMessageScroll = null;
+    if (this.data.scrollIntoView) this.setData({ scrollIntoView: '' });
+  },
+
+  renderConversationMessages(patch, conversationId, generation, scrollToBottom, afterRender) {
+    const openid = this.data.myOpenid || getSelfOpenid();
+    const pending = this._pendingMessageScroll;
+    const shouldScroll = scrollToBottom || Boolean(pending && pending.generation === generation &&
+      pending.openid === openid && pending.conversationId === conversationId);
+    const renderVersion = this._messageRenderVersion = (this._messageRenderVersion || 0) + 1;
+    this._pendingMessageScroll = shouldScroll ? { generation, openid, conversationId } : null;
+    const isCurrent = () => this.isViewCurrent(generation) && !this.data.showFriends &&
+      this.data.activeId === conversationId && this.data.myOpenid === openid && getSelfOpenid() === openid &&
+      this._messageRenderVersion === renderVersion;
+    // 先提交消息与空锚点，等视图完成布局后再定位，重复的底部目标也能重新生效。
+    this.setData({ ...patch, ...(shouldScroll ? { scrollIntoView: '' } : {}) }, () => {
+      if (!isCurrent()) return;
+      if (shouldScroll) {
+        wx.nextTick(() => {
+          if (!isCurrent()) return;
+          this._pendingMessageScroll = null;
+          this.setData({ scrollIntoView: 'message-bottom' });
+        });
+      }
+      if (afterRender) return afterRender();
+    });
+  },
+
   syncActiveConversation() {
     chatUnread.setActiveConversation(this._visible && !this.data.showFriends && this.data.activeId !== AI_CONVERSATION_ID ? this.data.activeId : '');
   },
@@ -327,6 +360,7 @@ Page({
     this.stopAIConversation();
     this._visible = false;
     this._viewGeneration = (this._viewGeneration || 0) + 1;
+    this.resetMessageScroll();
     this._signalPending = false;
     this._signalNeedsMessages = false;
     chatUnread.setActiveConversation('');
@@ -390,6 +424,7 @@ Page({
       const nextFp = conversationFingerprint(conversations);
       const patch = {};
       if (activeChanged) {
+        this.resetMessageScroll();
         this.stopAIConversation();
         this._drafts = { ...this._drafts, [this.data.activeId]: this.data.draft };
         this.messageFp = '';
@@ -468,6 +503,13 @@ Page({
       this.updateConnectionStatus(chatUnread.getState().status);
       const decorated = decorateMessages(messages);
       const nextFp = messageFingerprint(decorated);
+      const lastMessage = decorated[decorated.length - 1];
+      const previousLast = this.data.messages[this.data.messages.length - 1];
+      const lastTime = toDate(lastMessage?.createdAt)?.getTime();
+      const previousTime = toDate(previousLast?.createdAt)?.getTime();
+      const hasNewTail = Boolean(lastMessage && !this.data.messages.some((item) => item.id === lastMessage.id) &&
+        (!Number.isFinite(lastTime) || !Number.isFinite(previousTime) || lastTime >= previousTime));
+      const shouldScroll = decorated.length > 0 && (!silent || hasNewTail);
       const acknowledge = async () => {
         if (!readCursor || !isCurrent()) return;
         const cursorKey = JSON.stringify(readCursor);
@@ -485,15 +527,8 @@ Page({
       // 仅在视图渲染完成且用户仍停留于本会话时提交已读游标。
       const patch = nextFp === this.messageFp ? {} : { messages: decorated };
       this.messageFp = nextFp;
-      this.setData(patch, acknowledge);
+      this.renderConversationMessages(patch, conversationId, generation, shouldScroll, acknowledge);
       this.resolveMessageImages(decorated);
-      if (!silent) {
-        const target = `msg-${Math.max(decorated.length - 1, 0)}`;
-        this.setData({ scrollIntoView: '' });
-        wx.nextTick(() => {
-          if (isCurrent()) this.setData({ scrollIntoView: target });
-        });
-      }
     } catch (error) {
       if (!isCurrent()) return;
       this._messageSyncError = true;
@@ -593,6 +628,7 @@ Page({
     const id = event.currentTarget.dataset.id;
     const active = this.data.conversations.find((item) => item.id === id);
     if (!id || id === this.data.activeId) return;
+    this.resetMessageScroll();
     this.stopVoicePlayback();
     this.cancelRecording(true);
     this.stopAIConversation();
@@ -998,15 +1034,20 @@ Page({
     if (!this.data.activeId || this.data.activeId === AI_CONVERSATION_ID || this.data.sending) return;
     const conversationId = this.data.activeId;
     const generation = this._viewGeneration;
+    const openid = this.data.myOpenid;
+    const isSameAccount = () => Boolean(openid) && this.data.myOpenid === openid && getSelfOpenid() === openid;
+    if (!isSameAccount()) return;
     this.setData({ sending: true });
     wx.showLoading({ title: '发送语音中' });
     try {
-      const cloudPath = `chat/voice/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
+      const cloudPath = `chat/voice/${encodeURIComponent(conversationId)}/${encodeURIComponent(openid)}/${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`;
       const fileID = await uploadFileToCloud(tempFilePath, cloudPath);
+      if (!isSameAccount()) return;
       const { message } = await sendVoiceMessage(conversationId, {
         voiceDuration,
         voiceFileId: fileID,
       });
+      if (!isSameAccount()) return;
       const decorated = decorateMessages([
         {
           ...message,
@@ -1017,58 +1058,71 @@ Page({
         },
       ])[0];
       this.showSentMessage(conversationId, decorated, generation);
-      wx.hideLoading();
     } catch (error) {
-      wx.hideLoading();
+      if (!isSameAccount()) return;
       this.setData({ sending: false });
       wx.showToast({ title: error.message || '语音发送失败', icon: 'none' });
+    } finally {
+      wx.hideLoading();
     }
   },
 
   stopVoicePlayback() {
-    if (this.audioCtx) {
-      try {
-        this.audioCtx.stop();
-        this.audioCtx.destroy();
-      } catch (error) {
-        // ignore
-      }
-      this.audioCtx = null;
+    this._voicePlaybackRequest = (this._voicePlaybackRequest || 0) + 1;
+    this._pendingVoiceId = '';
+    const audio = this.audioCtx;
+    this.audioCtx = null;
+    if (audio) {
+      try { audio.stop(); } catch (error) { /* Already stopped. */ }
+      try { audio.destroy(); } catch (error) { /* Already released. */ }
     }
     if (this.data.playingVoiceId) this.setData({ playingVoiceId: '' });
   },
 
   async playVoice(event) {
-    if (this.data.activeId === AI_CONVERSATION_ID) return;
-    const { id, file } = event.currentTarget.dataset;
-    if (!file) return;
-    if (this.data.playingVoiceId === id) {
+    const conversationId = this.data.activeId;
+    if (!conversationId || conversationId === AI_CONVERSATION_ID) return;
+    const { id } = event.currentTarget.dataset;
+    const message = this.data.messages.find((item) => item.id === id && resolveMsgType(item) === 'voice');
+    if (!message?.voiceFileId) return;
+    if (this.data.playingVoiceId === id || this._pendingVoiceId === id) {
       this.stopVoicePlayback();
       return;
     }
     this.stopVoicePlayback();
-    let url = file;
-    if (String(file).startsWith('cloud://')) {
-      url = (await resolveCloudFileUrl(file)) || '';
+    const request = this._voicePlaybackRequest;
+    const generation = this._viewGeneration;
+    const openid = this.data.myOpenid;
+    const isCurrent = () => this._voicePlaybackRequest === request && this.isViewCurrent(generation) &&
+      this.data.activeId === conversationId && !this.data.showFriends &&
+      Boolean(openid) && this.data.myOpenid === openid && getSelfOpenid() === openid;
+    if (!isCurrent()) return;
+    this._pendingVoiceId = id;
+    try {
+      // 由云函数核验会话成员并换取短期链接；客户端没有读取对方私有文件的权限。
+      const { url } = await getVoicePlaybackUrl(conversationId, id);
+      if (!isCurrent()) return;
+      if (typeof url !== 'string' || !/^https:\/\//i.test(url)) throw new Error('Missing playback URL');
+      const audio = wx.createInnerAudioContext();
+      this.audioCtx = audio;
+      const finish = (failed) => {
+        if (this.audioCtx !== audio) return;
+        const current = isCurrent();
+        this.stopVoicePlayback();
+        if (failed && current) wx.showToast({ title: '播放失败，请重试', icon: 'none' });
+      };
+      audio.onEnded(() => finish(false));
+      audio.onError(() => finish(true));
+      audio.src = url;
+      this.setData({ playingVoiceId: id });
+      audio.play();
+    } catch (error) {
+      if (!isCurrent()) return;
+      this.stopVoicePlayback();
+      wx.showToast({ title: '语音暂时无法播放，请重试', icon: 'none' });
+    } finally {
+      if (this._voicePlaybackRequest === request) this._pendingVoiceId = '';
     }
-    if (!url) {
-      wx.showToast({ title: '语音无法播放', icon: 'none' });
-      return;
-    }
-    const audio = wx.createInnerAudioContext();
-    this.audioCtx = audio;
-    audio.src = url;
-    this.setData({ playingVoiceId: id });
-    audio.onEnded(() => {
-      if (this.data.playingVoiceId === id) this.setData({ playingVoiceId: '' });
-      this.audioCtx = null;
-    });
-    audio.onError(() => {
-      this.setData({ playingVoiceId: '' });
-      this.audioCtx = null;
-      wx.showToast({ title: '播放失败', icon: 'none' });
-    });
-    audio.play();
   },
 
   async submitMessage() {
@@ -1104,12 +1158,7 @@ Page({
         ? this.data.messages : [...this.data.messages, message];
       this._messageRequest = (this._messageRequest || 0) + 1;
       this.messageFp = messageFingerprint(messages);
-      this.setData({ ...extraPatch, messages, showEmoji: false });
-      wx.nextTick(() => {
-        if (this.isViewCurrent(generation) && this.data.activeId === conversationId) {
-          this.setData({ scrollIntoView: `msg-${messages.length - 1}` });
-        }
-      });
+      this.renderConversationMessages({ ...extraPatch, messages, showEmoji: false }, conversationId, generation, true);
     }
     this.onChatSignal({ kind: 'message' });
   },
@@ -1231,6 +1280,7 @@ Page({
     try {
       const { conversationId } = await openDirectChat(friendOpenid);
       if (!this.isViewCurrent(generation)) return;
+      this.resetMessageScroll();
       this.stopAIConversation();
       this._drafts = { ...this._drafts, [this.data.activeId]: this.data.draft };
       this.setData({

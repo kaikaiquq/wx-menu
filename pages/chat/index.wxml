@@ -230,6 +230,7 @@
           <view wx:if="{{isAIActive && aiSending}}" id="ai-thinking" class="ai-thinking" aria-label="小伴正在思考">
             <view class="ai-thinking-dot"></view><text>小伴正在想一想…</text>
           </view>
+          <view id="message-bottom" class="message-bottom-anchor" aria-hidden="true"></view>
         </scroll-view>
       </view>
 
