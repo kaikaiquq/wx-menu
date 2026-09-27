@@ -6,13 +6,13 @@
           <view wx:if="{{loading}}" class="sidebar-empty">…</view>
           <view wx:elif="{{!conversations.length}}" class="sidebar-empty">空</view>
           <view
-            class="conversation-item {{activeId === item.id ? 'active' : ''}} {{item.isCouple ? 'couple' : ''}}"
+            class="conversation-item {{activeId === item.id ? 'active' : ''}} {{item.isCouple ? 'couple' : ''}} {{item.isAI ? 'ai-conversation' : ''}}"
             wx:for="{{conversations}}"
             wx:key="id"
             data-id="{{item.id}}"
             bind:tap="selectConversation"
             aria-role="button"
-            aria-label="{{item.title}}，{{item.unreadCount || 0}} 条未读消息"
+            aria-label="{{item.isAI ? item.title + '，AI 聊天伙伴' : item.title + '，' + (item.unreadCount || 0) + ' 条未读消息'}}"
           >
             <view class="conversation-avatar-wrap">
               <image
@@ -21,13 +21,14 @@
                 src="{{avatarMap[item.peer.openid]}}"
                 mode="aspectFill"
               />
-              <view class="conversation-avatar conversation-avatar-fallback" wx:else>
-                {{item.isCouple ? '♡' : (item.type === 'group' ? '群' : (item.title[0] || '友'))}}
+              <view class="conversation-avatar conversation-avatar-fallback {{item.isAI ? 'ai-avatar' : ''}}" wx:else>
+                {{item.isAI ? '伴' : item.isCouple ? '♡' : (item.type === 'group' ? '群' : (item.title[0] || '友'))}}
               </view>
               <view class="unread-badge" wx:if="{{item.unreadCount > 0}}">
                 {{item.unreadCount > 99 ? '99+' : item.unreadCount}}
               </view>
               <view class="couple-badge" wx:if="{{item.isCouple}}">对象</view>
+              <view class="ai-badge" wx:if="{{item.isAI}}">AI</view>
             </view>
             <view class="conversation-name">{{item.title}}</view>
           </view>
@@ -128,9 +129,10 @@
 
     <view class="chat-main">
       <view class="chat-header" bind:tap="dismissComposerExtras">
-        <view class="chat-header-title">{{activeTitle}}</view>
+        <view class="chat-header-title">{{activeTitle}}<text wx:if="{{isAIActive}}" class="ai-header-badge">AI</text></view>
+        <view wx:if="{{isAIActive}}" class="ai-identity">AI 聊天伙伴 · 回复由 AI 生成</view>
       </view>
-      <view class="connection-notice" wx:if="{{connectionText}}" bind:tap="retryConnection" aria-role="button" aria-label="重试消息连接">
+      <view class="connection-notice" wx:if="{{connectionText && !isAIActive}}" bind:tap="retryConnection" aria-role="button" aria-label="重试消息连接">
         {{connectionText}}
       </view>
 
@@ -142,7 +144,13 @@
           scroll-with-animation="{{false}}"
           bind:tap="dismissComposerExtras"
         >
-          <view wx:if="{{activeId && !messages.length}}" class="message-empty">从一句问候开始</view>
+          <view wx:if="{{isAIActive && !messages.length}}" class="message-empty ai-empty">
+            <view class="ai-welcome-avatar">伴</view>
+            <view class="ai-welcome-title">你好，我是{{aiName}}</view>
+            <view>聊聊今天的心情，或一起想想晚餐吃什么。</view>
+            <view class="ai-welcome-note">这里只使用你与小伴的聊天内容</view>
+          </view>
+          <view wx:elif="{{activeId && !messages.length}}" class="message-empty">从一句问候开始</view>
           <view wx:elif="{{!activeId}}" class="message-empty">选择一段会话，聊聊今天</view>
           <view
             class="message-row {{item.isMine ? 'mine' : ''}} {{item.fromOpenid === 'system' ? 'system' : ''}}"
@@ -155,12 +163,12 @@
               <view class="msg-avatar-wrap" wx:if="{{!item.isMine}}">
                 <image
                   class="msg-avatar"
-                  wx:if="{{avatarMap[item.fromOpenid]}}"
+                  wx:if="{{!isAIActive && avatarMap[item.fromOpenid]}}"
                   src="{{avatarMap[item.fromOpenid]}}"
                   mode="aspectFill"
                 />
-                <view class="msg-avatar msg-avatar-fallback" wx:else>
-                  {{item.fromNickname[0] || '友'}}
+                <view class="msg-avatar msg-avatar-fallback {{isAIActive ? 'ai-avatar' : ''}}" wx:else>
+                  {{isAIActive ? '伴' : item.fromNickname[0] || '友'}}
                 </view>
               </view>
 
@@ -203,6 +211,7 @@
                   </view>
                   <view class="voice-duration">{{item.voiceDuration || 1}}"</view>
                 </view>
+                <view class="ai-message-failed" wx:if="{{isAIActive && item.isMine && item.status === 'failed'}}">暂未收到回复</view>
               </view>
 
               <!-- 自己：头像在右，时间在头像左侧（meta 右对齐） -->
@@ -218,19 +227,26 @@
             </block>
             <view class="system-text" wx:else>{{item.text}}</view>
           </view>
+          <view wx:if="{{isAIActive && aiSending}}" id="ai-thinking" class="ai-thinking" aria-label="小伴正在思考">
+            <view class="ai-thinking-dot"></view><text>小伴正在想一想…</text>
+          </view>
         </scroll-view>
       </view>
 
+      <view wx:if="{{isAIActive && aiError}}" class="ai-error-card">
+        <text>{{aiError}}</text>
+        <button class="ai-retry-button" bind:tap="retryAIMessage" disabled="{{aiSending}}">重试回复</button>
+      </view>
       <view class="composer-wrap" wx:if="{{activeId}}">
         <view class="composer">
           <view class="composer-entry">
             <input
-              wx:if="{{!voiceMode}}"
+              wx:if="{{isAIActive || !voiceMode}}"
               class="composer-input"
               value="{{draft}}"
               maxlength="500"
               confirm-type="send"
-              placeholder="说点什么…"
+              placeholder="{{isAIActive ? '和小伴聊聊…' : '说点什么…'}}"
               focus="{{inputFocus}}"
               adjust-position="{{true}}"
               hold-keyboard="{{false}}"
@@ -251,7 +267,7 @@
             </view>
 
             <view
-              class="composer-send {{draft || sending ? '' : 'disabled'}}"
+              class="composer-send {{!draft || (isAIActive ? aiSending : sending) ? 'disabled' : ''}}"
               catch:tap="submitMessage"
               aria-label="发送"
               aria-role="button"
@@ -260,7 +276,7 @@
           </view>
           </view>
           <view class="composer-actions">
-            <view class="composer-tool" catch:tap="toggleVoiceMode" aria-role="button" aria-label="{{voiceMode ? '切换键盘输入' : '切换语音输入'}}">
+            <view wx:if="{{!isAIActive}}" class="composer-tool" catch:tap="toggleVoiceMode" aria-role="button" aria-label="{{voiceMode ? '切换键盘输入' : '切换语音输入'}}">
               <view class="tool-glyph {{voiceMode ? 'glyph-keyboard' : 'glyph-mic'}}"></view>
               <text class="composer-tool-label">{{voiceMode ? '键盘' : '语音'}}</text>
             </view>
@@ -273,7 +289,7 @@
               <view class="tool-glyph glyph-emoji"></view>
               <text class="composer-tool-label">表情</text>
             </view>
-            <view class="composer-tool" catch:tap="openImagePicker" aria-role="button" aria-label="图片">
+            <view wx:if="{{!isAIActive}}" class="composer-tool" catch:tap="openImagePicker" aria-role="button" aria-label="图片">
               <view class="tool-glyph glyph-image"></view>
               <text class="composer-tool-label">图片</text>
             </view>

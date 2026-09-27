@@ -17,7 +17,18 @@ const {
 const { resolveCloudFileUrl, resolveCloudFileUrls, uploadFileToCloud } = require('../../utils/cloud');
 const { getStoredThemeClass, getThemeColors, syncTheme } = require('../../utils/theme');
 const chatUnread = require('../../utils/chat-unread');
+const aiChat = require('../../utils/ai-chat');
 const { EMOJI_LIST } = require('./emoji-data');
+const { AI_CONVERSATION_ID, AI_NAME } = aiChat;
+
+const withAIConversation = (list = []) => {
+  const conversations = list.filter((item) => item.id !== AI_CONVERSATION_ID);
+  const coupleIndex = conversations.findIndex((item) => item.isCouple);
+  conversations.splice(coupleIndex + 1, 0, {
+    id: AI_CONVERSATION_ID, title: AI_NAME, isAI: true, unreadCount: 0,
+  });
+  return conversations;
+};
 
 const CONNECTION_TEXT = {
   connecting: '正在连接消息服务…',
@@ -30,7 +41,7 @@ const conversationFingerprint = (list = []) =>
   list
     .map(
       (item) =>
-        `${item.id}|${item.title}|${item.lastMessageText || ''}|${item.isCouple ? 1 : 0}|${item.unreadCount || 0}`,
+        `${item.id}|${item.title}|${item.lastMessageText || ''}|${item.isCouple ? 1 : 0}|${item.isAI ? 1 : 0}|${item.unreadCount || 0}`,
     )
     .join(';;');
 
@@ -38,7 +49,7 @@ const messageFingerprint = (list = []) =>
   list
     .map(
       (item) =>
-        `${item.id}|${item.text}|${item.msgType || item.type || 'text'}|${item.voiceFileId || ''}|${item.imageFileId || ''}`,
+        `${item.id}|${item.text}|${item.msgType || item.type || 'text'}|${item.voiceFileId || ''}|${item.imageFileId || ''}|${item.status || ''}`,
     )
     .join(';;');
 
@@ -127,6 +138,10 @@ Page({
   data: {
     activeId: '',
     activeTitle: '消息',
+    isAIActive: false,
+    aiName: AI_NAME,
+    aiSending: false,
+    aiError: '',
     addId: '',
     avatarMap: {},
     conversations: [],
@@ -167,6 +182,7 @@ Page({
   audioCtx: null,
 
   async onShow() {
+    this.stopAIConversation();
     this._visible = true;
     const generation = this._viewGeneration = (this._viewGeneration || 0) + 1;
     this._readCursors = {};
@@ -179,10 +195,23 @@ Page({
     const session = await requireSession({ requireCouple: false });
     if (!session || !this.isViewCurrent(generation)) return;
     const openid = session.user?.openid || getSelfOpenid();
+    const accountChanged = Boolean(this.data.myOpenid && this.data.myOpenid !== openid);
+    if (accountChanged) {
+      this._drafts = {};
+      this.conversationFp = this.messageFp = '';
+      this.conversationAvatarsReady = this.friendAvatarsReady = false;
+      this._conversationSyncError = this._messageSyncError = false;
+      this.setData({
+        activeId: '', activeTitle: '消息', isAIActive: false, aiSending: false, aiError: '',
+        conversations: [], messages: [], draft: '', avatarMap: {}, imageUrlMap: {},
+        friends: [], filteredFriends: [], incoming: [], showFriends: false, sending: false,
+      });
+    }
     const patch = {
       myOpenid: openid || '',
       myPublicUserId: session.user.publicUserId || '',
       themeClass: syncTheme(session.user.gender),
+      conversations: withAIConversation(this.data.conversations),
     };
     // 自己头像：优先已有临时链，否则换链一次
     if (openid && !this.data.avatarMap[openid]) {
@@ -198,9 +227,15 @@ Page({
     this.setData(patch);
     const preferredId = wx.getStorageSync('couple.chat.activeId') || '';
     if (preferredId) {
-      this.setData({ activeId: preferredId });
+      if (preferredId !== this.data.activeId) {
+        this._drafts = { ...this._drafts, [this.data.activeId]: this.data.draft };
+        this.messageFp = '';
+        this.setData({ messages: [], draft: this._drafts[preferredId] || '', aiSending: false, aiError: '', voiceMode: false });
+      }
+      this.setData({ activeId: preferredId, isAIActive: preferredId === AI_CONVERSATION_ID });
       wx.removeStorageSync('couple.chat.activeId');
     }
+    if (this.data.activeId === AI_CONVERSATION_ID) this.startAIConversation();
 
     // 先快速出会话列表（不换头像），再后台补头像；监听不阻塞首屏
     this.startRealtime();
@@ -254,11 +289,11 @@ Page({
   },
 
   syncActiveConversation() {
-    chatUnread.setActiveConversation(this._visible && !this.data.showFriends ? this.data.activeId : '');
+    chatUnread.setActiveConversation(this._visible && !this.data.showFriends && this.data.activeId !== AI_CONVERSATION_ID ? this.data.activeId : '');
   },
 
   updateConnectionStatus(status) {
-    const connectionText = CONNECTION_TEXT[status] ||
+    const connectionText = this.data.activeId === AI_CONVERSATION_ID ? '' : CONNECTION_TEXT[status] ||
       (this._conversationSyncError || this._messageSyncError ? '消息同步失败，点击重试' : '');
     if (connectionText !== this.data.connectionText) this.setData({ connectionText });
   },
@@ -266,7 +301,7 @@ Page({
   syncUnreadSummary(byId = {}) {
     const conversations = this.data.conversations.map((item) => ({
       ...item,
-      unreadCount: Math.max(0, Number(byId[item.id] || 0)),
+      unreadCount: item.isAI ? 0 : Math.max(0, Number(byId[item.id] || 0)),
     }));
     const nextFp = conversationFingerprint(conversations);
     if (nextFp === this.conversationFp) return;
@@ -289,6 +324,7 @@ Page({
   },
 
   stopRealtime() {
+    this.stopAIConversation();
     this._visible = false;
     this._viewGeneration = (this._viewGeneration || 0) + 1;
     this._signalPending = false;
@@ -301,6 +337,7 @@ Page({
   },
 
   retryConnection() {
+    if (this.data.activeId === AI_CONVERSATION_ID) return this.retryAIMessage();
     chatUnread.retry();
     this.onChatSignal({ kind: 'message' });
   },
@@ -319,7 +356,7 @@ Page({
         this._signalNeedsMessages = false;
         const tasks = [this.refreshConversations(false, { includeAvatars: false, skipMessages: true })];
         // 信标可能合并多个会话的变化，始终检查当前会话，不能只信最后的 conversationId。
-        if (loadMessages && this.data.activeId && !this.data.showFriends) {
+        if (loadMessages && this.data.activeId && this.data.activeId !== AI_CONVERSATION_ID && !this.data.showFriends) {
           tasks.push(this.loadMessages(this.data.activeId, true));
         }
         await Promise.all(tasks);
@@ -339,18 +376,25 @@ Page({
       this._conversationSyncError = false;
       this.updateConnectionStatus(chatUnread.getState().status);
       const byId = chatUnread.getState().byId || {};
-      const conversations = result.conversations.map((item) => ({
+      const humanConversations = result.conversations.map((item) => ({
         ...item,
         unreadCount: Math.max(0, Number(byId[item.id] || 0)),
       }));
+      const conversations = withAIConversation(humanConversations);
       let activeId = this.data.activeId;
       if (!activeId || (selectDefault && !conversations.some((item) => item.id === activeId))) {
-        activeId = conversations.find((item) => item.isCouple)?.id || conversations[0]?.id || '';
+        activeId = humanConversations.find((item) => item.isCouple)?.id || humanConversations[0]?.id || AI_CONVERSATION_ID;
       }
       const activeChanged = activeId !== this.data.activeId;
       const active = conversations.find((item) => item.id === activeId);
       const nextFp = conversationFingerprint(conversations);
       const patch = {};
+      if (activeChanged) {
+        this.stopAIConversation();
+        this._drafts = { ...this._drafts, [this.data.activeId]: this.data.draft };
+        this.messageFp = '';
+        Object.assign(patch, { messages: [], draft: this._drafts[activeId] || '', aiSending: false, aiError: '', voiceMode: false });
+      }
       if (this.data.loading) patch.loading = false;
 
       if (includeAvatars) {
@@ -380,12 +424,14 @@ Page({
         }));
       }
       if (activeId !== this.data.activeId) patch.activeId = activeId;
+      patch.isAIActive = activeId === AI_CONVERSATION_ID;
       if ((active?.title || '消息') !== this.data.activeTitle) {
         patch.activeTitle = active?.title || '消息';
       }
       if (Object.keys(patch).length) this.setData(patch);
 
       this.syncActiveConversation();
+      this.updateConnectionStatus(chatUnread.getState().status);
 
       // 消息单独拉，不堵在同一条关键路径的头像逻辑里
       if ((!options.skipMessages || activeChanged) && activeId && !this.data.showFriends) {
@@ -396,12 +442,21 @@ Page({
       this._conversationSyncError = true;
       this.updateConnectionStatus(chatUnread.getState().status);
       if (this.data.loading) this.setData({ loading: false });
-      if (selectDefault) wx.showToast({ title: error.message || '会话加载失败', icon: 'none' });
+      if (!this.data.activeId && this.data.myOpenid) {
+        this.setData({ activeId: AI_CONVERSATION_ID, activeTitle: AI_NAME, isAIActive: true });
+        this.syncActiveConversation();
+        this.startAIConversation();
+      }
+      if (selectDefault && this.data.activeId !== AI_CONVERSATION_ID) wx.showToast({ title: error.message || '会话加载失败', icon: 'none' });
     }
   },
 
   async loadMessages(conversationId, silent) {
     if (!this._visible || this.data.showFriends) return;
+    if (conversationId === AI_CONVERSATION_ID) {
+      if (this.data.activeId === conversationId) this.startAIConversation();
+      return;
+    }
     const generation = this._viewGeneration;
     const request = this._messageRequest = (this._messageRequest || 0) + 1;
     const isCurrent = () => this.isViewCurrent(generation) && !this.data.showFriends &&
@@ -461,22 +516,105 @@ Page({
     });
   },
 
+  isAIViewCurrent(generation, openid) {
+    return this.isViewCurrent(generation) && !this.data.showFriends &&
+      this.data.activeId === AI_CONVERSATION_ID && this.data.myOpenid === openid && getSelfOpenid() === openid;
+  },
+
+  stopAIConversation() {
+    this._aiSubscriptionVersion = (this._aiSubscriptionVersion || 0) + 1;
+    if (this._aiUnsubscribe) this._aiUnsubscribe();
+    this._aiUnsubscribe = null;
+  },
+
+  renderAIState(state) {
+    const messages = decorateMessages((state.messages || []).map((item) => ({
+      ...item, msgType: 'text', type: 'text', fromNickname: item.isMine ? '我' : AI_NAME,
+    })));
+    this.messageFp = messageFingerprint(messages);
+    this.setData({
+      messages, isAIActive: true, activeTitle: AI_NAME, voiceMode: false,
+      aiSending: Boolean(state.sending), aiError: state.error || '', connectionText: '',
+    });
+    const generation = this._viewGeneration;
+    const openid = this.data.myOpenid;
+    this.setData({ scrollIntoView: '' });
+    wx.nextTick(() => {
+      if (this.isAIViewCurrent(generation, openid)) {
+        this.setData({ scrollIntoView: state.sending ? 'ai-thinking' : `msg-${Math.max(messages.length - 1, 0)}` });
+      }
+    });
+  },
+
+  startAIConversation() {
+    this.stopAIConversation();
+    const generation = this._viewGeneration;
+    const openid = this.data.myOpenid;
+    if (!openid || !this.isAIViewCurrent(generation, openid)) return;
+    const subscriptionVersion = this._aiSubscriptionVersion;
+    this._aiUnsubscribe = aiChat.subscribe(openid, (state) => {
+      if (subscriptionVersion === this._aiSubscriptionVersion && this.isAIViewCurrent(generation, openid)) {
+        this.renderAIState(state);
+      }
+    });
+    this.renderAIState({ ...aiChat.getState(openid), messages: aiChat.getMessages(openid) });
+  },
+
+  async sendAIMessage(retry = false) {
+    const generation = this._viewGeneration;
+    const openid = this.data.myOpenid;
+    if (!openid || !this.isAIViewCurrent(generation, openid) || this.data.aiSending || aiChat.getState(openid).sending) return;
+    const text = String(this.data.draft || '').trim().slice(0, 500);
+    if (!retry && !text) return;
+    this.setData({ aiSending: true, aiError: '', showEmoji: false });
+    if (!retry) {
+      this._drafts = { ...this._drafts, [AI_CONVERSATION_ID]: '' };
+      this.setData({ draft: '' });
+    }
+    let failure = '';
+    try {
+      if (retry) await aiChat.retry(openid);
+      else await aiChat.sendMessage(openid, text);
+    } catch (error) {
+      failure = error.message || '小伴暂时没有回复，请重试';
+    } finally {
+      if (this.isAIViewCurrent(generation, openid)) {
+        const state = aiChat.getState(openid);
+        this.renderAIState({ ...state, error: state.error || failure, messages: aiChat.getMessages(openid) });
+      }
+    }
+  },
+
+  retryAIMessage() {
+    return this.sendAIMessage(true);
+  },
+
   selectConversation(event) {
     const id = event.currentTarget.dataset.id;
     const active = this.data.conversations.find((item) => item.id === id);
     if (!id || id === this.data.activeId) return;
     this.stopVoicePlayback();
+    this.cancelRecording(true);
+    this.stopAIConversation();
+    this._drafts = { ...this._drafts, [this.data.activeId]: this.data.draft };
+    this._messageRequest = (this._messageRequest || 0) + 1;
     this.messageFp = '';
     this.setData({
       activeId: id,
       activeTitle: active?.title || '消息',
+      isAIActive: id === AI_CONVERSATION_ID,
+      aiSending: false,
+      aiError: '',
+      draft: this._drafts[id] || '',
       inputFocus: false,
       messages: [],
+      voiceMode: false,
       showEmoji: false,
       showFriends: false,
     });
     this.syncActiveConversation();
-    this.loadMessages(id, false);
+    this.updateConnectionStatus(chatUnread.getState().status);
+    return this.loadMessages(id, false);
   },
 
   updateDraft(event) {
@@ -497,11 +635,14 @@ Page({
   },
 
   toggleVoiceMode() {
+    if (this.data.activeId === AI_CONVERSATION_ID) return;
+    const generation = this._viewGeneration;
+    const conversationId = this.data.activeId;
     const voiceMode = !this.data.voiceMode;
     if (voiceMode) {
       // 进入语音模式前先申请权限，避免按住说话时异步授权导致 start/stop 竞态
       this.ensureRecordAuth().then((ok) => {
-        if (!ok) return;
+        if (!ok || !this.isViewCurrent(generation) || this.data.activeId !== conversationId) return;
         this.setData({
           voiceMode: true,
           showEmoji: false,
@@ -540,7 +681,7 @@ Page({
   },
 
   openImagePicker() {
-    if (!this.data.activeId || this.data.sending) return;
+    if (!this.data.activeId || this.data.activeId === AI_CONVERSATION_ID || this.data.sending) return;
     this.dismissComposerExtras();
     wx.showActionSheet({
       itemList: ['拍照', '从相册选择'],
@@ -552,6 +693,7 @@ Page({
   },
 
   chooseAndSendImage(sourceType) {
+    if (this.data.activeId === AI_CONVERSATION_ID) return;
     wx.chooseMedia({
       count: 1,
       mediaType: ['image'],
@@ -570,7 +712,7 @@ Page({
   },
 
   async uploadAndSendImage(tempFilePath) {
-    if (!this.data.activeId || this.data.sending) return;
+    if (!this.data.activeId || this.data.activeId === AI_CONVERSATION_ID || this.data.sending) return;
     const conversationId = this.data.activeId;
     const generation = this._viewGeneration;
     this.setData({ sending: true });
@@ -741,7 +883,7 @@ Page({
   },
 
   onVoiceTouchStart(event) {
-    if (!this.data.activeId || this.data.sending) return;
+    if (!this.data.activeId || this.data.activeId === AI_CONVERSATION_ID || this.data.sending) return;
     if (this._recorderState && this._recorderState !== 'idle') return;
 
     const touch = (event.touches && event.touches[0]) || {};
@@ -853,7 +995,7 @@ Page({
   },
 
   async uploadAndSendVoice(tempFilePath, voiceDuration) {
-    if (!this.data.activeId || this.data.sending) return;
+    if (!this.data.activeId || this.data.activeId === AI_CONVERSATION_ID || this.data.sending) return;
     const conversationId = this.data.activeId;
     const generation = this._viewGeneration;
     this.setData({ sending: true });
@@ -897,6 +1039,7 @@ Page({
   },
 
   async playVoice(event) {
+    if (this.data.activeId === AI_CONVERSATION_ID) return;
     const { id, file } = event.currentTarget.dataset;
     if (!file) return;
     if (this.data.playingVoiceId === id) {
@@ -929,16 +1072,24 @@ Page({
   },
 
   async submitMessage() {
-    const text = (this.data.draft || '').trim();
+    if (this.data.activeId === AI_CONVERSATION_ID) return this.sendAIMessage();
+    const draft = this.data.draft || '';
+    const text = draft.trim();
     if (!text || !this.data.activeId || this.data.sending || this.data.voiceMode) return;
     const conversationId = this.data.activeId;
     const generation = this._viewGeneration;
+    const openid = this.data.myOpenid || getSelfOpenid();
+    const isSameAccount = () => this.data.myOpenid === openid && getSelfOpenid() === openid;
     this.setData({ sending: true });
     try {
       const { message } = await sendMessage(conversationId, text);
+      if (!isSameAccount()) return;
+      // 切走时缓存的草稿也需清理；用户在发送期间新写的内容必须保留。
+      if (this._drafts?.[conversationId] === draft) this._drafts[conversationId] = '';
       const decorated = decorateMessages([message])[0];
-      this.showSentMessage(conversationId, decorated, generation, { draft: '' });
+      this.showSentMessage(conversationId, decorated, generation, this.data.draft === draft ? { draft: '' } : {});
     } catch (error) {
+      if (!isSameAccount()) return;
       this.setData({ sending: false });
       wx.showToast({ title: error.message || '发送失败', icon: 'none' });
     }
@@ -964,6 +1115,7 @@ Page({
   },
 
   async openFriendsPanel() {
+    this.stopAIConversation();
     this.setData({
       showFriends: true,
       showEmoji: false,
@@ -977,7 +1129,8 @@ Page({
     if (!this.data.showFriends) return;
     this.setData({ showFriends: false });
     this.syncActiveConversation();
-    this.onChatSignal({ kind: 'message' });
+    if (this.data.activeId === AI_CONVERSATION_ID) this.startAIConversation();
+    else this.onChatSignal({ kind: 'message' });
   },
 
   async refreshFriendsPanel() {
@@ -1078,7 +1231,12 @@ Page({
     try {
       const { conversationId } = await openDirectChat(friendOpenid);
       if (!this.isViewCurrent(generation)) return;
-      this.setData({ activeId: conversationId, showFriends: false });
+      this.stopAIConversation();
+      this._drafts = { ...this._drafts, [this.data.activeId]: this.data.draft };
+      this.setData({
+        activeId: conversationId, isAIActive: false, aiSending: false, aiError: '',
+        messages: [], draft: this._drafts[conversationId] || '', showFriends: false,
+      });
       this.syncActiveConversation();
       this.conversationFp = '';
       this.messageFp = '';

@@ -131,6 +131,27 @@ page {
   white-space: nowrap;
 }
 
+.ai-avatar,
+.ai-welcome-avatar {
+  background: linear-gradient(145deg, var(--love-soft-strong), var(--love-surface));
+  border: 1rpx solid var(--love-border);
+  box-sizing: border-box;
+  color: var(--love-primary-dark);
+}
+
+.ai-badge {
+  background: var(--love-primary);
+  border: 2rpx solid var(--love-surface);
+  border-radius: 8rpx;
+  bottom: -8rpx;
+  color: #fff;
+  font-size: 18rpx;
+  line-height: 24rpx;
+  padding: 0 6rpx;
+  position: absolute;
+  right: -8rpx;
+}
+
 .sidebar-friends-btn {
   align-items: center;
   border-top: 1rpx solid var(--love-border);
@@ -325,6 +346,69 @@ page {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.ai-header-badge {
+  background: var(--love-soft);
+  border-radius: 8rpx;
+  color: var(--love-primary-dark);
+  display: inline-block;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  font-size: 20rpx;
+  line-height: 30rpx;
+  margin-left: 12rpx;
+  padding: 0 8rpx;
+  vertical-align: middle;
+}
+
+.ai-identity,
+.ai-welcome-note {
+  color: var(--love-text-muted);
+  font-size: 22rpx;
+  line-height: 1.6;
+  margin-top: 8rpx;
+}
+
+.ai-welcome-avatar {
+  align-items: center;
+  border-radius: 24rpx;
+  display: flex;
+  font-size: 40rpx;
+  height: 88rpx;
+  justify-content: center;
+  margin: 0 auto 24rpx;
+  width: 88rpx;
+}
+
+.ai-welcome-title { color: var(--love-text); font-size: 32rpx; font-weight: 600; margin-bottom: 12rpx; }
+.ai-welcome-note { margin-top: 24rpx; }
+.ai-message-failed { color: var(--love-danger); font-size: 22rpx; margin-top: 8rpx; }
+
+.ai-thinking {
+  align-items: center;
+  color: var(--love-text-muted);
+  display: flex;
+  font-size: 24rpx;
+  gap: 12rpx;
+  padding: 8rpx 4rpx 28rpx;
+}
+
+.ai-thinking-dot { background: var(--love-primary); border-radius: 50%; height: 10rpx; width: 10rpx; }
+
+.ai-error-card {
+  align-items: center;
+  background: var(--love-warning-soft);
+  color: var(--love-warning);
+  display: flex;
+  flex-shrink: 0;
+  font-size: 24rpx;
+  gap: 16rpx;
+  line-height: 1.5;
+  padding: 16rpx 20rpx;
+}
+
+.ai-error-card text { flex: 1; min-width: 0; }
+.ai-retry-button { background: var(--love-surface); color: var(--love-primary-dark); flex-shrink: 0; font-size: 24rpx; line-height: 2; margin: 0; padding: 4rpx 16rpx; }
+.ai-retry-button::after { border: 0; }
 
 .friend-sub {
   color: var(--love-text-muted);
