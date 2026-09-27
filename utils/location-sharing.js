@@ -88,11 +88,15 @@ const metersBetween = (a, b) => {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLng / 2) ** 2;
   return 6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, h)));
 };
-const friendlyError = (error) => {
+const friendlyError = (error, source = '') => {
   const code = error?.code || '';
   const message = String(error?.errMsg || error?.message || '');
-  if (/COUPLE_|FORBIDDEN/.test(code)) return '情侣绑定已变化，请重新进入位置页';
+  if (/COUPLE_/.test(code)) return '情侣绑定已变化，请重新进入位置页';
   if (code === 'SESSION_REPLACED') return '共享已在另一设备开启，请重新选择是否共享';
+  if (code === 'COLLECTION_REQUIRED' || /FUNCTION_NOT_FOUND|FUNCTION_NOT_EXIST|function[^\n]*(?:not found|not exist)/i.test(`${code} ${message}`)) {
+    return '位置服务尚未就绪，请稍后重试';
+  }
+  if (source === 'sync') return '位置同步暂时不可用，请稍后重试';
   if (/auth deny|auth denied|authorize:fail|scope.userLocation|permission/i.test(message)) return '未获得位置权限，可前往设置后重新开启';
   if (/privacy/i.test(message)) return '请先同意隐私保护指引，再开启位置共享';
   if (/requiredPrivateInfos|api scope|no permission|not support|接口未开通/i.test(message) || code === 'UNSUPPORTED') return '定位能力暂不可用，请确认微信版本和定位接口配置';
@@ -165,7 +169,7 @@ const stop = () => {
 const syncSession = (session) => {
   const selfOpenid = session?.user?.openid;
   const couple = session?.couple;
-  const next = selfOpenid && couple?.status === 'active' && couple.members?.length === 2
+  const next = selfOpenid && couple?.coupleId && couple.status === 'active' && Array.isArray(couple.members) && couple.members.length === 2
     ? { selfOpenid, coupleId: couple.coupleId, partnerOpenid: '' } : null;
   if (identity && (!next || next.selfOpenid !== identity.selfOpenid || next.coupleId !== identity.coupleId)) stop();
   if (!identity && next) identity = next;
@@ -195,13 +199,34 @@ const applyServerState = (doc) => {
 const configurationError = (error) => /COLLECTION|FORBIDDEN|permission|not.?exist|not.?found|权限/i.test(
   `${error?.code || ''} ${error?.message || ''} ${error?.errMsg || ''}`,
 );
-const watchFailed = (error, generation, watchGeneration) => {
+const verifyRelationship = async (generation, watchGeneration) => {
+  const current = () => active(generation) && watchGeneration === watchEpoch;
+  try {
+    const data = await api('ensure');
+    if (!current()) return;
+    if (data.coupleId !== identity.coupleId || data.selfOpenid !== identity.selfOpenid || !data.state?.active) {
+      revoke('情侣绑定已变化，位置共享已停止');
+    }
+    // 关系仍有效时保留同步错误，不恢复被权限错误清除的坐标，也不循环重连。
+  } catch (error) {
+    if (!current()) return;
+    if (/COUPLE_/.test(error?.code || '')) revoke(friendlyError(error));
+    else console.warn('location relationship check failed', error?.code || error?.errCode || '');
+  }
+};
+const watchFailed = (error, generation, watchGeneration, fromWatch = false) => {
   if (!active(generation) || watchGeneration !== watchEpoch) return;
   closeWatch();
   // 权限撤销时立即移除他人敏感坐标，不能把失效快照继续当作授权数据展示。
   partner = null;
-  if (/COUPLE_|FORBIDDEN/.test(error?.code || '')) { revoke(friendlyError(error)); return; }
-  status = 'error'; errorText = friendlyError(error); emit();
+  console.warn('location sync failed', error?.code || error?.errCode || '', error?.message || error?.errMsg || '');
+  if (/COUPLE_/.test(error?.code || '')) { revoke(friendlyError(error)); return; }
+  // 数据库规则/云函数部署失败不表示情侣解绑，也不是用户拒绝手机定位权限。
+  status = 'error'; errorText = friendlyError(error, 'sync'); emit();
+  if (fromWatch && /FORBIDDEN|permission|权限/i.test(`${error?.code || ''} ${error?.message || ''} ${error?.errMsg || ''}`)) {
+    // 解绑也可能直接触发读取权限撤销，向服务端核验一次以区分真实解绑与规则配置错误。
+    verifyRelationship(generation, watchEpoch);
+  }
   if (!wanted() || configurationError(error) || retries >= MAX_RETRIES) return;
   const delay = 1000 * (2 ** retries) + Math.floor(Math.random() * 250);
   retries += 1;
@@ -234,7 +259,7 @@ const connect = () => {
           status = 'connected'; retries = 0;
           applyServerState(snapshot.docs[0]);
         },
-        onError(error) { watchFailed(error, generation, watchGeneration); },
+        onError(error) { watchFailed(error, generation, watchGeneration, true); },
       });
       if (!active(generation) || watchGeneration !== watchEpoch || !wanted()) { nextWatcher?.close(); return; }
       watcher = nextWatcher;
@@ -275,7 +300,7 @@ const flushUpload = () => {
       }
     } catch (error) {
       if (!active(generation) || shareGeneration !== shareEpoch || locationGeneration !== gpsEpoch) return;
-      if (/COUPLE_|FORBIDDEN/.test(error?.code || '')) { revoke(friendlyError(error)); return; }
+      if (/COUPLE_/.test(error?.code || '')) { revoke(friendlyError(error)); return; }
       if (error?.code === 'SESSION_REPLACED') {
         sharing = false; token = ''; shareEpoch += 1; stopGPS();
       }
@@ -411,6 +436,7 @@ const enableSharing = async ({ automatic = false } = {}) => {
     if (valid()) await startGPS();
   } catch (error) {
     if (valid()) {
+      if (/COUPLE_/.test(error?.code || '')) { revoke(friendlyError(error)); return; }
       if (/auth deny|auth denied|authorize:fail/i.test(String(error?.errMsg || error?.message || ''))) permission = 'denied';
       errorText = friendlyError(error); emit();
     }

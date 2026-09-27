@@ -84,6 +84,96 @@ function harness() {
 }
 const point = (latitude = 31) => ({ latitude, longitude: 121, accuracy: 10 });
 
+test('an active session from authApi remains bound when location storage is not ready', async () => {
+  const h = harness();
+  const current = session();
+  current.user.publicUserId = 'public-a';
+  current.couple.members = [{ publicUserId: 'public-a' }, { publicUserId: 'public-b' }];
+  h.overrides.ensure = async () => {
+    throw Object.assign(new Error('请先创建 coupleLocations 集合并配置安全规则'), { code: 'COLLECTION_REQUIRED' });
+  };
+  await h.api.openPage(current);
+  const state = h.api.getState();
+  assert.equal(state.coupleId, 'pair');
+  assert.equal(state.status, 'error');
+  assert.match(state.error, /位置服务尚未就绪/);
+  assert.equal(h.timers.size, 0);
+  assert.equal(h.native.length, 0);
+});
+
+test('database permission errors clear partner coordinates without claiming the couple is unbound or GPS denied', async () => {
+  const h = harness();
+  h.state.positions.b = { ...point(32), updatedAt: 1700000000000 };
+  await h.api.openPage(session());
+  h.snapshot();
+  assert.equal(h.api.getState().partner.latitude, 32);
+  h.watches[0].onError(Object.assign(new Error('database permission denied'), { code: 'FORBIDDEN' }));
+  const state = h.api.getState();
+  assert.equal(state.coupleId, 'pair');
+  assert.equal(state.partner, null);
+  assert.equal(state.status, 'error');
+  assert.equal(state.permission, 'unknown');
+  assert.match(state.error, /位置同步暂时不可用/);
+  await flush();
+  assert.equal(h.api.getState().coupleId, 'pair');
+  assert.equal(h.api.getState().partner, null);
+  assert.equal(h.count('ensure'), 2);
+  assert.equal(h.timers.size, 0);
+});
+
+test('watch permission revoked by unbind verifies membership once and stops GPS and clears positions', async () => {
+  const h = harness();
+  h.state.positions.b = { ...point(32), updatedAt: 1700000000000 };
+  await h.api.openPage(session());
+  await h.api.enableSharing();
+  h.point(point());
+  await flush();
+  h.overrides.ensure = async () => {
+    throw Object.assign(new Error('请先绑定另一半'), { code: 'COUPLE_REQUIRED' });
+  };
+  h.watches[0].onError(Object.assign(new Error('database permission denied'), { code: 'FORBIDDEN' }));
+  await flush();
+  const state = h.api.getState();
+  assert.equal(state.coupleId, '');
+  assert.equal(state.status, 'unbound');
+  assert.equal(state.sharing, false);
+  assert.equal(state.self, null);
+  assert.equal(state.partner, null);
+  assert.equal(h.handlers.size, 0);
+  assert.equal(h.count('ensure'), 2);
+  assert.equal(h.timers.size, 0);
+});
+
+test('late membership verification cannot revoke a newer connection', async () => {
+  const h = harness();
+  await h.api.openPage(session());
+  const verification = deferred();
+  h.overrides.ensure = () => verification.promise;
+  h.watches[0].onError(Object.assign(new Error('database permission denied'), { code: 'FORBIDDEN' }));
+  delete h.overrides.ensure;
+  await h.api.retry();
+  h.snapshot();
+  verification.reject(Object.assign(new Error('old relationship result'), { code: 'COUPLE_CHANGED' }));
+  await flush();
+  assert.equal(h.api.getState().coupleId, 'pair');
+  assert.equal(h.api.getState().status, 'connected');
+  assert.equal(h.watches[1].closed, false);
+});
+
+test('a relationship rejected by begin is revoked and clears all old coordinates', async () => {
+  const h = harness();
+  h.state.positions.b = { ...point(32), updatedAt: 1700000000000 };
+  await h.api.openPage(session());
+  h.overrides.begin = async () => {
+    throw Object.assign(new Error('情侣绑定状态已变化'), { code: 'COUPLE_CHANGED' });
+  };
+  await h.api.enableSharing();
+  assert.equal(h.api.getState().status, 'unbound');
+  assert.equal(h.api.getState().coupleId, '');
+  assert.equal(h.api.getState().partner, null);
+  assert.equal(h.handlers.size, 0);
+});
+
  test('opening page watches partner without collecting; first auto entry requests location once', async () => {
   const h = harness(); await h.api.openPage(session()); h.snapshot();
   assert.equal(h.native.length, 0); assert.equal(h.watches.length, 1);

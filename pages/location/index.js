@@ -45,6 +45,7 @@ Page({
   data: {
     themeClass: getStoredThemeClass(),
     loading: true,
+    sessionUnavailable: false,
     hasPartner: false,
     partnerName: 'TA',
     sharing: false,
@@ -76,8 +77,9 @@ Page({
     const generation = (this._viewGeneration || 0) + 1;
     this._viewGeneration = generation;
     this._lastState = null;
+    this._sessionCoupleId = '';
     this.setData({
-      loading: true, actionPending: false, followMode: 'partner', errorText: '',
+      loading: true, sessionUnavailable: false, actionPending: false, followMode: 'partner', errorText: '',
       hasMap: false, hasSelf: false, hasPartnerPoint: false, hasPartner: false,
       markers: [], includePoints: [], connectionText: '', privacyRequired: false,
     });
@@ -85,17 +87,26 @@ Page({
     if (tabBar && typeof tabBar.init === 'function') tabBar.init();
     const session = await requireSession({ force: true, requireCouple: false });
     if (!this.isCurrentView(generation)) return;
-    if (!session) {
-      this.setData({ loading: false, hasMap: false, markers: [], includePoints: [] });
+    const members = Array.isArray(session?.couple?.members) ? session.couple.members : [];
+    const incompleteCouple = Boolean(session?.user?.coupleId && !session.couple)
+      || Boolean(session?.couple?.status === 'active' && (!session.couple.coupleId || members.length !== 2));
+    if (!session || incompleteCouple) {
+      this.setData({
+        loading: false, sessionUnavailable: true, errorText: '暂时无法确认绑定状态，请重试',
+        hasMap: false, markers: [], includePoints: [],
+      });
       return;
     }
-    const members = session.couple?.members || [];
-    const partner = members.find((member) => member.openid !== session.user.openid);
-    this._sessionCoupleId = session.couple?.coupleId || '';
-    this._sessionPartnerOpenid = partner?.openid || '';
+    const hasPartner = Boolean(session.couple?.coupleId && session.couple.status === 'active' && members.length === 2);
+    // authApi 的公开成员资料使用 publicUserId，不包含微信 openid。
+    const partner = hasPartner ? members.find((member) => {
+      if (member.publicUserId && session.user.publicUserId) return member.publicUserId !== session.user.publicUserId;
+      return member.openid && session.user.openid && member.openid !== session.user.openid;
+    }) : null;
+    this._sessionCoupleId = hasPartner ? session.couple.coupleId : '';
     this.setData({
       themeClass: syncTheme(session.user.gender),
-      hasPartner: Boolean(partner),
+      hasPartner,
       partnerName: partner?.nickname || 'TA',
     });
     this._unsubscribe = locationSharing.subscribe((state) => {
@@ -147,9 +158,8 @@ Page({
   renderState(state) {
     if (!this._visible || !state) return;
     this._lastState = state;
-    const hasPartner = Boolean(state.coupleId && (
-      state.partnerOpenid || (state.coupleId === this._sessionCoupleId && this._sessionPartnerOpenid)
-    ));
+    // 绑定关系以已确认的会话为准；位置服务失败不等于解绑，身份撤销仍立即清空地图。
+    const hasPartner = Boolean(state.coupleId && state.coupleId === this._sessionCoupleId);
     const self = hasPartner && validPoint(state.self) ? state.self : null;
     const partner = hasPartner && validPoint(state.partner) ? state.partner : null;
     const selfDescription = describePoint(self, Date.now());
@@ -275,7 +285,11 @@ Page({
   },
 
   retryConnection() {
-    locationSharing.retry();
+    if (this.data.sessionUnavailable || !this._lastState?.coupleId) {
+      this.stopPage();
+      return this.onShow();
+    }
+    return locationSharing.retry();
   },
 
   goBindPartner() {

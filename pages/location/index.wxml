@@ -42,9 +42,9 @@
     />
     <view class="map-empty" wx:else>
       <view class="map-empty-symbol" aria-hidden="true" />
-      <view class="map-empty-title">{{loading ? '正在连接我们的位置' : hasPartner ? '等待彼此的位置' : '先和 TA 建立连接'}}</view>
-      <view class="map-empty-text">{{loading ? '稍等一下，很快就好' : hasPartner ? '允许位置授权后，自动向 TA 共享\nTA 的位置更新也会自动出现在这里' : '绑定伴侣后，才能相互分享位置'}}</view>
-      <button wx:if="{{!loading && !hasPartner}}" class="button-primary bind-button" bind:tap="goBindPartner">去绑定伴侣</button>
+      <view class="map-empty-title">{{loading ? '正在连接我们的位置' : sessionUnavailable ? '暂时无法确认绑定状态' : hasPartner ? '等待彼此的位置' : '先和 TA 建立连接'}}</view>
+      <view class="map-empty-text">{{loading ? '稍等一下，很快就好' : sessionUnavailable ? '请检查网络后重试' : hasPartner ? '允许位置授权后，自动向 TA 共享\nTA 的位置更新也会自动出现在这里' : '绑定伴侣后，才能相互分享位置'}}</view>
+      <button wx:if="{{!loading && !sessionUnavailable && !hasPartner}}" class="button-primary bind-button" bind:tap="goBindPartner">去绑定伴侣</button>
     </view>
     <view class="map-caption">
       <view class="map-caption-dot" />

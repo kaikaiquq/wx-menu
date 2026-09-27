@@ -11,13 +11,16 @@ const deferred = () => {
   return { promise, resolve };
 };
 const session = {
-  user: { openid: 'self', gender: 'female' },
-  couple: { coupleId: 'couple', members: [{ openid: 'self' }, { openid: 'partner', nickname: '小满' }] },
+  user: { openid: 'self', publicUserId: 'public-self', gender: 'female' },
+  couple: {
+    coupleId: 'couple', status: 'active',
+    members: [{ publicUserId: 'public-self', nickname: '自己' }, { publicUserId: 'public-partner', nickname: '小满' }],
+  },
 };
 const point = (latitude, longitude) => ({ latitude, longitude, updatedAt: Date.now(), accuracy: 12 });
 
 const createPage = ({ service = {}, auth = {}, initialState = {} } = {}) => {
-  const calls = { open: [], close: 0, auto: 0, enable: 0, disable: 0, unsubscribe: 0, clearClock: 0, toasts: [], settings: 0, privacyContract: 0, refreshPermission: 0 };
+  const calls = { auth: [], open: [], close: 0, auto: 0, enable: 0, disable: 0, retry: 0, unsubscribe: 0, clearClock: 0, toasts: [], settings: 0, privacyContract: 0, refreshPermission: 0 };
   const state = {
     status: 'connected', sharing: false, starting: false, permission: 'unknown', error: '',
     coupleId: 'couple', selfOpenid: 'self', partnerOpenid: 'partner', self: null, partner: null,
@@ -37,12 +40,17 @@ const createPage = ({ service = {}, auth = {}, initialState = {} } = {}) => {
     autoEnable: async () => { calls.auto += 1; },
     enableSharing: async () => { calls.enable += 1; },
     disableSharing: async () => { calls.disable += 1; },
-    retry: () => {},
+    retry: async () => { calls.retry += 1; },
     refreshPermission: () => { calls.refreshPermission += 1; },
     ...service,
   };
   const modules = {
-    '../../utils/auth': { requireSession: async () => session, ...auth },
+    '../../utils/auth': {
+      requireSession: async (options) => {
+        calls.auth.push(options);
+        return auth.requireSession ? auth.requireSession(options) : session;
+      },
+    },
     '../../utils/location-sharing': locationSharing,
     '../../utils/theme': {
       getStoredThemeClass: () => '', syncTheme: () => '',
@@ -94,6 +102,103 @@ test('打开位置页建立连接后自动启动授权，初始视野优先 TA �
   assert.equal(page.data.markers[0].callout.content, '我');
   assert.equal(page.data.markers[1].callout.content, 'TA');
   assert.equal(page.data.partnerName, '小满');
+});
+
+test('真实 authApi 公开成员不带 openid，位置连接失败仍显示已绑定和正确伴侣', async () => {
+  const { page, emit } = createPage({
+    initialState: { status: 'connecting', partnerOpenid: '' },
+  });
+  await page.onShow();
+  assert.equal(page.data.hasPartner, true);
+  assert.equal(page.data.partnerName, '小满');
+  emit({ status: 'error', error: '位置服务暂不可用', partnerOpenid: '' });
+  assert.equal(page.data.hasPartner, true);
+  assert.equal(page.data.errorText, '位置服务暂不可用');
+  assert.equal(page.data.sessionUnavailable, false);
+  assert.equal(page.data.hasMap, false);
+});
+
+test('兼容使用 openid 标识成员的会话', async () => {
+  const { page } = createPage({
+    auth: { requireSession: async () => ({
+      user: { openid: 'self', gender: 'female' },
+      couple: { coupleId: 'couple', status: 'active', members: [{ openid: 'self' }, { openid: 'partner', nickname: '小满' }] },
+    }) },
+    initialState: { partnerOpenid: '' },
+  });
+  await page.onShow();
+  assert.equal(page.data.hasPartner, true);
+  assert.equal(page.data.partnerName, '小满');
+});
+
+test('待绑定关系即使残留两个成员或位置身份，也不展示已绑定或旧位置', async () => {
+  const { page } = createPage({
+    auth: { requireSession: async () => ({ ...session, couple: { ...session.couple, status: 'pending' } }) },
+    initialState: { partner: point(32, 122) },
+  });
+  await page.onShow();
+  assert.equal(page.data.hasPartner, false);
+  assert.equal(page.data.sessionUnavailable, false);
+  assert.equal(page.data.hasMap, false);
+});
+
+test('身份请求失败展示待确认状态，重试强制刷新身份并恢复位置页', async () => {
+  let attempts = 0;
+  const { page, calls } = createPage({
+    auth: { requireSession: async () => (++attempts === 1 ? null : session) },
+  });
+  await page.onShow();
+  assert.equal(page.data.sessionUnavailable, true);
+  assert.equal(page.data.loading, false);
+  assert.match(page.data.errorText, /无法确认绑定状态/);
+  assert.equal(calls.open.length, 0);
+  await page.retryConnection();
+  assert.equal(calls.auth.length, 2);
+  assert.ok(calls.auth.every((options) => options.force === true && options.requireCouple === false));
+  assert.equal(calls.retry, 0);
+  assert.equal(calls.open.length, 1);
+  assert.equal(page.data.sessionUnavailable, false);
+  assert.equal(page.data.hasPartner, true);
+});
+
+test('关系或成员读取不完整时提示重试，不把 authApi 降级响应当作未绑定', async () => {
+  const incompleteSessions = [
+    { ...session, user: { ...session.user, coupleId: 'couple' }, couple: null },
+    { ...session, couple: { ...session.couple, members: [session.couple.members[0]] } },
+  ];
+  for (const value of incompleteSessions) {
+    const { page, calls } = createPage({ auth: { requireSession: async () => value } });
+    await page.onShow();
+    assert.equal(page.data.sessionUnavailable, true);
+    assert.equal(page.data.hasPartner, false);
+    assert.match(page.data.errorText, /无法确认绑定状态/);
+    assert.equal(calls.open.length, 0);
+  }
+});
+
+test('确定未绑定或只有邀请中的自己时正常展示绑定入口', async () => {
+  const unboundSessions = [
+    { ...session, couple: null },
+    { ...session, couple: { ...session.couple, status: 'pending', members: [session.couple.members[0]] } },
+  ];
+  for (const value of unboundSessions) {
+    const { page } = createPage({
+      auth: { requireSession: async () => value },
+      initialState: { coupleId: '', partnerOpenid: '' },
+    });
+    await page.onShow();
+    assert.equal(page.data.sessionUnavailable, false);
+    assert.equal(page.data.hasPartner, false);
+    assert.equal(page.data.loading, false);
+  }
+});
+
+test('已有有效身份时重试位置连接，不重复刷新会话', async () => {
+  const { page, calls } = createPage();
+  await page.onShow();
+  await page.retryConnection();
+  assert.equal(calls.retry, 1);
+  assert.equal(calls.auth.length, 1);
 });
 
 test('没有共享位置时不渲染假地图，TA 尚未共享时可展示自己并继续等待 TA', async () => {
@@ -249,4 +354,35 @@ test('解绑或无效坐标快照立即清空地图，禁止展示上一段关�
   assert.equal(page.data.hasPartner, false);
   assert.equal(page.data.markers.length, 0);
   assert.equal(page.data.hasMap, false);
+});
+
+test('位置身份被撤销后重试重新获取绑定，清理旧监听后恢复连接', async () => {
+  let state;
+  const context = createPage({
+    service: { openPage: async () => { state.coupleId = 'couple'; } },
+    initialState: { partner: point(32, 122) },
+  });
+  ({ state } = context);
+  const { page, emit, calls } = context;
+  await page.onShow();
+  emit({ coupleId: '', partnerOpenid: '', self: null, partner: null, status: 'unbound' });
+  assert.equal(page.data.hasPartner, false);
+  assert.equal(page.data.hasMap, false);
+  await page.retryConnection();
+  assert.equal(calls.auth.length, 2);
+  assert.equal(calls.retry, 0);
+  assert.equal(calls.close, 1);
+  assert.equal(calls.unsubscribe, 1);
+  assert.equal(calls.clearClock, 1);
+  assert.equal(page.data.hasPartner, true);
+  assert.equal(page.data.hasMap, false);
+});
+
+test('位置状态属于其他情侣空间时不展示旧关系的坐标', async () => {
+  const { page, emit } = createPage({ initialState: { partner: point(32, 122) } });
+  await page.onShow();
+  emit({ coupleId: 'other-couple' });
+  assert.equal(page.data.hasPartner, false);
+  assert.equal(page.data.hasMap, false);
+  assert.equal(page.data.markers.length, 0);
 });
