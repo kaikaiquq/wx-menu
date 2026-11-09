@@ -24,7 +24,6 @@ const isCollectionMissing = (error) => {
 };
 
 const pairKey = (a, b) => [a, b].sort().join('_');
-
 const getUser = async (openid) => {
   try {
     return (await db.collection('users').doc(openid).get()).data;

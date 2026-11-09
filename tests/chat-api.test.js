@@ -277,3 +277,38 @@ test('a message window that omits the observed head cannot be acknowledged', asy
     assert.equal(h.writes.length, 0);
   }
 });
+
+test('voice sends and message reads remain compatible with flat and nested cloud file paths', async () => {
+  for (const voiceFileId of [
+    'cloud://test-env.bucket/chat/voice/1700000000000-legacy123.mp3',
+    'cloud://test-env.bucket/chat/voice/room/alice/1700000000000-new123.mp3',
+  ]) {
+    const h = createHarness();
+    const sent = await h.call('alice', 'sendMessage', {
+      conversationId: 'room', msgType: 'voice', voiceFileId, voiceDuration: 4,
+    });
+    assert.equal(sent.ok, true);
+    assert.equal(sent.data.message.voiceFileId, voiceFileId);
+    assert.equal(h.records().messages[sent.data.message.id].type, 'voice');
+    assert.equal(h.records().conversations.room.unreadBy.bob, 1);
+    const received = await h.call('bob', 'listMessages', { conversationId: 'room' });
+    assert.equal(received.data.messages[0].msgType, 'voice');
+    assert.equal(received.data.messages[0].voiceFileId, voiceFileId);
+    assert.equal(received.data.messages[0].voiceDuration, 4);
+    assert.equal(received.data.messages[0].isMine, false);
+  }
+});
+
+test('voice sends still require a cloud file and conversation membership', async () => {
+  for (const voiceFileId of ['', 'https://example.com/voice.mp3', '/tmp/voice.mp3']) {
+    const h = createHarness();
+    const result = await h.call('alice', 'sendMessage', { conversationId: 'room', msgType: 'voice', voiceFileId });
+    assert.equal(result.code, 'INVALID_PARAMS');
+    assert.equal(h.writes.length, 0);
+  }
+  const h = createHarness();
+  const event = { conversationId: 'room', msgType: 'voice', voiceFileId: 'cloud://test-env.bucket/chat/voice/1700000000000-a.mp3' };
+  assert.equal((await h.call('', 'sendMessage', event)).code, 'UNAUTHORIZED');
+  assert.equal((await h.call('outsider', 'sendMessage', event)).code, 'FORBIDDEN');
+  assert.equal(h.writes.length, 0);
+});

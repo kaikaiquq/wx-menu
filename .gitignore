@@ -3,3 +3,7 @@ node_modules/
 cloudfunctions/*/node_modules/
 project.private.config.json
 *.log
+.env
+.env.*
+!.env.example
+cloudfunctions/.secrets/
