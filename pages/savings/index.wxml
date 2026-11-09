@@ -3,7 +3,7 @@
   <view class="hint">{{scopeLabel}}</view>
   <view class="tabs"><button class="{{tab === 0 ? 'selected' : ''}}" data-tab="0" bindtap="changeTab">日常记账</button><button class="{{tab === 1 ? 'selected' : ''}}" data-tab="1" bindtap="changeTab">年度测算</button></view>
   <view class="error" wx:if="{{error}}" bindtap="load">{{error}} · 点击刷新</view><view class="hint" wx:if="{{loading}}">正在同步账本…</view>
-  <view class="hint" wx:if="{{dirty}}">当前进度按未保存的草稿测算；保存后双方共享此计划。</view>
+  <view class="hint" wx:if="{{dirty}}">有未确认的修改，目标仍按上次确认的计划显示。切换成员、功能或离页时自动确认。</view>
   <block wx:if="{{tab === 0}}">
     <view class="section"><view class="section-head"><text>目标与实际</text><picker range="{{monthNames}}" value="{{month-1}}" bindchange="changeMonth"><view>{{month}} 月 ⌄</view></picker></view><view class="hint">月目标为年度计划均摊；全年累计对比全年目标。收入请记实际到账金额，不包含未提取公积金。</view>
       <view wx:if="{{!overview.plan && !dirty}}" class="hint">先在“年度测算”填写计划，即可查看完成比例。</view>
@@ -17,17 +17,23 @@
   </block>
   <block wx:else>
     <view class="section"><view class="section-head">双方收入参数</view><view class="hint">按全年工作12个月估算。年终奖填写额外月数：13薪填1。比例是可修改的示例，请按当地政策和工资单填写缴费基数、个人比例与可税前扣除额；工伤、生育通常由单位承担，不从个人到手收入扣除。</view>
+      <view class="member-tabs" role="tablist">
+        <button class="{{personOpen === 0 ? 'selected' : ''}}" data-person="0" bindtap="openPerson" disabled="{{savingPlan}}" aria-role="tab" aria-selected="{{personOpen === 0}}">成员一</button>
+        <button class="{{personOpen === 1 ? 'selected' : ''}}" data-person="1" bindtap="openPerson" disabled="{{savingPlan}}" aria-role="tab" aria-selected="{{personOpen === 1}}">成员二</button>
+      </view>
       <block wx:for="{{plan.people}}" wx:for-item="person" wx:for-index="pi" wx:key="index">
-        <button class="person-toggle" data-person="{{pi}}" bindtap="openPerson">{{pi === 0 ? '成员一' : '成员二'}} <text>{{personOpen === pi ? '收支参数' : '展开编辑'}}</text></button>
-        <view wx:if="{{personOpen === pi}}"><view class="field" wx:for="{{fields}}" wx:key="key"><view>{{item.label}}</view><input type="digit" value="{{person[item.key]}}" data-person="{{pi}}" data-key="{{item.key}}" bindinput="editPerson" placeholder="请输入" /></view><view class="field"><view>年终奖计税方式</view><picker range="{{['单独计税','合并计税']}}" value="{{person.mode === 'combined' ? 1 : 0}}" data-person="{{pi}}" bindchange="changeMode"><view class="input">{{person.mode === 'combined' ? '合并计税' : '单独计税'}} ⌄</view></picker></view></view>
+        <view wx:if="{{personOpen === pi}}"><view class="field" wx:for="{{fields}}" wx:key="key"><view>{{item.label}}</view><input type="digit" value="{{person[item.key]}}" disabled="{{loading || !overview}}" data-person="{{pi}}" data-key="{{item.key}}" bindinput="editPerson" placeholder="请输入" /></view><view class="field"><view>年终奖计税方式</view><picker range="{{['单独计税','合并计税']}}" value="{{person.mode === 'combined' ? 1 : 0}}" disabled="{{loading || !overview}}" data-person="{{pi}}" bindchange="changeMode"><view class="input">{{person.mode === 'combined' ? '合并计税' : '单独计税'}} ⌄</view></picker></view></view>
       </block>
+      <view class="error" wx:if="{{calcError}}">{{calcError}}</view>
+      <button class="primary member-confirm" disabled="{{busy || savingPlan || loading || !overview}}" loading="{{savingPlan}}" bindtap="savePlan">{{savingPlan ? '正在保存…' : '确定并更新目标'}}</button>
+      <view class="person-result" wx:if="{{result}}"><view>成员{{personOpen + 1}} · 已确认年度结果</view><view class="hint">税前 {{result.people[personOpen].grossText}} · 个税 {{result.people[personOpen].taxText}} · 到手 {{result.people[personOpen].netText}}</view><view class="hint">公积金：个人 {{result.people[personOpen].personalHousingText}} ＋ 单位 {{result.people[personOpen].employerHousingText}}</view><view class="hint">个税对比：单独 {{result.people[personOpen].separateText}} / 合并 {{result.people[personOpen].combinedText}}</view></view>
     </view>
     <view class="section"><view class="section-head">生活支出预算</view><view class="hint">按月预算 × 12，加上按年预算。记账时选择同名分类即可关联。</view><view class="budget" wx:for="{{plan.budgets}}" wx:key="index"><input placeholder="分类名称，如房租" value="{{item.name}}" data-index="{{index}}" data-key="name" bindinput="editBudget" maxlength="20"/><view class="row"><input type="digit" placeholder="金额（元）" value="{{item.amount}}" data-index="{{index}}" data-key="amount" bindinput="editBudget"/><picker range="{{['每月','每年']}}" value="{{item.period === 'month' ? 0 : 1}}" data-index="{{index}}" data-key="period" bindchange="editBudget"><view class="input">{{item.period === 'month' ? '每月' : '每年'}} ⌄</view></picker><button class="text-button" data-index="{{index}}" bindtap="removeBudget">移除</button></view></view><button class="secondary" bindtap="addBudget">＋ 添加预算项</button></view>
     <view class="error" wx:if="{{calcError}}">{{calcError}}</view>
     <view class="section" wx:if="{{result}}"><view class="section-head">{{year}} 年测算结果</view><view class="result-grid"><view>税前收入<text>¥ {{result.grossText}}</text></view><view>税后到手<text>¥ {{result.netText}}</text></view><view>公积金入账<text>¥ {{result.housingText}}</text></view><view>全年预算<text>¥ {{result.budgetText}}</text></view></view><view class="target">现金储蓄目标<text>¥ {{result.targetText}}</text></view><view class="error" wx:if="{{result.target < 0}}">当前支出预算超过税后收入，请调整预算。</view><view class="hint">公积金含个人及单位缴存，单独展示，未计入现金储蓄目标。</view>
-      <view class="person-result" wx:for="{{result.people}}" wx:key="index"><view>成员{{index+1}} · 年度明细</view><view class="hint">税前 {{item.grossText}} · 个税 {{item.taxText}} · 到手 {{item.netText}}</view><view class="hint">公积金：个人 {{item.personalHousingText}} ＋ 单位 {{item.employerHousingText}}</view><view class="hint">个税对比：单独 {{item.separateText}} / 合并 {{item.combinedText}}</view></view>
+
     </view>
-    <button class="primary" disabled="{{busy || !result || !overview}}" loading="{{busy}}" bindtap="savePlan">保存年度计划</button>
+    <button class="primary" disabled="{{busy || savingPlan || loading || !overview}}" loading="{{savingPlan}}" bindtap="savePlan">确定预算并更新目标</button>
     <view class="section" wx:if="{{result}}"><view class="section-head"><text>计划与实际进度</text><picker range="{{monthNames}}" value="{{month-1}}" bindchange="changeMonth"><view>{{month}} 月 ⌄</view></picker></view><view class="hint">月目标按年度均摊；全年累计对比全年目标。账目更新后自动重新计算。</view><view class="metric" wx:for="{{progressRows}}" wx:key="label"><view class="row"><text>{{item.label}}</text><text>{{item.percent}}</text></view><view class="hint">实际 {{item.actual}} / 目标 {{item.target}} 元</view><view class="track"><view class="fill" style="width:{{item.width}}%" /></view></view></view>
     <view class="section" wx:if="{{budgetRows.length}}"><view class="section-head">分类支出 · 全年实际 / 预算</view><view class="metric" wx:for="{{budgetRows}}" wx:key="name"><view class="row"><text>{{item.name}}</text><text>{{item.percent}}</text></view><view class="hint">{{item.actual}} / {{item.target}} 元</view><view class="track"><view class="fill" style="width:{{item.width}}%"/></view></view></view>
     <view class="hint footnote">适用中国大陆居民工资薪金估算，年度基本减除费用6万元。全年一次性奖金单独计税政策截至2027年12月31日。测算不代替实际工资单与汇算清缴；地区缴费上限及特殊税收优惠须按本人实际情况填写。</view>

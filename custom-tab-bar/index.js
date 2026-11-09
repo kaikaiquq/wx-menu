@@ -35,11 +35,21 @@ Component({
   },
 
   methods: {
-    onChange(event) {
+    async onChange(event) {
       const index = Number(event.currentTarget.dataset.index);
-      if (index === this.data.active) return;
-      this.setData({ active: index });
-      wx.switchTab({ url: this.data.list[index].url });
+      if (index === this.data.active || !this.data.list[index] || this._changing) return;
+      this._changing = true;
+      try {
+        const page = getCurrentPages().slice(-1)[0];
+        if (typeof page?.beforeTabLeave === 'function') {
+          if (!await page.beforeTabLeave()) return;
+          if (getCurrentPages().slice(-1)[0] !== page || page._visible === false) return;
+        }
+        this.setData({ active: index });
+        wx.switchTab({ url: this.data.list[index].url, fail: () => this.init() });
+      } finally {
+        this._changing = false;
+      }
     },
 
     setChatUnread(count) {
