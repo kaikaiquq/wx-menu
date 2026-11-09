@@ -93,7 +93,7 @@ Page({
 
   chooseCategory(event) {
     wx.setStorageSync('couple.menu.activeCategory', event.currentTarget.dataset.id);
-    wx.switchTab({ url: '/pages/category/index' });
+    wx.navigateTo({ url: '/pages/category/index' });
   },
 
   async addItem(event) {

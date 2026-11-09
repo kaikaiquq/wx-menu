@@ -212,7 +212,7 @@ Page({
       this.openPersonalLibrary();
       return;
     }
-    wx.switchTab({ url: '/pages/category/index' });
+    wx.navigateTo({ url: '/pages/category/index' });
   },
 
   openAdmin() {

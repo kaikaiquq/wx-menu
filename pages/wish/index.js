@@ -52,7 +52,7 @@ Page({
   },
 
   goMenu() {
-    wx.switchTab({ url: '/pages/category/index' });
+    wx.navigateTo({ url: '/pages/category/index' });
   },
 
   async submitOrder() {

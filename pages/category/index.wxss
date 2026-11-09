@@ -11,7 +11,7 @@ page {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  padding: 36rpx 0 calc(var(--love-tab-height) + env(safe-area-inset-bottom) + 16rpx);
+  padding: 36rpx 0 calc(env(safe-area-inset-bottom) + 16rpx);
 }
 
 .menu-heading {

@@ -75,15 +75,15 @@
     </view>
   </block>
 
-  <block wx:else>
     <view class="section-header">
       <view>
         <view class="section-title">想点什么</view>
         <view class="section-subtitle">选一个，开启今天的小约会</view>
       </view>
-      <view class="section-more" bind:tap="chooseCategory" data-id="video">全部 →</view>
+      <view class="section-more" bind:tap="chooseCategory" data-id="">去点单 →</view>
     </view>
 
+  <block wx:if="{{!activeOrder}}">
     <scroll-view class="category-scroll" scroll-x enhanced show-scrollbar="{{false}}">
       <view class="category-row">
         <view

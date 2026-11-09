@@ -17,7 +17,6 @@ Page({
   },
 
   async onShow() {
-    this.getTabBar().init();
     const session = await requireSession();
     if (!session) return;
     this.setData({ themeClass: syncTheme(session.user.gender) });

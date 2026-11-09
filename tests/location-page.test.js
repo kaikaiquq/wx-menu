@@ -73,7 +73,7 @@ const createPage = ({ service = {}, auth = {}, initialState = {} } = {}) => {
 test('新增位置 Tab 位于点单和消息之间，消息角标依据路由识别', () => {
   const config = JSON.parse(fs.readFileSync(path.join(__dirname, '../app.json'), 'utf8'));
   const items = require('../custom-tab-bar/data');
-  assert.deepEqual(config.tabBar.list.map((item) => item.text), ['今天', '点单', '位置', '消息', '我们']);
+  assert.deepEqual(config.tabBar.list.map((item) => item.text), ['今天', '位置', '消息', '储蓄', '我们']);
   assert.deepEqual(items.map((item) => item.url.slice(1)), config.tabBar.list.map((item) => item.pagePath));
   const markup = fs.readFileSync(path.join(__dirname, '../custom-tab-bar/index.wxml'), 'utf8');
   assert.match(markup, /item\.url === '\/pages\/chat\/index'/);

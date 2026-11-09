@@ -5,11 +5,6 @@ module.exports = [
     url: '/pages/home/home',
   },
   {
-    icon: 'menu',
-    text: '点单',
-    url: '/pages/category/index',
-  },
-  {
     icon: 'location',
     text: '位置',
     url: '/pages/location/index',
@@ -18,6 +13,11 @@ module.exports = [
     icon: 'chat',
     text: '消息',
     url: '/pages/chat/index',
+  },
+  {
+    icon: 'savings',
+    text: '储蓄',
+    url: '/pages/savings/index',
   },
   {
     icon: 'us',

@@ -79,3 +79,5 @@
   text-align: center;
   top: -9rpx;
 }
+.tab-glyph-savings::before { border: 3rpx solid; border-radius: 5rpx; content: ''; height: 29rpx; left: 3rpx; top: 7rpx; width: 34rpx; }
+.tab-glyph-savings::after { border: 3rpx solid; border-radius: 3rpx; content: ''; height: 11rpx; right: 1rpx; top: 16rpx; width: 13rpx; background: var(--love-surface); }

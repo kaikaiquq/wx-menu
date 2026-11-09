@@ -109,9 +109,9 @@ const items = [
 ];
 const tabs = [
   { url: '/pages/home/home', text: '今天', icon: 'home' },
-  { url: '/pages/category/index', text: '点单', icon: 'menu' },
   { url: '/pages/location/index', text: '位置', icon: 'location' },
   { url: '/pages/chat/index', text: '消息', icon: 'chat' },
+  { url: '/pages/savings/index', text: '储蓄', icon: 'savings' },
   { url: '/pages/usercenter/index', text: '我们', icon: 'us' },
 ];
 const pages = [
@@ -119,16 +119,16 @@ const pages = [
     loading: false, dateText: '9月24日 · 星期四', wishCount: 3, showWishAlert: false,
     sharedMessage: '慢慢来，\n我们还有很多个明天。', categories, featuredItems: items.slice(0, 2), activeOrder: null, orderNotice: null, showResponseSheet: false,
   } },
-  { key: 'category', label: '点单', file: 'pages/category/index', tab: 1, data: {
+  { key: 'category', label: '点单', file: 'pages/category/index', tab: -1, data: {
     loading: false, categories, wishCount: 3, activeCategory: 'dinner', activeCategoryName: '好好吃饭', visibleItems: items,
   } },
-  { key: 'location', label: '位置', file: 'pages/location/index', tab: 2, data: {
+  { key: 'location', label: '位置', file: 'pages/location/index', tab: 1, data: {
     loading: false, hasMap: true, hasPartner: true, hasSelf: true, hasPartnerPoint: true, sharing: true,
     followMode: 'partner', partnerName: '小满', partnerStale: false, selfStale: false,
     partnerUpdateText: '刚刚更新 · 精度约 15 米', selfUpdateText: '刚刚更新 · 前台共享中', viewText: '正在查看 TA 的位置',
     connectionText: '', privacyRequired: false, permissionDenied: false, errorText: '', actionPending: false,
   } },
-  { key: 'chat', label: '消息', file: 'pages/chat/index', tab: 3, data: {
+  { key: 'chat', label: '消息', file: 'pages/chat/index', tab: 2, data: {
     loading: false, showFriends: false, activeId: 'couple', activeTitle: '小满', avatarMap: {}, imageUrlMap: {}, myOpenid: 'me', voiceMode: false,
     draft: '', showEmoji: false, showVoiceOverlay: false, sending: false, connectionText: '',
     conversations: [{ id: 'couple', title: '小满', isCouple: true, unreadCount: 0, peer: {} }, { id: 'friend', title: '周小木', isCouple: false, unreadCount: 2, peer: {} }],
@@ -149,6 +149,27 @@ const pages = [
 ];
 const baseCss = 'html,body{margin:0;padding:0;}view,scroll-view,picker{display:block;}text{display:inline;}button,input,textarea{font:inherit;}button{cursor:pointer;border:0;}button::after{border:0;}input,textarea{min-width:0;}scroll-view[scroll-x]{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}scroll-view[scroll-y]{overflow-y:auto;overflow-x:hidden;scrollbar-width:none;}img{object-fit:cover;}view[role="button"]{cursor:pointer;}.preview-map{height:100%;position:relative;overflow:hidden;}.preview-map svg{height:100%;width:100%;display:block;}.preview-map-label{position:absolute;left:14px;top:12px;background:var(--love-surface);color:var(--love-text-secondary);padding:5px 8px;border-radius:4px;font-size:11px;}';
 const tabTemplate = parse(read('custom-tab-bar/index.wxml'));
+// Render the real savings view model with local sample data; no cloud call.
+let savingsDefinition;
+const savingsModel = require('../utils/savings-model');
+require('node:vm').runInNewContext(read('pages/savings/index.js'), {
+  Page: value => { savingsDefinition = value; },
+  require: name => name.endsWith('savings-model') ? savingsModel
+    : name.endsWith('/theme') ? { getStoredThemeClass: () => '', syncTheme: () => '' } : {},
+});
+const savingsData = JSON.parse(JSON.stringify(savingsDefinition.data));
+savingsData.year = 2026;
+savingsData.month = 11;
+savingsData.loading = false;
+savingsData.scopeLabel = '双方共享账本 · 示例数据';
+savingsData.plan.people[0].salary = '18000';
+savingsData.plan.people[1].salary = '15000';
+savingsData.plan.budgets = [{ name: '房租', amount: '4000', period: 'month' }, { name: '旅行', amount: '12000', period: 'year' }];
+savingsData.overview = { plan: savingsData.plan, months: Array.from({length:12}, () => ({income:0,expense:0,categories:{}})) };
+savingsData.overview.months[10] = { income:2400000, expense:450000, categories:{房租:400000} };
+savingsDefinition.recalculate.call({data:savingsData,setData(patch){Object.assign(this.data,patch);}});
+pages.push({key:'savings',label:'储蓄记账',file:'pages/savings/index',tab:3,data:{...savingsData,tab:0}});
+pages.push({key:'calculator',label:'储蓄测算',file:'pages/savings/index',tab:3,data:{...savingsData,tab:1}});
 const outputPages = pages.map((page) => {
   const template = parse(read(`${page.file}.wxml`));
   const css = [baseCss, style('app.wxss'), style(`${page.file}.wxss`), page.tab >= 0 ? style('custom-tab-bar/index.wxss') : ''].join('\n');
@@ -156,7 +177,7 @@ const outputPages = pages.map((page) => {
   for (const gender of ['female', 'male']) {
     const themeClass = `theme-${gender}`;
     const body = renderNodes(template, { ...page.data, themeClass });
-    const tab = page.tab >= 0 ? renderNodes(tabTemplate, { themeClass, active: page.tab, list: tabs, chatUnread: page.tab === 3 ? 0 : 2 }) : '';
+    const tab = page.tab >= 0 ? renderNodes(tabTemplate, { themeClass, active: page.tab, list: tabs, chatUnread: page.tab === 2 ? 0 : 2 }) : '';
     frames[gender] = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${page.label} · ${gender}</title><style>${css}</style></head><body class="${themeClass}">${body}${tab}</body></html>`;
   }
   return { key: page.key, label: page.label, frames };
