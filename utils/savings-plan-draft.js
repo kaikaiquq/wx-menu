@@ -2,11 +2,17 @@
 const api = require('./savings');
 const model = require('./savings-model');
 const { getSelfOpenid } = require('./auth');
+const pendingSaves = new Map();
 const copy = value => JSON.parse(JSON.stringify(value));
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const keyFor = (actor, scope, year) => `couple.menu.savingsDraft.v1:${actor}:${scope}:${year}`;
 
 module.exports = {
+  async waitForPlanSaves() {
+    const key = keyFor(getSelfOpenid(), this._scope || this._expectedScope, this.data.year);
+    const pending = pendingSaves.get(key);
+    if (pending) await pending;
+  },
   acceptOverview(overview) {
     if (this.data.overview?.scope === overview.scope && overview.version < this.data.overview.version) return;
     this._actor = getSelfOpenid();
@@ -41,6 +47,7 @@ module.exports = {
   },
 
   changedPlan() {
+    this.data.plan.personGenders = ['male','female'];
     this.setData({ dirty: !equal(this.data.plan, this._basePlan || model.defaults()), calcError: '' });
     if (this.data.dirty) this.rememberDraft();
     else {
@@ -128,12 +135,14 @@ module.exports = {
       return owns();
     };
     const flight = run().finally(() => {
+      if (pendingSaves.get(key) === flight) pendingSaves.delete(key);
       if (this._saveFlight === flight) {
         this._saveFlight = null;
         if (!this._unloaded) this.setData({ savingPlan: false });
       }
     });
     this._saveFlight = flight;
+    pendingSaves.set(key, flight);
     return flight;
   },
 

@@ -22,7 +22,7 @@ const bonusTax = (income) => {
   return Math.max(0, Math.round(income * row[1] - row[2] / 12));
 };
 const personDefaults = () => ({ salary:'', bonusMonths:'0', socialBase:'', housingBase:'', pensionRate:'8', medicalRate:'2', unemploymentRate:'0.5', medicalFixed:'0', housingRate:'7', employerHousingRate:'7', extraDeduction:'0', mode:'separate' });
-const defaults = () => ({ people:[personDefaults(),personDefaults()], budgets:[] });
+const defaults = () => ({ people:[personDefaults(),personDefaults()], budgets:[], personGenders:['male','female'] });
 const validatePlan = (plan, year) => {
   if (!plan || !Array.isArray(plan.people) || plan.people.length !== 2 || !Array.isArray(plan.budgets) || plan.budgets.length > 30) throw new Error('测算配置无效');
   plan.people.forEach((p) => calculatePerson(p, year));
@@ -51,14 +51,15 @@ const calculatePerson = (p, year) => {
   const separateTax = tax(salary * 12 - deductions) + bonusTax(bonus);
   const combinedTax = tax(gross - deductions);
   const incomeTax = p.mode === 'separate' ? separateTax : combinedTax;
-  return { gross, incomeTax, net:gross-(social+housing)*12-incomeTax, social:social*12, personalHousing:housing*12, employerHousing:employerHousing*12, housing:(housing+employerHousing)*12, separateTax, combinedTax };
+  const monthlyNet = salary - social - housing - Math.round(tax(salary * 12 - deductions) / 12);
+  return { monthlyGross: salary, monthlyNet, gross, incomeTax, net:gross-(social+housing)*12-incomeTax, social:social*12, personalHousing:housing*12, employerHousing:employerHousing*12, housing:(housing+employerHousing)*12, separateTax, combinedTax };
 };
 const calculate = (plan, year) => {
   validatePlan(plan,year);
   const people = plan.people.map(p=>calculatePerson(p,year));
   const sum = (key) => people.reduce((n,p)=>n+p[key],0);
   const budget = plan.budgets.reduce((n,b)=>n+amount(b.amount)*(b.period==='month'?12:1),0);
-  return { people, gross:sum('gross'), net:sum('net'), housing:sum('housing'), incomeTax:sum('incomeTax'), budget, target:sum('net')-budget };
+  return { people, monthlyGross:sum('monthlyGross'), monthlyNet:sum('monthlyNet'), gross:sum('gross'), net:sum('net'), housing:sum('housing'), incomeTax:sum('incomeTax'), budget, target:sum('net')-budget };
 };
 const progress = (actual, target) => ({ percent:target>0 ? `${(actual/target*100).toFixed(1)}%` : '未设正目标', width:target>0 ? Math.min(100,Math.max(0,actual/target*100)) : 0 });
 module.exports = { amount, tax, bonusTax, defaults, calculatePerson, calculate, validatePlan, progress };

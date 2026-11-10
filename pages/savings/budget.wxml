@@ -1,0 +1,10 @@
+<view class="savings-page settings-page {{themeClass}}">
+  <view class="eyebrow">{{year}} 年计划</view><view class="title">支出预算</view>
+  <view class="hint">{{scopeLabel}}</view><view class="hint" wx:if="{{loading}}">正在同步…</view>
+  <view class="error" wx:if="{{error}}" bindtap="load">{{error}}</view>
+  <view class="hint" wx:if="{{dirty}}">有未确认的修改；确认、切换成员或离开页面时自动保存。</view>
+    <view class="section"><view class="section-head">生活支出预算</view><view class="hint">按月预算 × 12，加上按年预算。记账时选择同名分类即可关联。</view><view class="budget" wx:for="{{plan.budgets}}" wx:key="index"><input placeholder="分类名称，如房租" value="{{item.name}}" data-index="{{index}}" data-key="name" bindinput="editBudget" maxlength="20"/><view class="row"><input type="digit" placeholder="金额（元）" value="{{item.amount}}" data-index="{{index}}" data-key="amount" bindinput="editBudget"/><picker range="{{['每月','每年']}}" value="{{item.period === 'month' ? 0 : 1}}" data-index="{{index}}" data-key="period" bindchange="editBudget"><view class="input">{{item.period === 'month' ? '每月' : '每年'}} ⌄</view></picker><button class="text-button" data-index="{{index}}" bindtap="removeBudget">移除</button></view></view><button class="secondary" bindtap="addBudget">＋ 添加预算项</button></view>
+<view class="error" wx:if="{{calcError}}">{{calcError}}</view>
+  <view class="section" wx:if="{{result}}"><view class="section-head">已确认预算</view><view class="hero-value">¥ {{result.budgetText}} / 年</view><view class="hint">月均 {{progressRows[1].target}} 元 · 年储蓄目标 {{result.targetText}} 元</view></view>
+  <button class="primary" disabled="{{savingPlan || loading || !overview}}" loading="{{savingPlan}}" bindtap="savePlan">确定预算并更新目标</button><button class="secondary settings-entry" disabled="{{savingPlan || loading}}" bindtap="saveAndBack">确定并返回概览</button>
+</view>

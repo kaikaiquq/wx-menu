@@ -152,24 +152,38 @@ const tabTemplate = parse(read('custom-tab-bar/index.wxml'));
 // Render the real savings view model with local sample data; no cloud call.
 let savingsDefinition;
 const savingsModel = require('../utils/savings-model');
-require('node:vm').runInNewContext(read('pages/savings/index.js'), {
-  Page: value => { savingsDefinition = value; },
+const savingsSandbox = {
+  module:{exports:{}},
   require: name => name.endsWith('savings-model') ? savingsModel
+    : name.endsWith('savings-categories') ? require('../utils/savings-categories')
     : name.endsWith('/theme') ? { getStoredThemeClass: () => '', syncTheme: () => '' } : {},
-});
+};
+require('node:vm').runInNewContext(read('pages/savings/controller.js'), savingsSandbox);
+savingsDefinition = savingsSandbox.module.exports('main');
 const savingsData = JSON.parse(JSON.stringify(savingsDefinition.data));
 savingsData.year = 2026;
 savingsData.month = 11;
 savingsData.loading = false;
 savingsData.scopeLabel = '双方共享账本 · 示例数据';
+savingsData.memberLabels = ['林间','小满'];
 savingsData.plan.people[0].salary = '18000';
 savingsData.plan.people[1].salary = '15000';
 savingsData.plan.budgets = [{ name: '房租', amount: '4000', period: 'month' }, { name: '旅行', amount: '12000', period: 'year' }];
 savingsData.overview = { plan: savingsData.plan, months: Array.from({length:12}, () => ({income:0,expense:0,categories:{}})) };
 savingsData.overview.months[10] = { income:2400000, expense:450000, categories:{房租:400000} };
 savingsDefinition.recalculate.call({data:savingsData,setData(patch){Object.assign(this.data,patch);}});
+savingsData.entries = [
+  {_id:'sample3',date:'2026-11-10',category:'饮食',subcategory:'午饭',recorderName:'小满',amountText:'28.00',type:'expense'},
+  {_id:'sample2',date:'2026-11-10',category:'交通',subcategory:'地铁',recorderName:'林间',amountText:'6.00',type:'expense'},
+  {_id:'sample1',date:'2026-11-09',category:'零食',subcategory:'奶茶',recorderName:'小满',amountText:'18.00',type:'expense'},
+];
+savingsData.entryGroups = require('../utils/savings-categories').groupEntries(savingsData.entries);
 pages.push({key:'savings',label:'储蓄记账',file:'pages/savings/index',tab:3,data:{...savingsData,tab:0}});
 pages.push({key:'calculator',label:'储蓄测算',file:'pages/savings/index',tab:3,data:{...savingsData,tab:1}});
+pages.push({key:'income-settings',label:'收入设置',file:'pages/savings/income',tab:-1,data:{...savingsData,view:'income',isEditor:true}});
+pages.push({key:'budget-settings',label:'支出预算',file:'pages/savings/budget',tab:-1,data:{...savingsData,view:'budget',isEditor:true}});
+pages.push({key:'savings-statistics',label:'收支统计',file:'pages/savings/statistics',tab:-1,data:{...savingsData,view:'statistics',statsPeriod:'month',statistics:{},statIncome:'24000.00',statExpense:'4500.00',statBalance:'19500.00',statTotal:'4500.00',statRows:[{category:'房租',amountText:'4000.00',count:1,percent:'88.9%',width:88.9},{category:'餐饮',amountText:'500.00',count:8,percent:'11.1%',width:11.1}]}});
+pages.push({key:'edit-entry',label:'账目半弹层',file:'pages/savings/index',tab:3,data:{...savingsData,tab:0,entryOpen:true,editingEntry:true,entry:{type:'expense',amount:'28.00',category:'饮食',subcategory:'',date:'2026-11-10',note:'',recorderName:'小满'},categories:require('../utils/savings-categories').categoriesFor('expense'),subcategorySuggestions:['午饭','咖啡','晚饭'],entryStart:'2020-01-01',entryEnd:'2100-12-31'}});
 const outputPages = pages.map((page) => {
   const template = parse(read(`${page.file}.wxml`));
   const css = [baseCss, style('app.wxss'), style(`${page.file}.wxss`), page.tab >= 0 ? style('custom-tab-bar/index.wxss') : ''].join('\n');

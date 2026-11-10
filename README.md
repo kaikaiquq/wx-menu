@@ -120,4 +120,4 @@ module.exports = {
 
 开源协议见 [LICENSE](./LICENSE)。
 
-储蓄页面包含日常记账和年度收入测算；“去点单”入口位于今天页的“想点什么”。部署储蓄功能需新增 `savingsApi`、`savingsYears` 和 `savingsEntries`，详见部署说明。
+储蓄页以当月支出/收入流水和年度目标概览为主，收入设置、支出预算和月/年分类统计分为独立页面；月薪目标不包含年终奖，收入参数固定为男性/女性两栏；“去点单”入口位于今天页的“想点什么”。部署储蓄功能需新增 `savingsApi`、`savingsYears`、`savingsEntries` 和 `savingsCategories`，详见部署说明。

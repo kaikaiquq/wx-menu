@@ -1,0 +1,1 @@
+Page(require('./controller')('income'));

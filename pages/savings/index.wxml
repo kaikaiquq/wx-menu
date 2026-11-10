@@ -1,42 +1,55 @@
-<view class="savings-page {{themeClass}}">
-  <view class="heading"><view><view class="eyebrow">一起积累</view><view class="title">把未来，存下来</view></view><picker mode="date" fields="year" value="{{year}}-01-01" start="2020-01-01" end="2100-12-31" bindchange="changeYear"><view class="year">{{year}} 年 ⌄</view></picker></view>
+<view class="savings-page {{tab === 0 ? 'ledger-page' : ''}} {{themeClass}}">
+  <view class="heading"><view><view class="eyebrow">一起积累</view><view class="title">共同储蓄</view></view><picker mode="date" fields="month" value="{{year}}-{{month < 10 ? '0' : ''}}{{month}}-01" start="2020-01-01" end="2100-12-31" bindchange="changePeriod"><view class="year">{{year}} / {{month}} ⌄</view></picker></view>
   <view class="hint">{{scopeLabel}}</view>
   <view class="tabs"><button class="{{tab === 0 ? 'selected' : ''}}" data-tab="0" bindtap="changeTab">日常记账</button><button class="{{tab === 1 ? 'selected' : ''}}" data-tab="1" bindtap="changeTab">年度测算</button></view>
-  <view class="error" wx:if="{{error}}" bindtap="load">{{error}} · 点击刷新</view><view class="hint" wx:if="{{loading}}">正在同步账本…</view>
-  <view class="hint" wx:if="{{dirty}}">有未确认的修改，目标仍按上次确认的计划显示。切换成员、功能或离页时自动确认。</view>
+  <view class="error" wx:if="{{error}}" bindtap="load">{{error}} · 点击重试</view>
+  <view class="hint" wx:if="{{loading}}">正在同步…</view>
   <block wx:if="{{tab === 0}}">
-    <view class="section"><view class="section-head"><text>目标与实际</text><picker range="{{monthNames}}" value="{{month-1}}" bindchange="changeMonth"><view>{{month}} 月 ⌄</view></picker></view><view class="hint">月目标为年度计划均摊；全年累计对比全年目标。收入请记实际到账金额，不包含未提取公积金。</view>
-      <view wx:if="{{!overview.plan && !dirty}}" class="hint">先在“年度测算”填写计划，即可查看完成比例。</view>
-      <view class="metric" wx:for="{{progressRows}}" wx:key="label"><view class="row"><text>{{item.label}}</text><text>{{item.percent}}</text></view><view class="numbers">¥ {{item.actual}} <text>/ {{item.target}}</text></view><view class="track"><view class="fill" style="width:{{item.width}}%" /></view></view>
-    </view>
-    <button class="primary" disabled="{{loading || busy || !overview}}" bindtap="openEntry">＋ 记一笔收支</button>
-    <view class="section"><view class="section-head">{{year}} 年账目</view><view class="hint">显示当年账目；新录入在前。下拉刷新可同步对方最新记录。</view><view class="empty" wx:if="{{!entries.length}}">还没有记录，从今天开始积累。</view>
-      <view class="entry" wx:for="{{entries}}" wx:key="_id"><view class="entry-main"><view>{{item.category}} · {{item.typeText}}</view><view class="hint">{{item.date}} · {{item.mine ? '我记录' : '对方记录'}}</view><view class="hint" wx:if="{{item.note}}">{{item.note}}</view></view><view><view class="{{item.type === 'income' ? 'income' : ''}}">{{item.type === 'income' ? '+' : '−'}} {{item.amountText}}</view><button wx:if="{{item.mine}}" class="text-button" disabled="{{busy}}" data-id="{{item._id}}" bindtap="removeEntry">删除</button></view></view>
+    <view class="member-tabs"><button class="{{entryType === 'expense' ? 'selected' : ''}}" data-type="expense" bindtap="selectEntryType">支出</button><button class="{{entryType === 'income' ? 'selected' : ''}}" data-type="income" bindtap="selectEntryType">收入</button></view>
+    <view class="ledger-summary"><text>{{month}} 月{{entryType === 'expense' ? '支出' : '收入'}}</text><text>¥ {{ledgerTotalText || '0.00'}}</text></view>
+    <view class="ledger-list">
+      <view class="empty" wx:if="{{!entries.length && !loading}}">本月还没有{{entryType === 'expense' ? '支出' : '收入'}}记录。点下方 ＋，记下第一笔</view>
+      <view class="date-group" wx:for="{{entryGroups}}" wx:for-item="group" wx:key="date">
+        <view class="date-heading">{{group.title}}</view>
+        <view class="date-entries">
+          <view class="entry-compact" wx:for="{{group.entries}}" wx:key="_id" data-id="{{item._id}}" bindtap="openExistingEntry" aria-role="button" aria-label="编辑{{item.category}}{{item.subcategory}}，{{item.amountText}}元">
+            <view class="entry-label">{{item.category}}{{item.subcategory ? ' - ' + item.subcategory : ''}} - {{item.recorderName}}</view>
+            <view class="entry-amount {{item.type === 'income' ? 'income' : ''}}">{{item.type === 'income' ? '+' : '−'}}{{item.amountText}}</view>
+            <button class="entry-delete" disabled="{{busy}}" data-id="{{item._id}}" catchtap="removeEntry" aria-label="删除此记录">删除</button>
+          </view>
+        </view>
+      </view>
       <button wx:if="{{cursor}}" class="secondary" bindtap="more">加载更多</button>
     </view>
+    <view class="ledger-actions"><view class="action-spacer"/><button class="add-entry" bindtap="openEntry" disabled="{{busy || loading || !overview}}" aria-label="新增{{entryType === 'income' ? '收入' : '支出'}}">＋</button><button class="statistics-entry" data-page="statistics" bindtap="goEditor">统计 ↗</button></view>
   </block>
   <block wx:else>
-    <view class="section"><view class="section-head">双方收入参数</view><view class="hint">按全年工作12个月估算。年终奖填写额外月数：13薪填1。比例是可修改的示例，请按当地政策和工资单填写缴费基数、个人比例与可税前扣除额；工伤、生育通常由单位承担，不从个人到手收入扣除。</view>
-      <view class="member-tabs" role="tablist">
-        <button class="{{personOpen === 0 ? 'selected' : ''}}" data-person="0" bindtap="openPerson" disabled="{{savingPlan}}" aria-role="tab" aria-selected="{{personOpen === 0}}">成员一</button>
-        <button class="{{personOpen === 1 ? 'selected' : ''}}" data-person="1" bindtap="openPerson" disabled="{{savingPlan}}" aria-role="tab" aria-selected="{{personOpen === 1}}">成员二</button>
-      </view>
-      <block wx:for="{{plan.people}}" wx:for-item="person" wx:for-index="pi" wx:key="index">
-        <view wx:if="{{personOpen === pi}}"><view class="field" wx:for="{{fields}}" wx:key="key"><view>{{item.label}}</view><input type="digit" value="{{person[item.key]}}" disabled="{{loading || !overview}}" data-person="{{pi}}" data-key="{{item.key}}" bindinput="editPerson" placeholder="请输入" /></view><view class="field"><view>年终奖计税方式</view><picker range="{{['单独计税','合并计税']}}" value="{{person.mode === 'combined' ? 1 : 0}}" disabled="{{loading || !overview}}" data-person="{{pi}}" bindchange="changeMode"><view class="input">{{person.mode === 'combined' ? '合并计税' : '单独计税'}} ⌄</view></picker></view></view>
-      </block>
-      <view class="error" wx:if="{{calcError}}">{{calcError}}</view>
-      <button class="primary member-confirm" disabled="{{busy || savingPlan || loading || !overview}}" loading="{{savingPlan}}" bindtap="savePlan">{{savingPlan ? '正在保存…' : '确定并更新目标'}}</button>
-      <view class="person-result" wx:if="{{result}}"><view>成员{{personOpen + 1}} · 已确认年度结果</view><view class="hint">税前 {{result.people[personOpen].grossText}} · 个税 {{result.people[personOpen].taxText}} · 到手 {{result.people[personOpen].netText}}</view><view class="hint">公积金：个人 {{result.people[personOpen].personalHousingText}} ＋ 单位 {{result.people[personOpen].employerHousingText}}</view><view class="hint">个税对比：单独 {{result.people[personOpen].separateText}} / 合并 {{result.people[personOpen].combinedText}}</view></view>
-    </view>
-    <view class="section"><view class="section-head">生活支出预算</view><view class="hint">按月预算 × 12，加上按年预算。记账时选择同名分类即可关联。</view><view class="budget" wx:for="{{plan.budgets}}" wx:key="index"><input placeholder="分类名称，如房租" value="{{item.name}}" data-index="{{index}}" data-key="name" bindinput="editBudget" maxlength="20"/><view class="row"><input type="digit" placeholder="金额（元）" value="{{item.amount}}" data-index="{{index}}" data-key="amount" bindinput="editBudget"/><picker range="{{['每月','每年']}}" value="{{item.period === 'month' ? 0 : 1}}" data-index="{{index}}" data-key="period" bindchange="editBudget"><view class="input">{{item.period === 'month' ? '每月' : '每年'}} ⌄</view></picker><button class="text-button" data-index="{{index}}" bindtap="removeBudget">移除</button></view></view><button class="secondary" bindtap="addBudget">＋ 添加预算项</button></view>
+    <view class="hint" wx:if="{{!overview.plan}}">先设置双方收入与支出预算，建立储蓄目标。</view>
     <view class="error" wx:if="{{calcError}}">{{calcError}}</view>
-    <view class="section" wx:if="{{result}}"><view class="section-head">{{year}} 年测算结果</view><view class="result-grid"><view>税前收入<text>¥ {{result.grossText}}</text></view><view>税后到手<text>¥ {{result.netText}}</text></view><view>公积金入账<text>¥ {{result.housingText}}</text></view><view>全年预算<text>¥ {{result.budgetText}}</text></view></view><view class="target">现金储蓄目标<text>¥ {{result.targetText}}</text></view><view class="error" wx:if="{{result.target < 0}}">当前支出预算超过税后收入，请调整预算。</view><view class="hint">公积金含个人及单位缴存，单独展示，未计入现金储蓄目标。</view>
-
-    </view>
-    <button class="primary" disabled="{{busy || savingPlan || loading || !overview}}" loading="{{savingPlan}}" bindtap="savePlan">确定预算并更新目标</button>
-    <view class="section" wx:if="{{result}}"><view class="section-head"><text>计划与实际进度</text><picker range="{{monthNames}}" value="{{month-1}}" bindchange="changeMonth"><view>{{month}} 月 ⌄</view></picker></view><view class="hint">月目标按年度均摊；全年累计对比全年目标。账目更新后自动重新计算。</view><view class="metric" wx:for="{{progressRows}}" wx:key="label"><view class="row"><text>{{item.label}}</text><text>{{item.percent}}</text></view><view class="hint">实际 {{item.actual}} / 目标 {{item.target}} 元</view><view class="track"><view class="fill" style="width:{{item.width}}%" /></view></view></view>
-    <view class="section" wx:if="{{budgetRows.length}}"><view class="section-head">分类支出 · 全年实际 / 预算</view><view class="metric" wx:for="{{budgetRows}}" wx:key="name"><view class="row"><text>{{item.name}}</text><text>{{item.percent}}</text></view><view class="hint">{{item.actual}} / {{item.target}} 元</view><view class="track"><view class="fill" style="width:{{item.width}}%"/></view></view></view>
-    <view class="hint footnote">适用中国大陆居民工资薪金估算，年度基本减除费用6万元。全年一次性奖金单独计税政策截至2027年12月31日。测算不代替实际工资单与汇算清缴；地区缴费上限及特殊税收优惠须按本人实际情况填写。</view>
+    <block wx:if="{{result}}">
+      <view class="section"><view class="section-head">{{year}} 年收入</view><view class="hero-value">¥ {{result.netText}}</view><view class="hint">预计全年税后收入 · 含年终奖</view><view class="metric"><view class="row"><text>已记收入 ¥ {{annualIncome}}</text><text>{{progressRows[3].percent}}</text></view><view class="track"><view class="fill" style="width:{{progressRows[3].width}}%"/></view></view><view class="hint">税前 {{result.grossText}} 元 · 公积金 {{result.housingText}} 元</view>
+        <view class="divider"/><view class="section-head">{{month}} 月收入</view><view class="hero-value small">¥ {{result.monthlyNetText}}</view><view class="hint">按月薪估算的月均税后收入，不含年终奖</view><view class="metric"><view class="row"><text>已记收入 ¥ {{monthlyIncome}}</text><text>{{progressRows[0].percent}}</text></view><view class="track"><view class="fill" style="width:{{progressRows[0].width}}%"/></view></view><button class="secondary settings-entry" data-page="income" bindtap="goEditor">修改双方收入 →</button></view>
+      <view class="section"><view class="section-head">支出预算</view><view class="metric"><view class="row"><text>全年支出</text><text>{{progressRows[4].percent}}</text></view><view class="numbers">{{annualExpense}} <text>/ {{result.budgetText}} 元</text></view><view class="track"><view class="fill" style="width:{{progressRows[4].width}}%"/></view></view><view class="metric"><view class="row"><text>{{month}} 月支出</text><text>{{progressRows[1].percent}}</text></view><view class="numbers">{{monthlyExpense}} <text>/ {{progressRows[1].target}} 元</text></view><view class="track"><view class="fill" style="width:{{progressRows[1].width}}%"/></view></view><button class="secondary settings-entry" data-page="budget" bindtap="goEditor">修改支出预算 →</button></view>
+      <view class="section"><view class="section-head">全年现金储蓄目标</view><view class="hero-value">¥ {{result.targetText}}</view><view class="hint">已记结余 {{annualBalance}} 元 · {{progressRows[5].percent}}</view><view class="track"><view class="fill" style="width:{{progressRows[5].width}}%"/></view><view class="error" wx:if="{{result.target < 0}}">预算超过收入，请调整支出。</view></view>
+    </block>
+    <view class="row" wx:if="{{!result}}"><button class="secondary" data-page="income" bindtap="goEditor">修改收入</button><button class="secondary" data-page="budget" bindtap="goEditor">修改预算</button></view>
+    <view class="hint footnote">月收入按工资本身的全年个税平均估算，不含奖金及奖金相关税款；实际各月预扣税可能不同。实际收入按记账金额统计，奖金到账也会计入实际收入。年度支出预算按12个月均摊；公积金单独展示，不计入可支出现金。</view>
   </block>
-  <view class="mask" wx:if="{{entryOpen}}" catchtap="closeEntry"><view class="sheet" catchtap="noop"><scroll-view scroll-y class="sheet-scroll"><view class="section-head">记一笔 <button class="text-button" bindtap="closeEntry">关闭</button></view><view class="error" wx:if="{{error}}">{{error}}</view><view class="field"><text>收支类型</text><picker range="{{['支出','收入']}}" value="{{entry.type === 'income' ? 1 : 0}}" data-key="type" bindchange="editEntry"><view class="input">{{entry.type === 'income' ? '收入' : '支出'}} ⌄</view></picker></view><view class="field"><text>金额（元）</text><input type="digit" value="{{entry.amount}}" data-key="amount" bindinput="editEntry" disabled="{{busy}}"/></view><view class="field"><text>分类</text><picker range="{{categories}}" data-key="category" bindchange="editEntry"><view class="input">{{entry.category}} ⌄</view></picker></view><view class="field"><text>日期</text><picker mode="date" start="{{year}}-01-01" end="{{year}}-12-31" value="{{entry.date}}" data-key="date" bindchange="editEntry"><view class="input">{{entry.date}} ⌄</view></picker></view><view class="field"><text>备注</text><input value="{{entry.note}}" maxlength="100" data-key="note" bindinput="editEntry" disabled="{{busy}}"/></view><button class="primary" disabled="{{busy}}" loading="{{busy}}" bindtap="saveEntry">保存记录</button></scroll-view></view></view>
+  <view class="mask" wx:if="{{entryOpen}}" catchtap="closeEntry">
+    <view class="sheet entry-sheet" catchtap="noop">
+      <view class="sheet-handle"/>
+      <view class="section-head"><text>{{editingEntry ? '修改' : '记一笔'}}{{entry.type === 'income' ? '收入' : '支出'}}</text><button class="text-button entry-confirm" disabled="{{busy}}" loading="{{busy}}" bindtap="saveEntry">确定</button></view>
+      <scroll-view scroll-y class="sheet-scroll">
+        <view class="error" wx:if="{{entryError}}">{{entryError}}</view>
+        <view class="entry-form-row">
+          <view class="field"><text>金额（元）</text><input type="digit" value="{{entry.amount}}" data-key="amount" bindinput="editEntry" disabled="{{busy}}" placeholder="0.00"/></view>
+          <view class="field"><text>日期</text><picker mode="date" start="{{entryStart}}" end="{{entryEnd}}" disabled="{{busy}}" value="{{entry.date}}" data-key="date" bindchange="editEntry"><view class="input">{{entry.date}} ⌄</view></picker></view>
+        </view>
+        <view class="field"><text>大类</text><picker range="{{categories}}" disabled="{{busy}}" data-key="category" bindchange="editEntry"><view class="input">{{entry.category}} ⌄</view></picker></view>
+        <view class="field"><text>小类</text><input value="{{entry.subcategory}}" data-key="subcategory" bindinput="editEntry" disabled="{{busy}}" maxlength="30" placeholder="输入小类"/></view>
+        <view class="history-options" wx:if="{{subcategorySuggestions.length}}"><button wx:for="{{subcategorySuggestions}}" wx:key="*this" disabled="{{busy}}" data-value="{{item}}" bindtap="chooseSubcategory">{{item}}</button></view>
+        <view class="field"><text>备注（选填）</text><input value="{{entry.note}}" maxlength="100" data-key="note" bindinput="editEntry" disabled="{{busy}}"/></view>
+      </scroll-view>
+    </view>
+  </view>
 </view>

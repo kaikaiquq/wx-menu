@@ -1,0 +1,17 @@
+<view class="savings-page settings-page {{themeClass}}">
+  <view class="eyebrow">{{year}} 年计划</view><view class="title">收入设置</view>
+  <view class="hint" wx:if="{{loading}}">正在同步…</view>
+  <view class="error" wx:if="{{error}}" bindtap="load">{{error}}</view>
+    <view class="section"><view class="section-head">双方收入参数</view>
+      <view class="member-tabs" role="tablist">
+        <button class="{{personOpen === 0 ? 'selected' : ''}}" data-person="0" bindtap="openPerson" disabled="{{savingPlan}}" aria-role="tab" aria-selected="{{personOpen === 0}}">{{memberLabels[0]}}</button>
+        <button class="{{personOpen === 1 ? 'selected' : ''}}" data-person="1" bindtap="openPerson" disabled="{{savingPlan}}" aria-role="tab" aria-selected="{{personOpen === 1}}">{{memberLabels[1]}}</button>
+      </view>
+      <block wx:for="{{plan.people}}" wx:for-item="person" wx:for-index="pi" wx:key="index">
+        <view wx:if="{{personOpen === pi}}"><view class="field" wx:for="{{fields}}" wx:key="key"><view>{{item.label}}</view><input type="digit" value="{{person[item.key]}}" disabled="{{loading || !overview}}" data-person="{{pi}}" data-key="{{item.key}}" bindinput="editPerson" placeholder="请输入" /></view><view class="field"><view>年终奖计税方式</view><picker range="{{['单独计税','合并计税']}}" value="{{person.mode === 'combined' ? 1 : 0}}" disabled="{{loading || !overview}}" data-person="{{pi}}" bindchange="changeMode"><view class="input">{{person.mode === 'combined' ? '合并计税' : '单独计税'}} ⌄</view></picker></view></view>
+      </block>
+      <view class="error" wx:if="{{calcError}}">{{calcError}}</view>
+      <button class="primary member-confirm" disabled="{{busy || savingPlan || loading || !overview}}" loading="{{savingPlan}}" bindtap="savePlan">{{savingPlan ? '正在保存…' : '确定并更新目标'}}</button>
+      <view class="hint" wx:if="{{result}}">不含年终奖的月均税后工资：{{result.people[personOpen].monthlyNetText}} 元</view><view class="person-result" wx:if="{{result}}"><view>{{memberLabels[personOpen]}} · 已确认年度结果</view><view class="hint">税前 {{result.people[personOpen].grossText}} · 个税 {{result.people[personOpen].taxText}} · 到手 {{result.people[personOpen].netText}}</view><view class="hint">公积金：个人 {{result.people[personOpen].personalHousingText}} ＋ 单位 {{result.people[personOpen].employerHousingText}}</view><view class="hint">个税对比：单独 {{result.people[personOpen].separateText}} / 合并 {{result.people[personOpen].combinedText}}</view></view>
+    </view>
+<button class="secondary settings-entry" disabled="{{savingPlan || loading}}" bindtap="saveAndBack">确定并返回概览</button></view>

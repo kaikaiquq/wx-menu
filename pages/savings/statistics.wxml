@@ -1,0 +1,10 @@
+<view class="savings-page settings-page {{themeClass}}">
+  <view class="heading"><view><view class="eyebrow">看见每一笔</view><view class="title">收支统计</view></view><picker mode="date" fields="{{statsPeriod === 'year' ? 'year' : 'month'}}" value="{{year}}-{{month < 10 ? '0' : ''}}{{month}}-01" start="2020-01-01" end="2100-12-31" bindchange="changePeriod"><view class="year">{{year}} 年 {{statsPeriod === 'month' ? month + '月' : ''}} ⌄</view></picker></view>
+  <view class="tabs"><button class="{{statsPeriod === 'month' ? 'selected' : ''}}" data-period="month" bindtap="changeStatsPeriod">月度统计</button><button class="{{statsPeriod === 'year' ? 'selected' : ''}}" data-period="year" bindtap="changeStatsPeriod">年度统计</button></view>
+  <view class="error" wx:if="{{error}}" bindtap="load">{{error}} · 点击刷新</view><view class="error" wx:if="{{statsError}}" bindtap="loadStatistics">{{statsError}} · 点击重试</view>
+  <view class="hint" wx:if="{{statsLoading || loading}}">正在统计全部账目…</view>
+  <view class="section" wx:if="{{statistics}}"><view class="result-grid"><view>总收入<text>¥ {{statIncome}}</text></view><view>总支出<text>¥ {{statExpense}}</text></view></view><view class="divider"/><view class="row"><text>实际结余</text><text>¥ {{statBalance}}</text></view></view>
+  <view class="member-tabs"><button class="{{entryType === 'expense' ? 'selected' : ''}}" data-type="expense" bindtap="selectEntryType">支出分类</button><button class="{{entryType === 'income' ? 'selected' : ''}}" data-type="income" bindtap="selectEntryType">收入分类</button></view>
+  <view class="section" wx:if="{{statistics}}"><view class="section-head">{{entryType === 'income' ? '收入' : '支出'}}构成 · {{statTotal}} 元</view><view class="empty" wx:if="{{!statRows.length}}">这个周期还没有记录</view><view class="metric" wx:for="{{statRows}}" wx:key="category"><view class="row"><text>{{item.category}}</text><text>¥ {{item.amountText}}</text></view><view class="hint">{{item.count}} 笔 · 占{{entryType === 'income' ? '收入' : '支出'}} {{item.percent}}</view><view class="track"><view class="fill" style="width:{{item.width}}%"/></view></view></view>
+  <view class="hint">统计包含所选周期内的全部账目，不受流水列表分页影响。删除记录后统计同步扣减；下拉刷新查看双方最新记账。</view>
+</view>

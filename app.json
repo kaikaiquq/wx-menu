@@ -8,6 +8,9 @@
     "pages/chat/group",
     "pages/wish/index",
     "pages/savings/index",
+    "pages/savings/income",
+    "pages/savings/budget",
+    "pages/savings/statistics",
     "pages/usercenter/index",
     "pages/auth/index"
   ],
